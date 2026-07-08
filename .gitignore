@@ -1,0 +1,22 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+
+# Env
+.env
+!.env.example
+
+# Node / Expo
+node_modules/
+.expo/
+web/.next/
+
+# IDE / OS
+.idea/
+.DS_Store
+
+# Claude Code local
+.claude/

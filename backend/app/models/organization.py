@@ -1,0 +1,18 @@
+import uuid
+from datetime import datetime
+
+from sqlalchemy import DateTime, String
+from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.sql import func
+
+from app.database import Base
+
+
+class Organization(Base):
+    __tablename__ = "organizations"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    timezone: Mapped[str] = mapped_column(String(64), default="UTC")
+    locale: Mapped[str] = mapped_column(String(8), default="ru")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

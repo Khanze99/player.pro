@@ -1,0 +1,95 @@
+// Онбординг, шаг 1: имя (+позиция). Дальше — организация или PIN (дизайн-ТЗ 6.1)
+
+import { useRouter } from 'expo-router';
+import { useState } from 'react';
+import { KeyboardAvoidingView, Platform, StyleSheet, Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
+
+import { api, patch } from '@/api/client';
+import type { Me } from '@/api/types';
+import { useMe } from '@/api/hooks';
+import { Button } from '@/components/Button';
+import { Field } from '@/components/Field';
+import { Screen } from '@/components/Screen';
+import { ScreenTitle } from '@/components/Typography';
+import { colors, font, spacing } from '@/theme';
+
+export default function ProfileSetup() {
+  const { t } = useTranslation();
+  const router = useRouter();
+  const me = useMe();
+
+  const [name, setName] = useState('');
+  const [position, setPosition] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [seeded, setSeeded] = useState(false);
+
+  // Приглашённому админ мог уже задать имя — подставляем
+  if (me.data && !seeded) {
+    setSeeded(true);
+    if (me.data.name) setName(me.data.name);
+  }
+
+  const submit = async () => {
+    setLoading(true);
+    try {
+      await patch('/users/me', { name: name.trim() });
+      if (position.trim()) {
+        await api('/users/me/profile', {
+          method: 'PUT',
+          body: JSON.stringify({ position: position.trim() }),
+        });
+      }
+      const fresh = await api<Me>('/auth/me');
+      // В организации (по приглашению) — команда настроена, сразу к PIN
+      router.push(fresh.org_id ? '/(auth)/pin-setup' : '/(auth)/org-choice');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Screen>
+      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <View style={styles.content}>
+          <ScreenTitle>{t('onboarding.profileTitle')}</ScreenTitle>
+          <Text style={styles.hint}>{t('onboarding.profileHint')}</Text>
+          <Field
+            label={t('onboarding.nameLabel')}
+            value={name}
+            onChangeText={setName}
+            autoFocus
+            autoComplete="name"
+          />
+          <Field
+            label={t('onboarding.positionLabel')}
+            value={position}
+            onChangeText={setPosition}
+            placeholder={t('onboarding.positionPlaceholder')}
+          />
+        </View>
+        <View style={styles.footer}>
+          <Button
+            title={t('onboarding.continue')}
+            onPress={() => void submit()}
+            disabled={name.trim().length < 2}
+            loading={loading}
+          />
+        </View>
+      </KeyboardAvoidingView>
+    </Screen>
+  );
+}
+
+const styles = StyleSheet.create({
+  flex: { flex: 1 },
+  content: { flex: 1, padding: spacing.screen, gap: spacing.l, justifyContent: 'center' },
+  hint: {
+    fontFamily: font.regular,
+    fontSize: 15,
+    color: colors.textMuted,
+    marginTop: -spacing.s,
+    marginBottom: spacing.s,
+  },
+  footer: { padding: spacing.screen },
+});
