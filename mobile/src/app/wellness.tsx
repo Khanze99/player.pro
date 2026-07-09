@@ -1,5 +1,5 @@
-// Ежедневный опрос (дизайн-ТЗ 5.3): 5 шкал 1–5, часы сна, пульс покоя,
-// тумблеры травма/недомогание. Цель — 60 секунд, без обязательного текста.
+// Ежедневный опрос (дизайн-ТЗ 5.3, v3): 5 шкал 1–10 (бар с −/+), карта боли,
+// часы сна, пульс покоя, травма/недомогание с типом, комментарий. Цель — ~60 секунд.
 
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
@@ -18,14 +18,36 @@ import { useTranslation } from 'react-i18next';
 
 import { ApiError } from '@/api/client';
 import { todayISO, useSubmitWellness } from '@/api/hooks';
+import type { InjuryType, PainPoint, SymptomType } from '@/api/types';
+import { BodyMap } from '@/components/BodyMap';
 import { Button } from '@/components/Button';
-import { ScaleRow } from '@/components/ScaleRow';
+import { OptionChips } from '@/components/OptionChips';
+import { ScaleBar } from '@/components/ScaleBar';
 import { Screen } from '@/components/Screen';
 import { useToast } from '@/components/Toast';
-import { ScreenTitle } from '@/components/Typography';
+import { MicroLabel, ScreenTitle } from '@/components/Typography';
 import { colors, font, radius, spacing } from '@/theme';
 
 const SLEEP_HOURS = [5, 6, 7, 8, 9, 10];
+const INJURY_TYPES: readonly InjuryType[] = [
+  'muscle',
+  'joint',
+  'ligament',
+  'tendon',
+  'bone',
+  'bruise',
+  'other',
+];
+const SYMPTOM_TYPES: readonly SymptomType[] = [
+  'illness',
+  'fever',
+  'cough',
+  'sore_throat',
+  'headache',
+  'gastro',
+  'fatigue',
+  'other',
+];
 
 export default function Wellness() {
   const { t } = useTranslation();
@@ -40,10 +62,12 @@ export default function Wellness() {
   const [mood, setMood] = useState<number | null>(null);
   const [sleepHours, setSleepHours] = useState<number | null>(null);
   const [restingHr, setRestingHr] = useState('');
+  const [painPoints, setPainPoints] = useState<PainPoint[]>([]);
   const [injury, setInjury] = useState(false);
-  const [injuryDetails, setInjuryDetails] = useState('');
+  const [injuryType, setInjuryType] = useState<InjuryType | null>(null);
   const [symptom, setSymptom] = useState(false);
-  const [symptomDetails, setSymptomDetails] = useState('');
+  const [symptomType, setSymptomType] = useState<SymptomType | null>(null);
+  const [comment, setComment] = useState('');
 
   const scales = [sleep, energy, soreness, stress, mood];
   const done = scales.filter((v) => v !== null).length + (sleepHours !== null ? 1 : 0);
@@ -60,10 +84,12 @@ export default function Wellness() {
         stress: stress!,
         soreness: soreness!,
         injury,
-        injury_details: injury && injuryDetails ? injuryDetails : null,
+        injury_type: injury ? injuryType : null,
         symptom,
-        symptom_details: symptom && symptomDetails ? symptomDetails : null,
+        symptom_type: symptom ? symptomType : null,
         resting_hr: restingHr ? Number(restingHr) : null,
+        comment: comment.trim() ? comment.trim() : null,
+        pain_points: painPoints,
       });
       toast(sent ? t('common.saved') : t('common.offlineSaved'));
       router.back();
@@ -86,47 +112,45 @@ export default function Wellness() {
             <Text style={styles.progress}>{t('wellness.progress', { done, total: 6 })}</Text>
           </View>
         </View>
-        <ScrollView contentContainerStyle={styles.content}>
-          <ScaleRow
+        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+          <ScaleBar
             label={t('wellness.sleep')}
-            emoji="😴"
             lowLabel={t('wellness.sleepLow')}
             highLabel={t('wellness.sleepHigh')}
             value={sleep}
             onChange={setSleep}
           />
-          <ScaleRow
+          <ScaleBar
             label={t('wellness.energy')}
-            emoji="⚡"
             lowLabel={t('wellness.energyLow')}
             highLabel={t('wellness.energyHigh')}
             value={energy}
             onChange={setEnergy}
           />
-          <ScaleRow
+          <ScaleBar
             label={t('wellness.soreness')}
-            emoji="💪"
             lowLabel={t('wellness.sorenessLow')}
             highLabel={t('wellness.sorenessHigh')}
             value={soreness}
             onChange={setSoreness}
           />
-          <ScaleRow
+          <ScaleBar
             label={t('wellness.stress')}
-            emoji="😮‍💨"
             lowLabel={t('wellness.stressLow')}
             highLabel={t('wellness.stressHigh')}
             value={stress}
             onChange={setStress}
           />
-          <ScaleRow
+          <ScaleBar
             label={t('wellness.mood')}
-            emoji="🙂"
             lowLabel={t('wellness.moodLow')}
             highLabel={t('wellness.moodHigh')}
             value={mood}
             onChange={setMood}
           />
+
+          <MicroLabel style={styles.section}>{t('wellness.painMapTitle')}</MicroLabel>
+          <BodyMap value={painPoints} onChange={setPainPoints} severity={soreness ?? 5} />
 
           <Text style={styles.sectionLabel}>{t('wellness.sleepHours')}</Text>
           <View style={styles.hoursRow}>
@@ -154,7 +178,7 @@ export default function Wellness() {
           />
 
           <View style={styles.toggleRow}>
-            <Text style={styles.toggleLabel}>🩹 {t('wellness.injury')}</Text>
+            <Text style={styles.toggleLabel}>{t('wellness.injury')}</Text>
             <Switch
               value={injury}
               onValueChange={setInjury}
@@ -162,16 +186,19 @@ export default function Wellness() {
             />
           </View>
           {injury && (
-            <TextInput
-              style={styles.detailsInput}
-              value={injuryDetails}
-              onChangeText={setInjuryDetails}
-              placeholder={t('wellness.details')}
-              placeholderTextColor={colors.textMuted}
-            />
+            <>
+              <Text style={styles.subLabel}>{t('wellness.injuryTypeLabel')}</Text>
+              <OptionChips
+                options={INJURY_TYPES}
+                value={injuryType}
+                onSelect={setInjuryType}
+                labelFor={(v) => t(`wellness.injuryType.${v}`)}
+              />
+            </>
           )}
+
           <View style={styles.toggleRow}>
-            <Text style={styles.toggleLabel}>🤒 {t('wellness.symptom')}</Text>
+            <Text style={styles.toggleLabel}>{t('wellness.symptom')}</Text>
             <Switch
               value={symptom}
               onValueChange={setSymptom}
@@ -179,14 +206,27 @@ export default function Wellness() {
             />
           </View>
           {symptom && (
-            <TextInput
-              style={styles.detailsInput}
-              value={symptomDetails}
-              onChangeText={setSymptomDetails}
-              placeholder={t('wellness.details')}
-              placeholderTextColor={colors.textMuted}
-            />
+            <>
+              <Text style={styles.subLabel}>{t('wellness.symptomTypeLabel')}</Text>
+              <OptionChips
+                options={SYMPTOM_TYPES}
+                value={symptomType}
+                onSelect={setSymptomType}
+                labelFor={(v) => t(`wellness.symptomType.${v}`)}
+              />
+            </>
           )}
+
+          <Text style={styles.sectionLabel}>{t('wellness.comment')}</Text>
+          <TextInput
+            style={styles.commentInput}
+            value={comment}
+            onChangeText={setComment}
+            placeholder={t('wellness.commentPlaceholder')}
+            placeholderTextColor={colors.textMuted}
+            multiline
+            maxLength={1000}
+          />
         </ScrollView>
         <View style={styles.footer}>
           <Button
@@ -226,13 +266,22 @@ const styles = StyleSheet.create({
     fontVariant: ['tabular-nums'],
   },
   content: { paddingHorizontal: spacing.screen, paddingBottom: spacing.xxl },
+  section: { marginBottom: spacing.m },
   sectionLabel: {
     fontFamily: font.semibold,
     fontSize: 18,
     color: colors.text,
+    marginTop: spacing.xl,
     marginBottom: spacing.m,
   },
-  hoursRow: { flexDirection: 'row', gap: spacing.s, marginBottom: spacing.xxl },
+  subLabel: {
+    fontFamily: font.medium,
+    fontSize: 13,
+    color: colors.textMuted,
+    marginTop: spacing.s,
+    marginBottom: spacing.s,
+  },
+  hoursRow: { flexDirection: 'row', gap: spacing.s },
   hourChip: {
     flex: 1,
     minHeight: 48,
@@ -256,7 +305,6 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontFamily: font.semibold,
     fontSize: 20,
-    marginBottom: spacing.xxl,
     width: 120,
   },
   toggleRow: {
@@ -264,20 +312,21 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     minHeight: 48,
-    marginBottom: spacing.s,
+    marginTop: spacing.l,
   },
   toggleLabel: { fontFamily: font.semibold, fontSize: 18, color: colors.text },
-  detailsInput: {
+  commentInput: {
     backgroundColor: colors.surface2,
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: radius.control,
-    minHeight: 48,
+    minHeight: 80,
     paddingHorizontal: spacing.l,
+    paddingTop: spacing.m,
     color: colors.text,
     fontFamily: font.regular,
     fontSize: 15,
-    marginBottom: spacing.l,
+    textAlignVertical: 'top',
   },
   footer: { padding: spacing.screen, paddingTop: spacing.m },
 });
