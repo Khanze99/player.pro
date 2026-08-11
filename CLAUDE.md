@@ -21,7 +21,7 @@ player.pro/
 |------|-----------|------------|
 | Mobile | React Native + Expo | React Query + Zustand, i18next (ru/en/es), Victory Native, expo-secure-store, expo-notifications |
 | Backend | FastAPI + Python 3.12 | Async SQLAlchemy 2.0, Pydantic v2 |
-| БД | PostgreSQL 16 | Везде, включая локальную разработку (Docker). Alembic — пост-MVP, пока `create_all` |
+| БД | PostgreSQL 16 | Везде, включая локальную разработку (Docker). Миграции — Alembic, применяются вручную: `make migration m="…"` (autogenerate) → ревью → `make upgrade`. Имена файлов — datetime + описание. Тесты создают схему через `create_all` |
 | Кэш/эфемерное | Redis 7 | OTP-коды, rate limiting, pub/sub для WebSocket |
 | Контейнеры | Docker + Docker Compose | `infra/docker-compose.yml` |
 
@@ -75,6 +75,8 @@ make install    # venv + зависимости
 make dev        # uvicorn с reload
 make test       # pytest (нужен запущенный postgres)
 make lint       # ruff check + format --check
+make migration m="описание"  # autogenerate-миграция Alembic (файл: YYYYMMDD_HHMM_описание)
+make upgrade    # применить миграции до head (вручную, приложение само не мигрирует)
 
 # Mobile
 cd mobile

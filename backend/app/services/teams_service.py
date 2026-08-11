@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.enums import TeamRole
 from app.models.team import Location, Team, TeamMembership
-from app.models.user import User
+from app.models.user import User, display_name
 from app.schemas.team import LocationIn, MemberOut, TeamCreateIn
 
 
@@ -60,12 +60,15 @@ async def remove_member(db: AsyncSession, team_id: uuid.UUID, user_id: uuid.UUID
 
 async def list_members(db: AsyncSession, team_id: uuid.UUID) -> list[MemberOut]:
     rows = await db.execute(
-        select(TeamMembership.user_id, User.name, TeamMembership.team_role)
+        select(TeamMembership.user_id, User.last_name, User.first_name, TeamMembership.team_role)
         .join(User, User.id == TeamMembership.user_id)
         .where(TeamMembership.team_id == team_id)
-        .order_by(User.name)
+        .order_by(User.last_name, User.first_name)
     )
-    return [MemberOut(user_id=user_id, name=name, team_role=TeamRole(role)) for user_id, name, role in rows]
+    return [
+        MemberOut(user_id=user_id, name=display_name(last, first), team_role=TeamRole(role))
+        for user_id, last, first, role in rows
+    ]
 
 
 async def list_athlete_ids(db: AsyncSession, team_id: uuid.UUID) -> list[uuid.UUID]:

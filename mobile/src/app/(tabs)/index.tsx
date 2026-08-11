@@ -1,8 +1,9 @@
-// «Дом» v2 (дизайн-ТЗ 5.2): кольцо-gauge, стат-тайлы, главные действия,
-// чип команды/личного режима, гид первого запуска.
+// «Дом»: игроку — личная готовность (дизайн-ТЗ 5.2), тренеру/админу — Squad Status.
+// Экраны игрока (опрос/RPE/история) для staff-ролей не показываются.
 
 import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
+import type { TFunction } from 'i18next';
 import { useCallback, useState } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
@@ -13,11 +14,15 @@ import {
   useMetrics,
   useMyTeams,
   useRpeHistory,
+  useRpeSessions,
   useStreaks,
   useWellnessHistory,
 } from '@/api/hooks';
+import { sessionEndTime, sessionLabel } from '@/api/sessions';
+import type { RpeSession } from '@/api/types';
 import { ActionCard } from '@/components/ActionCard';
 import { Chip } from '@/components/Chip';
+import { CoachHome } from '@/components/CoachHome';
 import { Guide } from '@/components/Guide';
 import { BoltIcon, SunIcon } from '@/components/Icons';
 import { ReadinessRing } from '@/components/ReadinessRing';
@@ -25,7 +30,38 @@ import { Screen } from '@/components/Screen';
 import { StatTile } from '@/components/StatTile';
 import { colors, font, loadZoneColor, readinessColor, spacing } from '@/theme';
 
+/** Подсказка карточки RPE: ждём конца тренировки / какую сессию оценить / сколько их. */
+function rpeCardHint({
+  locked,
+  nextSession,
+  pending,
+  t,
+  locale,
+}: {
+  locked: boolean;
+  nextSession: RpeSession | undefined;
+  pending: RpeSession[];
+  t: TFunction;
+  locale: string;
+}): string {
+  if (locked) {
+    return nextSession
+      ? t('home.rateLoadAfter', { time: sessionEndTime(nextSession, locale) })
+      : t('home.rateLoadHint');
+  }
+  if (pending.length > 1) return t('home.rateLoadPending', { count: pending.length });
+  if (pending.length === 1) return sessionLabel(pending[0], locale, t);
+  return t('home.rateLoadHint');
+}
+
 export default function Home() {
+  const me = useMe();
+  // Пока роль неизвестна (первый запрос) — показываем игровой «Дом» как основной случай
+  if (me.data && me.data.global_role !== 'player') return <CoachHome />;
+  return <PlayerHome />;
+}
+
+function PlayerHome() {
   const { t, i18n } = useTranslation();
   const router = useRouter();
   const qc = useQueryClient();
@@ -39,14 +75,28 @@ export default function Home() {
   const rpeToday = useRpeHistory(1);
 
   const today = todayISO();
+  const sessions = useRpeSessions(today);
+
   const todayMetric = metrics.data?.find((m) => m.date === today);
   const surveyDone = (wellnessToday.data?.length ?? 0) > 0;
-  const rpeDone = (rpeToday.data?.length ?? 0) > 0;
+
+  // RPE привязан к сессии: карточка ждёт окончания тренировки, а «выполнено» —
+  // когда оценены все прошедшие. Без расписания остаётся свободный ввод.
+  const daySessions = sessions.data ?? [];
+  const finished = daySessions.filter((s) => s.finished);
+  const pending = finished.filter((s) => !s.rpe_submitted);
+  const nextSession = daySessions.find((s) => !s.finished);
+  const rpeLocked = daySessions.length > 0 && finished.length === 0;
+  const rpeDone =
+    daySessions.length > 0
+      ? finished.length > 0 && pending.length === 0
+      : (rpeToday.data?.length ?? 0) > 0;
   const wellnessStreak = streaks.data?.find((s) => s.type === 'wellness')?.count ?? 0;
   const loadZone = todayMetric?.load_zone ?? 'no_data';
   const teamName = teams.data?.[0]?.name;
 
-  const firstName = me.data?.name?.split(' ')[0];
+  // Здороваемся по имени, а не по display-name «Фамилия Имя»
+  const firstName = me.data?.first_name || undefined;
   const dateLabel = new Date()
     .toLocaleDateString(i18n.language, { weekday: 'long', day: 'numeric', month: 'long' })
     .toUpperCase();
@@ -57,6 +107,7 @@ export default function Home() {
   }, [qc]);
 
   const zoneColor = readinessColor(todayMetric?.readiness_zone);
+  const rpeHint = rpeCardHint({ locked: rpeLocked, nextSession, pending, t, locale: i18n.language });
 
   return (
     <Screen glowColor={todayMetric?.readiness != null ? zoneColor : colors.brand}>
@@ -121,9 +172,10 @@ export default function Home() {
           <ActionCard
             icon={<BoltIcon color={colors.brand} />}
             title={t('home.rateLoad')}
-            hint={t('home.rateLoadHint')}
+            hint={rpeHint}
             done={rpeDone}
             doneLabel={t('home.rpeDone')}
+            disabled={rpeLocked}
             onPress={() => router.push('/rpe')}
           />
         </View>

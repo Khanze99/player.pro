@@ -1,4 +1,5 @@
-// Онбординг, шаг 1: имя (+позиция). Дальше — организация или PIN (дизайн-ТЗ 6.1)
+// Онбординг, шаг 1: ФИО (отчество необязательно). Дальше — организация или PIN (дизайн-ТЗ 6.1).
+// Амплуа здесь не спрашиваем: роль ещё неизвестна, а position — поле профиля атлета.
 
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
@@ -19,27 +20,28 @@ export default function ProfileSetup() {
   const router = useRouter();
   const me = useMe();
 
-  const [name, setName] = useState('');
-  const [position, setPosition] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [middleName, setMiddleName] = useState('');
   const [loading, setLoading] = useState(false);
   const [seeded, setSeeded] = useState(false);
 
-  // Приглашённому админ мог уже задать имя — подставляем
+  // Приглашённому админ мог уже задать ФИО — подставляем
   if (me.data && !seeded) {
     setSeeded(true);
-    if (me.data.name) setName(me.data.name);
+    if (me.data.last_name) setLastName(me.data.last_name);
+    if (me.data.first_name) setFirstName(me.data.first_name);
+    if (me.data.middle_name) setMiddleName(me.data.middle_name);
   }
 
   const submit = async () => {
     setLoading(true);
     try {
-      await patch('/users/me', { name: name.trim() });
-      if (position.trim()) {
-        await api('/users/me/profile', {
-          method: 'PUT',
-          body: JSON.stringify({ position: position.trim() }),
-        });
-      }
+      await patch('/users/me', {
+        last_name: lastName.trim(),
+        first_name: firstName.trim(),
+        middle_name: middleName.trim(),
+      });
       const fresh = await api<Me>('/auth/me');
       // В организации (по приглашению) — команда настроена, сразу к PIN
       router.push(fresh.org_id ? '/(auth)/pin-setup' : '/(auth)/org-choice');
@@ -55,24 +57,30 @@ export default function ProfileSetup() {
           <ScreenTitle>{t('onboarding.profileTitle')}</ScreenTitle>
           <Text style={styles.hint}>{t('onboarding.profileHint')}</Text>
           <Field
-            label={t('onboarding.nameLabel')}
-            value={name}
-            onChangeText={setName}
+            label={t('onboarding.lastNameLabel')}
+            value={lastName}
+            onChangeText={setLastName}
             autoFocus
-            autoComplete="name"
+            autoComplete="name-family"
           />
           <Field
-            label={t('onboarding.positionLabel')}
-            value={position}
-            onChangeText={setPosition}
-            placeholder={t('onboarding.positionPlaceholder')}
+            label={t('onboarding.firstNameLabel')}
+            value={firstName}
+            onChangeText={setFirstName}
+            autoComplete="name-given"
+          />
+          <Field
+            label={t('onboarding.middleNameLabel')}
+            value={middleName}
+            onChangeText={setMiddleName}
+            autoComplete="name-middle"
           />
         </View>
         <View style={styles.footer}>
           <Button
             title={t('onboarding.continue')}
             onPress={() => void submit()}
-            disabled={name.trim().length < 2}
+            disabled={lastName.trim().length < 2 || firstName.trim().length < 2}
             loading={loading}
           />
         </View>

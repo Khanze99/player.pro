@@ -5,6 +5,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { ActionCard } from '@/components/ActionCard';
+import { BackButton } from '@/components/BackButton';
 import { BoltIcon, UserIcon } from '@/components/Icons';
 import { Screen } from '@/components/Screen';
 import { ScreenTitle } from '@/components/Typography';
@@ -16,6 +17,7 @@ export default function OrgChoice() {
 
   return (
     <Screen>
+      <BackButton />
       <View style={styles.content}>
         <ScreenTitle>{t('onboarding.orgTitle')}</ScreenTitle>
         <Text style={styles.hint}>{t('onboarding.orgSubtitle')}</Text>

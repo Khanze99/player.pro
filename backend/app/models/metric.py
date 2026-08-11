@@ -18,6 +18,8 @@ class DailyMetric(Base):
     athlete_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), index=True)
     date: Mapped[date_type] = mapped_column(index=True)
     daily_load: Mapped[float] = mapped_column(Float, default=0)
+    # Средняя самооценка выступления за день (RpeEntry.performance 1–10). None — сессий не было.
+    daily_performance: Mapped[float | None] = mapped_column(Float, nullable=True)
     ewma_acute: Mapped[float | None] = mapped_column(Float, nullable=True)
     ewma_chronic: Mapped[float | None] = mapped_column(Float, nullable=True)
     acwr: Mapped[float | None] = mapped_column(Float, nullable=True)

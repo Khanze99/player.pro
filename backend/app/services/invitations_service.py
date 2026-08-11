@@ -17,6 +17,7 @@ from app.models.invitation import Invitation
 from app.models.team import Team, TeamMembership
 from app.models.user import User
 from app.schemas.organization import InvitationCreateIn
+from app.services import users_service
 from app.services.auth_service import _find_user, normalize_identifier
 
 
@@ -104,8 +105,9 @@ async def consume_for_user(db: AsyncSession, user: User) -> None:
 
     user.org_id = invitation.org_id
     user.global_role = invitation.global_role
-    if invitation.name and not user.name:
-        user.name = invitation.name
+    if invitation.name and not (user.last_name or user.first_name):
+        # Админ вводит ФИО одной строкой — раскладываем, чтобы онбординг подставил поля
+        user.last_name, user.first_name, user.middle_name = users_service.split_full_name(invitation.name)
 
     if invitation.team_id is not None:
         existing = await db.get(TeamMembership, (user.id, invitation.team_id))

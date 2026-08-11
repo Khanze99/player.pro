@@ -45,7 +45,9 @@ class MeOut(BaseModel):
     model_config = {"from_attributes": True}
 
     id: uuid.UUID
-    name: str
+    last_name: str
+    first_name: str
+    middle_name: str
     locale: str
     global_role: GlobalRole
     org_id: uuid.UUID | None

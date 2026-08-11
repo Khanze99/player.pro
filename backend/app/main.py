@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.v1.router import router
 from app.config import settings
-from app.database import AsyncSessionLocal, Base, engine
+from app.database import AsyncSessionLocal
 from app.services import analytics_service
 
 logging.basicConfig(
@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 
 async def _nightly_recalc_loop() -> None:
-    """Ночной пересчёт DailyMetric (раздел 10 ТЗ). Alembic и полноценный планировщик — пост-MVP."""
+    """Ночной пересчёт DailyMetric (раздел 10 ТЗ). Полноценный планировщик — пост-MVP."""
     while True:
         now = datetime.now(UTC)
         next_run = now.replace(hour=settings.nightly_recalc_hour_utc, minute=0, second=0, microsecond=0)
@@ -37,11 +37,7 @@ async def _nightly_recalc_loop() -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    import app.models  # noqa: F401 — регистрация моделей в metadata
-
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-
+    # Схема БД ведётся миграциями Alembic и применяется вручную: make upgrade
     task: asyncio.Task | None = None
     if settings.nightly_recalc_enabled:
         task = asyncio.create_task(_nightly_recalc_loop())

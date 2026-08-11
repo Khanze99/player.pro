@@ -49,6 +49,19 @@ export function readinessColor(zone: string | null | undefined): string {
   }
 }
 
+export function eventTypeColor(type: string): string {
+  switch (type) {
+    case 'training':
+      return colors.brand;
+    case 'match':
+      return colors.caution;
+    case 'individual':
+      return colors.good;
+    default:
+      return colors.low;
+  }
+}
+
 export function loadZoneColor(zone: string | null | undefined): string {
   switch (zone) {
     case 'optimal':

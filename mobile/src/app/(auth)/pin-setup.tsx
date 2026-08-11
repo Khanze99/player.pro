@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { savePin, session } from '@/auth/session';
+import { BackButton } from '@/components/BackButton';
 import { PinPad } from '@/components/PinPad';
 import { Screen } from '@/components/Screen';
 import { useToast } from '@/components/Toast';
@@ -41,6 +42,7 @@ export default function PinSetup() {
 
   return (
     <Screen edges={['top', 'bottom']}>
+      <BackButton />
       <PinPad
         title={first === null ? t('auth.pinSetupTitle') : t('auth.pinSetupRepeat')}
         error={error}

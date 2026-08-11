@@ -6,6 +6,7 @@ import { KeyboardAvoidingView, Platform, StyleSheet, Text, View } from 'react-na
 import { useTranslation } from 'react-i18next';
 
 import { ApiError, post } from '@/api/client';
+import { BackButton } from '@/components/BackButton';
 import { Button } from '@/components/Button';
 import { Field } from '@/components/Field';
 import { Screen } from '@/components/Screen';
@@ -36,6 +37,7 @@ export default function OrgCreate() {
 
   return (
     <Screen>
+      <BackButton />
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <View style={styles.content}>
           <ScreenTitle>{t('onboarding.createOrg')}</ScreenTitle>

@@ -4,9 +4,13 @@ from app.api.v1 import (
     analytics,
     auth,
     availability,
+    consent,
+    cycle,
     dashboard,
     events,
+    features,
     injuries,
+    nutrition,
     organizations,
     rpe,
     teams,
@@ -17,7 +21,11 @@ from app.api.v1 import (
 router = APIRouter(prefix="/api/v1")
 
 router.include_router(auth.router)
+router.include_router(features.router)
 router.include_router(users.router)
+router.include_router(consent.router)
+router.include_router(cycle.router)
+router.include_router(nutrition.router)
 router.include_router(organizations.router)
 router.include_router(teams.router)
 router.include_router(wellness.router)

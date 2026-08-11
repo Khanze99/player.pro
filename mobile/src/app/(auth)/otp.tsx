@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 
 import { post } from '@/api/client';
 import { getDeviceId, saveRefreshToken, session } from '@/auth/session';
+import { BackButton } from '@/components/BackButton';
 import { Screen } from '@/components/Screen';
 import { ScreenTitle } from '@/components/Typography';
 import { colors, font, radius, spacing } from '@/theme';
@@ -49,6 +50,7 @@ export default function Otp() {
 
   return (
     <Screen>
+      <BackButton />
       <View style={styles.content}>
         <ScreenTitle style={styles.center}>{t('auth.otpTitle')}</ScreenTitle>
         <Text style={styles.subtitle}>{t('auth.otpSubtitle', { identifier })}</Text>

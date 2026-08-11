@@ -1,8 +1,26 @@
 // REST-клиент: Bearer access-JWT, авто-refresh по 401 (раздел 5 ТЗ)
 
+import Constants from 'expo-constants';
+
 import { getDeviceId, getRefreshToken, session } from '../auth/session';
 
-export const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:8000';
+const API_PORT = 8000;
+const REQUEST_TIMEOUT_MS = 10_000;
+
+/**
+ * В разработке адрес бэкенда выводим из хоста dev-сервера Expo: и симулятор, и
+ * телефон в Expo Go ходят на ту же машину, что раздаёт бандл. Прибитый в .env IP
+ * протухает при каждой смене сети (Wi-Fi → хотспот), и запросы молча висят.
+ * Явный EXPO_PUBLIC_API_URL приоритетнее — для стенда и прода.
+ */
+function resolveApiUrl(): string {
+  const explicit = process.env.EXPO_PUBLIC_API_URL;
+  if (explicit) return explicit;
+  const devHost = Constants.expoConfig?.hostUri?.split(':')[0];
+  return `http://${devHost ?? 'localhost'}:${API_PORT}`;
+}
+
+export const API_URL = resolveApiUrl();
 
 export class ApiError extends Error {
   constructor(
@@ -17,10 +35,16 @@ export class ApiError extends Error {
 export class NetworkError extends Error {}
 
 async function rawRequest(path: string, init: RequestInit): Promise<Response> {
+  // Без таймаута недоступный хост даёт ~75 с TCP-ретраев: экран стоит без ошибки,
+  // и это выглядит как «приложение не переключает экран», а не как отказ сети.
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   try {
-    return await fetch(`${API_URL}/api/v1${path}`, init);
+    return await fetch(`${API_URL}/api/v1${path}`, { ...init, signal: controller.signal });
   } catch {
     throw new NetworkError('offline');
+  } finally {
+    clearTimeout(timer);
   }
 }
 

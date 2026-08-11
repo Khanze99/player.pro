@@ -37,7 +37,7 @@ async def test_invite_consumed_on_verify_attaches_user(client, db):
         "/api/v1/organizations/invites",
         json={
             "identifier": "athlete@example.com",
-            "name": "Иван",
+            "name": "Иванов Иван Петрович",
             "global_role": "player",
             "team_id": team["id"],
             "team_role": "athlete",
@@ -52,7 +52,10 @@ async def test_invite_consumed_on_verify_attaches_user(client, db):
     me = await client.get("/api/v1/auth/me", headers=athlete["headers"])
     assert me.status_code == 200
     assert me.json()["org_id"] == org["id"]
-    assert me.json()["name"] == "Иван"
+    # ФИО из приглашения раскладывается по полям
+    assert me.json()["last_name"] == "Иванов"
+    assert me.json()["first_name"] == "Иван"
+    assert me.json()["middle_name"] == "Петрович"
 
     membership = (
         await db.execute(

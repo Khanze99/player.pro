@@ -1,6 +1,8 @@
 """Формулы аналитики — раздел 6 ТЗ. Чистые функции, покрыты юнит-тестами."""
 
 from dataclasses import dataclass
+from datetime import date as date_type
+from datetime import timedelta
 
 LAMBDA_ACUTE = 2 / (7 + 1)  # 0.25
 LAMBDA_CHRONIC = 2 / (28 + 1)  # ≈ 0.0690
@@ -12,6 +14,16 @@ ACWR_UPPER_WARNING = 1.5
 
 READINESS_GREEN = 75
 READINESS_YELLOW = 55
+
+# Самооценка выступления (RpeEntry.performance, шкала 1–10)
+PERFORMANCE_GREEN = 7.0
+PERFORMANCE_YELLOW = 5.0
+
+# Доступность за 90 дней, % дней full
+AVAILABILITY_GREEN = 85.0
+AVAILABILITY_YELLOW = 70.0
+
+NO_DATA = "no_data"
 
 READINESS_WEIGHTS = {
     "sleep_quality": 0.25,
@@ -127,3 +139,120 @@ def availability_percent(full_days: int, total_status_days: int) -> float | None
     if total_status_days == 0:
         return None
     return full_days / total_status_days * 100
+
+
+def readiness_zone(score: float | None) -> str:
+    """Зона по готовности 0–100 — та же шкала, что и в readiness(), но для агрегатов."""
+    if score is None:
+        return NO_DATA
+    if score >= READINESS_GREEN:
+        return "green"
+    if score >= READINESS_YELLOW:
+        return "yellow"
+    return "red"
+
+
+def performance_zone(value: float | None) -> str:
+    """Зона по самооценке выступления 1–10."""
+    if value is None:
+        return NO_DATA
+    if value >= PERFORMANCE_GREEN:
+        return "green"
+    if value >= PERFORMANCE_YELLOW:
+        return "yellow"
+    return "red"
+
+
+def availability_zone(percent: float | None) -> str:
+    """Зона по проценту доступности за окно."""
+    if percent is None:
+        return NO_DATA
+    if percent >= AVAILABILITY_GREEN:
+        return "green"
+    if percent >= AVAILABILITY_YELLOW:
+        return "yellow"
+    return "red"
+
+
+def mean(values: list[float]) -> float | None:
+    """Среднее по непустому списку, иначе None — агрегаты дашборда не делят на ноль."""
+    return sum(values) / len(values) if values else None
+
+
+# ------------------------------------------------------------------ цикл
+
+# Лютеиновая фаза стабильна (~14 дней) независимо от длины цикла — овуляцию
+# отсчитываем от конца, а не от начала.
+LUTEAL_LENGTH_DAYS = 14
+OVULATION_WINDOW_DAYS = 1  # ±1 день вокруг расчётной овуляции
+AMENORRHEA_DAYS = 90  # 3 месяца без менструации — красный флаг RED-S
+CYCLE_LENGTH_MIN = 21
+CYCLE_LENGTH_MAX = 45
+
+
+def cycle_day(day: "date_type", last_period_start: "date_type | None") -> int | None:
+    """День цикла, считая от первого дня последней менструации (день 1)."""
+    if last_period_start is None or day < last_period_start:
+        return None
+    return (day - last_period_start).days + 1
+
+
+def predict_next_period(
+    last_period_start: "date_type | None", average_cycle_length: int
+) -> "date_type | None":
+    if last_period_start is None:
+        return None
+    return last_period_start + timedelta(days=average_cycle_length)
+
+
+def cycle_phase(
+    day_of_cycle: int | None,
+    average_cycle_length: int,
+    average_period_length: int,
+    suppressed: bool = False,
+) -> str:
+    """Фаза по дню цикла.
+
+    Прогноз, а не факт: без измерения гормонов или базальной температуры точную
+    овуляцию не определить. Годится, чтобы показать игроку её собственный паттерн,
+    и не годится, чтобы что-то ей предписывать.
+    """
+    if suppressed:
+        return "suppressed"
+    if day_of_cycle is None or day_of_cycle < 1:
+        return "unknown"
+    # Цикл затянулся сверх правдоподобного — вероятно, пропущена отметка
+    if day_of_cycle > CYCLE_LENGTH_MAX:
+        return "unknown"
+    if day_of_cycle <= average_period_length:
+        return "menstrual"
+
+    ovulation_day = average_cycle_length - LUTEAL_LENGTH_DAYS
+    if abs(day_of_cycle - ovulation_day) <= OVULATION_WINDOW_DAYS:
+        return "ovulation"
+    if day_of_cycle < ovulation_day:
+        return "follicular"
+    return "luteal"
+
+
+def is_amenorrhea(day: "date_type", last_period_start: "date_type | None") -> bool:
+    """Нет менструации 90+ дней. Клинический флаг для врача, не для тренера."""
+    if last_period_start is None:
+        return False
+    return (day - last_period_start).days >= AMENORRHEA_DAYS
+
+
+def average_cycle_length(period_starts: list["date_type"]) -> int | None:
+    """Средняя длина по фактическим интервалам. Выбросы отбрасываем: пропущенная
+    отметка даёт «цикл» в 60 дней и испортила бы среднее."""
+    if len(period_starts) < 2:
+        return None
+    ordered = sorted(period_starts)
+    gaps = [
+        (later - earlier).days
+        for earlier, later in zip(ordered, ordered[1:], strict=False)
+        if CYCLE_LENGTH_MIN <= (later - earlier).days <= CYCLE_LENGTH_MAX
+    ]
+    if not gaps:
+        return None
+    return round(sum(gaps) / len(gaps))

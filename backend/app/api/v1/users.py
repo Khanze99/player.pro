@@ -4,6 +4,7 @@ from fastapi import APIRouter, HTTPException, status
 
 from app.api.deps import CurrentUser, DbSession
 from app.core import authz
+from app.models.enums import Sex
 from app.schemas.auth import MeOut
 from app.schemas.user import AthleteProfileIn, AthleteProfileOut, UserUpdateIn
 from app.services import users_service
@@ -18,9 +19,16 @@ async def update_me(data: UserUpdateIn, user: CurrentUser, db: DbSession):
 
 @router.get("/me/profile", response_model=AthleteProfileOut)
 async def my_profile(user: CurrentUser, db: DbSession):
+    """Незаполненный профиль — нормальное состояние нового игрока, а не ошибка."""
     profile = await users_service.get_profile(db, user.id)
     if profile is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Профиль не заполнен")
+        return AthleteProfileOut(
+            user_id=user.id,
+            position=None,
+            baseline_resting_hr=None,
+            birthdate=None,
+            sex=Sex.not_specified,
+        )
     return profile
 
 

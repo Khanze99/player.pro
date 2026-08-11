@@ -10,7 +10,14 @@ from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.enums import COACH_ROLES, STAFF_ROLES, GlobalRole, TeamRole
+from app.models.enums import (
+    COACH_ROLES,
+    STAFF_ROLES,
+    ConsentAudience,
+    ConsentScope,
+    GlobalRole,
+    TeamRole,
+)
 from app.models.team import Team, TeamMembership
 from app.models.user import User
 
@@ -104,6 +111,50 @@ async def ensure_can_view_athlete(db: AsyncSession, viewer: User, athlete_id: uu
     if await _shared_team_staff_role(db, viewer.id, athlete_id) is not None:
         return
     raise _forbidden()
+
+
+async def shared_team_staff_role(
+    db: AsyncSession, viewer_id: uuid.UUID, athlete_id: uuid.UUID
+) -> TeamRole | None:
+    """Публичная обёртка: роутам нужно знать роль, чтобы выбрать витрину данных."""
+    return await _shared_team_staff_role(db, viewer_id, athlete_id)
+
+
+async def ensure_can_view_sensitive(
+    db: AsyncSession, viewer: User, athlete_id: uuid.UUID, scope: ConsentScope
+) -> None:
+    """Спецкатегории персданных (цикл, питание, состав тела) — 152-ФЗ, ст. 10.
+
+    Отличия от ensure_can_view_athlete, каждое — сознательное:
+      · доступ даёт не роль, а согласие самого игрока;
+      · admin НЕ проходит: админ организации это менеджер клуба, а не медработник;
+      · medic и coach разведены — открыть врачу не значит открыть тренеру.
+
+    Формулировка ошибки одинакова для «нет согласия» и «нет данных»: иначе тренер
+    видел бы, кто согласия не дал, и согласие перестало бы быть добровольным.
+    """
+    if viewer.id == athlete_id:
+        return
+
+    athlete = await db.get(User, athlete_id)
+    if athlete is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Игрок не найден")
+
+    role = await _shared_team_staff_role(db, viewer.id, athlete_id)
+    if role is None:
+        raise _sensitive_forbidden()
+
+    required = ConsentAudience.medic if role == TeamRole.medic else ConsentAudience.coach
+
+    # Импорт здесь: authz грузится раньше сервисов, циклический импорт на модульном уровне
+    from app.services import consent_service
+
+    if not await consent_service.covers(db, athlete_id, scope, required):
+        raise _sensitive_forbidden()
+
+
+def _sensitive_forbidden() -> HTTPException:
+    return HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Данные недоступны")
 
 
 async def ensure_can_manage_athlete_status(db: AsyncSession, viewer: User, athlete_id: uuid.UUID) -> None:

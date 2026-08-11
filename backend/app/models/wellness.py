@@ -13,10 +13,9 @@ from app.models.enums import BodyRegion, InjuryType, SymptomType
 class WellnessEntry(Base):
     """Ежедневный опрос самочувствия. 1 запись на игрока в день.
 
-    ВНИМАНИЕ по данным: 5 wellness-шкал переведены с 1–5 на 1–10 (см. calculations.normalize_*).
-    Alembic нет (create_all), это MVP dev-данные — существующие строки со шкалой 1–5 нужно
-    просто удалить/пересоздать (тестовая БД пересоздаётся между тестами через drop_all/create_all).
-    Отдельный миграционный фреймворк для этого сознательно не вводится.
+    По данным: 5 wellness-шкал переведены с 1–5 на 1–10 (см. calculations.normalize_*);
+    dev-строки со старой шкалой 1–5 просто удалить. Схема ведётся миграциями Alembic
+    (применяются вручную: make upgrade); тестовая БД пересоздаётся через drop_all/create_all.
     """
 
     __tablename__ = "wellness_entries"

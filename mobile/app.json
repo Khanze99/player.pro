@@ -36,7 +36,13 @@
         }
       ],
       "expo-secure-store",
-      "expo-localization"
+      "expo-localization",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Приложение использует камеру для сканирования штрихкодов продуктов."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

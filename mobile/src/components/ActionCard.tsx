@@ -15,10 +15,21 @@ interface Props {
   primary?: boolean;
   done?: boolean;
   doneLabel?: string;
+  /** Действие ещё недоступно (например, тренировка не закончилась) — карточка приглушена */
+  disabled?: boolean;
   onPress: () => void;
 }
 
-export function ActionCard({ title, hint, icon, primary, done, doneLabel, onPress }: Props) {
+export function ActionCard({
+  title,
+  hint,
+  icon,
+  primary,
+  done,
+  doneLabel,
+  disabled,
+  onPress,
+}: Props) {
   if (done) {
     return (
       <View style={[styles.card, styles.doneCard]}>
@@ -37,9 +48,20 @@ export function ActionCard({ title, hint, icon, primary, done, doneLabel, onPres
         <Text style={[styles.title, primary && { color: '#FFFFFF' }]}>{title}</Text>
         {hint ? <Text style={[styles.hint, primary && { color: '#CFE4FF' }]}>{hint}</Text> : null}
       </View>
-      <ChevronIcon color={primary ? '#FFFFFF' : colors.textMuted} />
+      {disabled ? null : <ChevronIcon color={primary ? '#FFFFFF' : colors.textMuted} />}
     </>
   );
+
+  if (disabled) {
+    return (
+      <View
+        style={[styles.card, styles.secondary, styles.disabled]}
+        accessibilityState={{ disabled: true }}
+      >
+        {inner}
+      </View>
+    );
+  }
 
   if (primary) {
     return (
@@ -88,6 +110,7 @@ const styles = StyleSheet.create({
     gap: spacing.l,
   },
   secondary: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
+  disabled: { opacity: 0.5 },
   iconBox: {
     width: 46,
     height: 46,

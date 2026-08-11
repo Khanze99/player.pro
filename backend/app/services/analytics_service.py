@@ -38,11 +38,16 @@ async def recalc_athlete(
         return 0
 
     loads_rows = await db.execute(
-        select(RpeEntry.date, func.sum(RpeEntry.session_load))
+        select(RpeEntry.date, func.sum(RpeEntry.session_load), func.avg(RpeEntry.performance))
         .where(RpeEntry.athlete_id == athlete_id, RpeEntry.date <= end_date)
         .group_by(RpeEntry.date)
     )
-    loads: dict[date, float] = {d: float(total) for d, total in loads_rows}
+    loads: dict[date, float] = {}
+    performances: dict[date, float] = {}
+    for day_key, total, avg_performance in loads_rows:
+        loads[day_key] = float(total)
+        if avg_performance is not None:
+            performances[day_key] = float(avg_performance)
 
     wellness_rows = await db.execute(
         select(WellnessEntry).where(WellnessEntry.athlete_id == athlete_id, WellnessEntry.date <= end_date)
@@ -96,6 +101,7 @@ async def recalc_athlete(
             metric = DailyMetric(athlete_id=athlete_id, date=day)
             db.add(metric)
         metric.daily_load = load
+        metric.daily_performance = performances.get(day)
         metric.ewma_acute = ewma_acute
         metric.ewma_chronic = ewma_chronic
         metric.acwr = ratio

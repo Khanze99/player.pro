@@ -1,11 +1,11 @@
 import uuid
 from datetime import date, timedelta
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 
 from app.api.deps import CurrentUser, DbSession
 from app.core import authz
-from app.schemas.rpe import RpeCreateIn, RpeCreateOut, RpeOut
+from app.schemas.rpe import RpeCreateIn, RpeCreateOut, RpeOut, RpeSessionOut
 from app.services import rpe_service
 
 router = APIRouter(prefix="/rpe", tags=["rpe"])
@@ -15,6 +15,20 @@ router = APIRouter(prefix="/rpe", tags=["rpe"])
 async def create_entry(data: RpeCreateIn, user: CurrentUser, db: DbSession):
     entry, streak = await rpe_service.create_entry(db, user.id, data)
     return RpeCreateOut(entry=RpeOut.model_validate(entry), streak=streak)
+
+
+@router.get("/sessions", response_model=list[RpeSessionOut])
+async def my_sessions(
+    user: CurrentUser,
+    db: DbSession,
+    day: date | None = None,
+    tz_offset_min: int = Query(default=0, ge=-840, le=840),
+):
+    """Сессии дня: к чему привязывать RPE, что уже закончилось и что уже оценено.
+
+    day — локальная дата клиента, tz_offset_min — его смещение от UTC в минутах.
+    """
+    return await rpe_service.day_sessions(db, user.id, day or date.today(), tz_offset_min)
 
 
 @router.get("/me", response_model=list[RpeOut])

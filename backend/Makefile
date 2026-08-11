@@ -4,7 +4,7 @@ PYTHON := $(VENV)/bin/python
 PIP := $(VENV)/bin/pip
 COMPOSE := docker compose -f ../infra/docker-compose.yml
 
-.PHONY: help install dev test lint format infra-up infra-down clean
+.PHONY: help install dev test lint format migration upgrade downgrade seed seed-reset foods foods-off infra-up infra-down clean
 
 help: ## Список команд
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-12s\033[0m %s\n", $$1, $$2}'
@@ -28,6 +28,29 @@ lint: ## Проверка ruff (линт + формат)
 format: ## Автоформатирование и автофиксы
 	$(VENV)/bin/ruff check --fix app tests
 	$(VENV)/bin/ruff format app tests
+
+migration: ## Создать autogenerate-миграцию: make migration m="описание"
+	@test -n "$(m)" || (echo 'Нужно описание: make migration m="add locations table"'; exit 1)
+	$(VENV)/bin/alembic revision --autogenerate -m "$(m)"
+
+upgrade: ## Применить миграции до head
+	$(VENV)/bin/alembic upgrade head
+
+downgrade: ## Откатить последнюю миграцию
+	$(VENV)/bin/alembic downgrade -1
+
+seed: ## Демо-данные: команда 25 игроков + месяц нагрузки (не трогает реальных юзеров)
+	$(PYTHON) scripts/seed_demo.py
+
+seed-reset: ## Пересоздать демо-данные с нуля
+	$(PYTHON) scripts/seed_demo.py --reset
+
+foods: ## Базовый справочник продуктов (~50 позиций)
+	$(PYTHON) scripts/import_foods.py
+
+foods-off: ## Импорт дампа Open Food Facts: make foods-off f=path/to/dump.csv.gz
+	@test -n "$(f)" || (echo 'Нужен путь: make foods-off f=en.openfoodfacts.org.products.csv.gz'; exit 1)
+	$(PYTHON) scripts/import_foods.py --off $(f)
 
 infra-up: ## Поднять PostgreSQL + Redis
 	$(COMPOSE) up -d postgres redis

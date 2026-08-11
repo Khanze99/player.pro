@@ -5,6 +5,10 @@ import os
 os.environ["OTP_STORE"] = "memory"
 os.environ["NIGHTLY_RECALC_ENABLED"] = "false"
 os.environ["DEBUG"] = "true"
+# Фича-флаги фиксируем: иначе локальный .env протекал бы в тесты и они
+# начинали бы зависеть от того, что разработчик включил у себя
+os.environ["FEATURE_CYCLE_ENABLED"] = "false"
+os.environ["FEATURE_NUTRITION_ENABLED"] = "false"
 os.environ["DATABASE_URL"] = os.environ.get(
     "TEST_DATABASE_URL", "postgresql+asyncpg://playerpro:playerpro@localhost:5433/playerpro_test"
 )

@@ -1,4 +1,4 @@
-// Профиль (дизайн-ТЗ 5.6): имя, команда, язык RU/EN/ES, смена PIN, выход.
+// Профиль (дизайн-ТЗ 5.6): ФИО, команда, язык RU/EN/ES, смена PIN, выход.
 
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
@@ -6,7 +6,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { post } from '@/api/client';
-import { useMe, useMyTeams, useUpdateMe } from '@/api/hooks';
+import { useFeatures, useMe, useMyProfile, useMyTeams, useUpdateMe } from '@/api/hooks';
 import { getRefreshToken, session } from '@/auth/session';
 import { Chip } from '@/components/Chip';
 import { Field } from '@/components/Field';
@@ -29,22 +29,35 @@ export default function Profile() {
   const toast = useToast((s) => s.show);
   const me = useMe();
   const teams = useMyTeams();
+  const profile = useMyProfile();
+  const features = useFeatures();
   const updateMe = useUpdateMe();
-  const [name, setName] = useState('');
-  const [serverName, setServerName] = useState<string | null>(null);
+  const [fio, setFio] = useState({ last_name: '', first_name: '', middle_name: '' });
+  const [serverFio, setServerFio] = useState<string | null>(null);
 
   // Синхронизация с сервером — во время рендера (паттерн «adjusting state on prop change»)
-  if (me.data && me.data.name !== serverName) {
-    setServerName(me.data.name);
-    setName(me.data.name);
+  const meFio = me.data && {
+    last_name: me.data.last_name,
+    first_name: me.data.first_name,
+    middle_name: me.data.middle_name,
+  };
+  if (meFio && JSON.stringify(meFio) !== serverFio) {
+    setServerFio(JSON.stringify(meFio));
+    setFio(meFio);
   }
 
   const teamName = teams.data?.[0]?.name;
 
-  const saveName = () => {
-    const trimmed = name.trim();
-    if (!me.data || trimmed === me.data.name) return;
-    updateMe.mutate({ name: trimmed }, { onSuccess: () => toast(t('common.saved')) });
+  // Фамилию и имя не даём стереть: сервер соберёт из них name для ростера
+  const savePart = (field: keyof typeof fio) => () => {
+    const server = me.data;
+    const value = fio[field].trim();
+    if (!server || value === server[field]) return;
+    if (value === '' && field !== 'middle_name') {
+      setFio((prev) => ({ ...prev, [field]: server[field] }));
+      return;
+    }
+    updateMe.mutate({ [field]: value }, { onSuccess: () => toast(t('common.saved')) });
   };
 
   const changeLocale = (code: AppLocale) => {
@@ -75,7 +88,29 @@ export default function Profile() {
           />
         </View>
 
-        <Field label={t('profile.name')} value={name} onChangeText={setName} onBlur={saveName} />
+        <View style={styles.fio}>
+          <Field
+            label={t('profile.lastName')}
+            value={fio.last_name}
+            onChangeText={(v) => setFio((prev) => ({ ...prev, last_name: v }))}
+            onBlur={savePart('last_name')}
+            autoComplete="name-family"
+          />
+          <Field
+            label={t('profile.firstName')}
+            value={fio.first_name}
+            onChangeText={(v) => setFio((prev) => ({ ...prev, first_name: v }))}
+            onBlur={savePart('first_name')}
+            autoComplete="name-given"
+          />
+          <Field
+            label={t('profile.middleName')}
+            value={fio.middle_name}
+            onChangeText={(v) => setFio((prev) => ({ ...prev, middle_name: v }))}
+            onBlur={savePart('middle_name')}
+            autoComplete="name-middle"
+          />
+        </View>
 
         <View style={styles.section}>
           <MicroLabel>{t('profile.language')}</MicroLabel>
@@ -106,6 +141,21 @@ export default function Profile() {
             <Text style={styles.rowText}>{t('profile.changePin')}</Text>
             <ChevronIcon color={colors.textMuted} />
           </Pressable>
+          {/* Питание живёт отдельной вкладкой, здесь его нет.
+              Цикл скрыт фича-флагом с бэкенда и показывается только указавшим
+              женский пол: иначе это шум в меню. Пол — самодекларация. */}
+          {features.data?.cycle && profile.data?.sex === 'female' ? (
+            <Pressable style={styles.row} accessibilityRole="button" onPress={() => router.push('/cycle')}>
+              <Text style={styles.rowText}>{t('profile.cycle')}</Text>
+              <ChevronIcon color={colors.textMuted} />
+            </Pressable>
+          ) : null}
+          {features.data?.cycle || features.data?.nutrition ? (
+            <Pressable style={styles.row} accessibilityRole="button" onPress={() => router.push('/privacy')}>
+              <Text style={styles.rowText}>{t('profile.privacy')}</Text>
+              <ChevronIcon color={colors.textMuted} />
+            </Pressable>
+          ) : null}
           <Pressable
             style={[styles.row, { borderBottomWidth: 0 }]}
             accessibilityRole="button"
@@ -123,6 +173,7 @@ const styles = StyleSheet.create({
   content: { padding: spacing.screen, paddingBottom: 40, gap: spacing.xl },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   section: { gap: spacing.s },
+  fio: { gap: spacing.l },
   localeRow: { flexDirection: 'row', gap: spacing.s },
   localeChip: {
     flex: 1,
