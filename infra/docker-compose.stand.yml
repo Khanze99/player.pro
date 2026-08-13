@@ -1,0 +1,102 @@
+# Тестовый стенд PlayerPro: весь бэкенд одной командой.
+#
+#   cp infra/.env.example infra/.env   # или: make stand-env (сгенерирует секреты)
+#   make stand-up
+#   curl http://localhost:8000/health
+#
+# Отличия от infra/docker-compose.yml (dev): здесь поднимается и сам API, миграции
+# накатываются одноразовым сервисом migrate, порты БД и Redis наружу не выведены.
+# Отличия от прод-конфигурации (docs/deploy.md): нет nginx/TLS, API слушает напрямую,
+# DEBUG по умолчанию включён (OTP-код возвращается в ответе — SMS-шлюза ещё нет).
+name: playerpro-stand
+
+x-backend-env: &backend-env
+  DATABASE_URL: "postgresql+asyncpg://${POSTGRES_USER:-playerpro}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in infra/.env}@postgres:5432/${POSTGRES_DB:-playerpro}"
+  REDIS_URL: redis://redis:6379/0
+  OTP_STORE: redis
+  SECRET_KEY: ${SECRET_KEY:?set SECRET_KEY in infra/.env}
+  DEBUG: ${DEBUG:-true}
+  ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-15}
+  REFRESH_TOKEN_EXPIRE_DAYS: ${REFRESH_TOKEN_EXPIRE_DAYS:-90}
+  NIGHTLY_RECALC_ENABLED: ${NIGHTLY_RECALC_ENABLED:-true}
+  NIGHTLY_RECALC_HOUR_UTC: ${NIGHTLY_RECALC_HOUR_UTC:-2}
+  FEATURE_NUTRITION_ENABLED: ${FEATURE_NUTRITION_ENABLED:-false}
+  FEATURE_CYCLE_ENABLED: ${FEATURE_CYCLE_ENABLED:-false}
+  # pydantic-settings ждёт JSON-массив
+  CORS_ORIGINS: '${CORS_ORIGINS:-["http://localhost:8081"]}'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-playerpro}
+      POSTGRES_USER: ${POSTGRES_USER:-playerpro}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in infra/.env}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-playerpro} -d ${POSTGRES_DB:-playerpro}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+    ports: "5434:5432"
+
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  # Одноразовый сервис: накатывает Alembic до head и завершается. API стартует
+  # только после его успеха, поэтому «склонировать и поднять» не требует ручного шага.
+  migrate:
+    build: ../backend
+    image: playerpro-backend
+    environment: *backend-env
+    command: ["alembic", "upgrade", "head"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    build: ../backend
+    image: playerpro-backend
+    environment: *backend-env
+    ports:
+      - "${API_PORT:-8000}:8000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
+  # Демо-данные (команда 25 игроков + месяц нагрузки). Профиль — чтобы не запускалось
+  # само: docker compose -f infra/docker-compose.stand.yml --profile seed run --rm seed
+  seed:
+    build: ../backend
+    image: playerpro-backend
+    environment: *backend-env
+    command: ["python", "scripts/seed_demo.py"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    profiles: ["seed"]
+    restart: "no"
+
+volumes:
+  postgres_data:
+  redis_data:
