@@ -16,6 +16,18 @@ class Settings(BaseSettings):
     otp_max_attempts: int = 5
     otp_requests_per_hour: int = 5
 
+    # Канал доставки OTP: "log" | "email" | "sms" (app/services/notify_service.py).
+    # По умолчанию лог: SMS-провайдера нет, SMTP настраивается только в проде.
+    otp_email_channel: str = "log"
+    otp_phone_channel: str = "log"
+
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_user: str = ""
+    smtp_password: str = ""
+    smtp_from: str = "PlayerPro <noreply@player.pro>"
+    smtp_starttls: bool = True
+
     secret_key: str = "dev-secret-key-change-in-production"
     access_token_expire_minutes: int = 15
     refresh_token_expire_days: int = 90

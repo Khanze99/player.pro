@@ -20,6 +20,13 @@ x-backend-env: &backend-env
   REFRESH_TOKEN_EXPIRE_DAYS: ${REFRESH_TOKEN_EXPIRE_DAYS:-90}
   NIGHTLY_RECALC_ENABLED: ${NIGHTLY_RECALC_ENABLED:-true}
   NIGHTLY_RECALC_HOUR_UTC: ${NIGHTLY_RECALC_HOUR_UTC:-2}
+  OTP_EMAIL_CHANNEL: ${OTP_EMAIL_CHANNEL:-log}
+  OTP_PHONE_CHANNEL: ${OTP_PHONE_CHANNEL:-log}
+  SMTP_HOST: ${SMTP_HOST:-}
+  SMTP_PORT: ${SMTP_PORT:-587}
+  SMTP_USER: ${SMTP_USER:-}
+  SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+  SMTP_FROM: ${SMTP_FROM:-PlayerPro <noreply@player.pro>}
   FEATURE_NUTRITION_ENABLED: ${FEATURE_NUTRITION_ENABLED:-false}
   FEATURE_CYCLE_ENABLED: ${FEATURE_CYCLE_ENABLED:-false}
   # pydantic-settings ждёт JSON-массив
@@ -40,7 +47,8 @@ services:
       timeout: 5s
       retries: 10
     restart: unless-stopped
-    ports: "5434:5432"
+    ports:
+      - "5434:5432"
 
   redis:
     image: redis:7-alpine

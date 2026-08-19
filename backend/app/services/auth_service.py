@@ -16,6 +16,7 @@ from app.core.otp import OtpStore
 from app.core.security import create_access_token, generate_otp_code, generate_refresh_token, hash_token
 from app.models.enums import UserStatus
 from app.models.user import RefreshToken, User
+from app.services.notify_service import NotifyError, get_notifier
 
 logger = logging.getLogger(__name__)
 
@@ -63,8 +64,15 @@ async def request_otp(db: AsyncSession, store: OtpStore, identifier: str) -> str
 
     code = generate_otp_code()
     await store.save_challenge(value, code)
-    # MVP: реальный SMS-шлюз — пост-MVP; код уходит в лог (и в ответ при debug)
-    logger.info("OTP for %s: %s", value, code)
+    try:
+        await get_notifier(kind).send_otp(value, code)
+    except NotifyError as exc:
+        # Молчать нельзя: иначе клиент ждёт код, которого не будет.
+        logger.warning("OTP delivery failed for %s: %s", kind, exc)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Не удалось отправить код, попробуйте позже",
+        ) from exc
     return code if settings.debug else None
 
 
