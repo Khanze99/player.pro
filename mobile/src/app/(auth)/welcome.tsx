@@ -1,5 +1,6 @@
 // Онбординг-вход (дизайн-ТЗ 6.1): телефон/почта → код. Без пароля.
 
+import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, StyleSheet, Text, View } from 'react-native';
@@ -56,6 +57,7 @@ export default function Welcome() {
             loading={loading}
           />
         </View>
+        <Text style={styles.version}>v{Constants.expoConfig?.version ?? '—'}</Text>
       </KeyboardAvoidingView>
     </Screen>
   );
@@ -74,4 +76,12 @@ const styles = StyleSheet.create({
     marginBottom: spacing.l,
   },
   error: { fontFamily: font.medium, fontSize: 13, color: colors.risk, textAlign: 'center' },
+  // Версию показываем на входе: тестировщику надо назвать её, не роясь в настройках.
+  version: {
+    fontFamily: font.regular,
+    fontSize: 12,
+    color: colors.textMuted,
+    textAlign: 'center',
+    paddingBottom: spacing.l,
+  },
 });

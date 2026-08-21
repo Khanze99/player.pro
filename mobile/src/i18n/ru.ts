@@ -26,7 +26,6 @@ export default {
   },
   onboarding: {
     profileTitle: 'Как тебя зовут?',
-    profileHint: 'ФИО увидит тренерский штаб',
     lastNameLabel: 'Фамилия',
     firstNameLabel: 'Имя',
     middleNameLabel: 'Отчество · необязательно',

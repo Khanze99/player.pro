@@ -28,7 +28,6 @@ const en: typeof ru = {
   },
   onboarding: {
     profileTitle: 'What is your name?',
-    profileHint: 'Coaching staff will see this name',
     lastNameLabel: 'Last name',
     firstNameLabel: 'First name',
     middleNameLabel: 'Middle name · optional',

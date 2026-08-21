@@ -3,7 +3,7 @@
 
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, StyleSheet, Text, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, StyleSheet, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { api, patch } from '@/api/client';
@@ -13,7 +13,7 @@ import { Button } from '@/components/Button';
 import { Field } from '@/components/Field';
 import { Screen } from '@/components/Screen';
 import { ScreenTitle } from '@/components/Typography';
-import { colors, font, spacing } from '@/theme';
+import { spacing } from '@/theme';
 
 export default function ProfileSetup() {
   const { t } = useTranslation();
@@ -55,7 +55,6 @@ export default function ProfileSetup() {
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <View style={styles.content}>
           <ScreenTitle>{t('onboarding.profileTitle')}</ScreenTitle>
-          <Text style={styles.hint}>{t('onboarding.profileHint')}</Text>
           <Field
             label={t('onboarding.lastNameLabel')}
             value={lastName}
@@ -92,12 +91,5 @@ export default function ProfileSetup() {
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   content: { flex: 1, padding: spacing.screen, gap: spacing.l, justifyContent: 'center' },
-  hint: {
-    fontFamily: font.regular,
-    fontSize: 15,
-    color: colors.textMuted,
-    marginTop: -spacing.s,
-    marginBottom: spacing.s,
-  },
   footer: { padding: spacing.screen },
 });

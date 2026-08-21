@@ -28,7 +28,6 @@ const es: typeof ru = {
   },
   onboarding: {
     profileTitle: '¿Cómo te llamas?',
-    profileHint: 'El cuerpo técnico verá este nombre',
     lastNameLabel: 'Apellido',
     firstNameLabel: 'Nombre',
     middleNameLabel: 'Segundo apellido · opcional',
