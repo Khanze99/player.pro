@@ -6,8 +6,8 @@
 #
 # Отличия от infra/docker-compose.yml (dev): здесь поднимается и сам API, миграции
 # накатываются одноразовым сервисом migrate, порты БД и Redis наружу не выведены.
-# Отличия от прод-конфигурации (docs/deploy.md): нет nginx/TLS, API слушает напрямую,
-# DEBUG по умолчанию включён (OTP-код возвращается в ответе — SMS-шлюза ещё нет).
+# Отличия от прод-конфигурации (docs/deploy.md): нет nginx/TLS, API слушает напрямую.
+# DEBUG выключен: коды входа уходят почтой через Postbox (OTP_EMAIL_CHANNEL=email).
 name: playerpro-stand
 
 x-backend-env: &backend-env
@@ -15,7 +15,7 @@ x-backend-env: &backend-env
   REDIS_URL: redis://redis:6379/0
   OTP_STORE: redis
   SECRET_KEY: ${SECRET_KEY:?set SECRET_KEY in infra/.env}
-  DEBUG: ${DEBUG:-true}
+  DEBUG: ${DEBUG:-false}
   ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-15}
   REFRESH_TOKEN_EXPIRE_DAYS: ${REFRESH_TOKEN_EXPIRE_DAYS:-90}
   NIGHTLY_RECALC_ENABLED: ${NIGHTLY_RECALC_ENABLED:-true}

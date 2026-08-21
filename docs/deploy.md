@@ -8,9 +8,9 @@ Compose — `nginx` → `api` (FastAPI) → `postgres` + `redis`. Мобильн
 > `infra/docker-compose.stand.yml`, см. README) — приведённый ниже вариант совпадает с ним.
 > `infra/docker-compose.prod.yml` и `infra/nginx/` пока не заведены, их создаёт шаг 1.
 >
-> Разница стенда и прода: в стенде нет nginx и TLS, API слушает 8000 напрямую и работает
-> с `DEBUG=true` (OTP-код возвращается в ответе — иначе на стенд не войти). Прод-конфиг
-> ниже добавляет nginx, TLS и `DEBUG=false`.
+> Разница стенда и прода: в стенде нет nginx и TLS, API слушает 8000 напрямую. `DEBUG`
+> выключен в обоих: коды входа уходят почтой через Postbox (`OTP_EMAIL_CHANNEL=email`,
+> параметры — в `docs/smtp.md`). Прод-конфиг ниже добавляет nginx и TLS.
 
 ## Открытые решения
 
