@@ -13,7 +13,7 @@ const es: typeof ru = {
   },
   auth: {
     welcomeTitle: 'PlayerPro',
-    welcomeSubtitle: 'Introduce tu teléfono o email — te enviaremos un código',
+    welcomeSubtitle: 'Introduce tu teléfono o email',
     identifierPlaceholder: 'Teléfono o email',
     sendCode: 'Recibir código',
     otpTitle: 'Código de SMS/email',

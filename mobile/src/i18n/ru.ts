@@ -11,7 +11,7 @@ export default {
   },
   auth: {
     welcomeTitle: 'PlayerPro',
-    welcomeSubtitle: 'Введи телефон или почту — пришлём код',
+    welcomeSubtitle: 'Введи телефон или почту',
     identifierPlaceholder: 'Телефон или email',
     sendCode: 'Получить код',
     otpTitle: 'Код из SMS/почты',
