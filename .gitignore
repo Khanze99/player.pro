@@ -9,6 +9,9 @@ __pycache__/
 .env
 !.env.example
 
+# Живые креды Postbox — в репозиторий не попадают
+docs/smtp.md
+
 # Node / Expo
 node_modules/
 .expo/

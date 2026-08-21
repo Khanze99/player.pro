@@ -21,11 +21,13 @@ class Settings(BaseSettings):
     otp_email_channel: str = "log"
     otp_phone_channel: str = "log"
 
+    # Yandex Cloud Postbox: логин — ID API-ключа, пароль — его секрет как есть
+    # (не статический ключ доступа и без преобразования AWS4).
     smtp_host: str = ""
     smtp_port: int = 587
     smtp_user: str = ""
     smtp_password: str = ""
-    smtp_from: str = "PlayerPro <noreply@player.pro>"
+    smtp_from: str = "PlayerPro <noreply@player-pro.ru>"
     smtp_starttls: bool = True
 
     secret_key: str = "dev-secret-key-change-in-production"
