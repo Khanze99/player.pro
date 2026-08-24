@@ -25,6 +25,9 @@ class TokenPairOut(BaseModel):
     access_token: str
     refresh_token: str
     token_type: str = "bearer"
+    # Первый успешный вход в этот аккаунт: клиенту — показывать ли онбординг.
+    # Определяет сервер: только он знает, существовал ли аккаунт до этого кода.
+    is_new_user: bool = False
 
 
 class TokenRefreshIn(BaseModel):

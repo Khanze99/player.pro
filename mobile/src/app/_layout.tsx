@@ -11,14 +11,12 @@ import { Stack, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
-import { AppState } from 'react-native';
 import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
 
 import '@/i18n';
 import { api, refreshAccessToken } from '@/api/client';
-import { flushQueue } from '@/api/hooks';
 import type { Me } from '@/api/types';
-import { bootstrapSession, session } from '@/auth/session';
+import { bootstrapSession, isNewUser, session } from '@/auth/session';
 import { ToastHost } from '@/components/Toast';
 import { colors } from '@/theme';
 
@@ -37,14 +35,6 @@ function AuthGate() {
     void bootstrapSession();
   }, []);
 
-  // Офлайн-очередь: пробуем отправить накопленное при возврате в приложение
-  useEffect(() => {
-    const sub = AppState.addEventListener('change', (state) => {
-      if (state === 'active' && session.getState().status === 'active') void flushQueue();
-    });
-    return () => sub.remove();
-  }, []);
-
   useEffect(() => {
     if (status === 'loading') return;
     void SplashScreen.hideAsync();
@@ -53,19 +43,23 @@ function AuthGate() {
       if (inAuth) router.replace('/');
       return;
     }
-    // Онбординг зависит от состояния аккаунта: возвращающийся пользователь
-    // (имя уже на сервере) пропускает профиль/организацию и сразу ставит PIN
-    // на этом устройстве; новый — проходит полный флоу с имени.
+    // Регистрацию (имя → организация) показываем только тому, у кого аккаунта
+    // до этого не было: «новизну» сообщает сервер в ответе на верификацию OTP.
+    // Возвращающийся — ставит PIN на этом устройстве и идёт в приложение, даже
+    // если ФИО у него не заполнено: это правка профиля, а не повторный вход.
     const routeOnboarding = async () => {
       // Приложение перезапустили посреди онбординга: access-токена в памяти нет
       if (!session.getState().accessToken) await refreshAccessToken();
-      let target: '/(auth)/profile-setup' | '/(auth)/pin-setup' = '/(auth)/profile-setup';
-      try {
-        const me = await api<Me>('/auth/me');
-        // Фамилия+имя обязательны: у приглашённого админ мог заполнить их не полностью
-        if (me.last_name && me.first_name) target = '/(auth)/pin-setup';
-      } catch {
-        // сеть недоступна — безопасный дефолт: полный онбординг
+      let target: '/(auth)/profile-setup' | '/(auth)/pin-setup' = '/(auth)/pin-setup';
+      if (await isNewUser()) {
+        target = '/(auth)/profile-setup';
+        try {
+          const me = await api<Me>('/auth/me');
+          // Приглашённому админ мог задать ФИО — тогда спрашивать нечего
+          if (me.last_name && me.first_name) target = '/(auth)/pin-setup';
+        } catch {
+          // сеть недоступна — безопасный дефолт: полный онбординг
+        }
       }
       // Статус мог смениться, пока ждали сеть (например, signOut по 401)
       if (session.getState().status === 'onboarding') router.replace(target);

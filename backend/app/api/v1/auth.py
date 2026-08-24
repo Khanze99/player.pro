@@ -25,10 +25,10 @@ async def request_otp(data: OtpRequestIn, db: DbSession):
 
 @router.post("/otp/verify", response_model=TokenPairOut)
 async def verify_otp(data: OtpVerifyIn, db: DbSession):
-    access, refresh = await auth_service.verify_otp(
+    access, refresh, is_new_user = await auth_service.verify_otp(
         db, get_otp_store(), data.identifier, data.code, data.device_id
     )
-    return TokenPairOut(access_token=access, refresh_token=refresh)
+    return TokenPairOut(access_token=access, refresh_token=refresh, is_new_user=is_new_user)
 
 
 @router.post("/token/refresh", response_model=AccessTokenOut)

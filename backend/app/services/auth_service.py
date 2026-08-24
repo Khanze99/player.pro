@@ -78,8 +78,13 @@ async def request_otp(db: AsyncSession, store: OtpStore, identifier: str) -> str
 
 async def verify_otp(
     db: AsyncSession, store: OtpStore, identifier: str, code: str, device_id: str
-) -> tuple[str, str]:
-    """Активирует пользователя, выдаёт (access, refresh). Refresh привязан к device_id."""
+) -> tuple[str, str, bool]:
+    """Активирует пользователя, выдаёт (access, refresh, is_new_user).
+
+    Refresh привязан к device_id. `is_new_user` — первый успешный вход в аккаунт:
+    строка пользователя создаётся ещё на запросе кода, поэтому «новизну» определяет
+    статус (`pending` до первой верификации), а не наличие записи в БД.
+    """
     kind, value = normalize_identifier(identifier)
 
     if not await store.verify(value, code):
@@ -91,6 +96,7 @@ async def verify_otp(
     if user.status == UserStatus.blocked:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Аккаунт заблокирован")
 
+    is_new_user = user.status != UserStatus.active
     user.status = UserStatus.active
     if kind == "email":
         user.email_verified = True
@@ -121,7 +127,7 @@ async def verify_otp(
 
     await db.commit()
 
-    return create_access_token(user.id), raw_refresh
+    return create_access_token(user.id), raw_refresh, is_new_user
 
 
 async def _get_valid_refresh(db: AsyncSession, raw_token: str) -> RefreshToken:

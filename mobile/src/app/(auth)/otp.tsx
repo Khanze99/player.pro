@@ -6,7 +6,7 @@ import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { post } from '@/api/client';
-import { getDeviceId, saveRefreshToken, session } from '@/auth/session';
+import { getDeviceId, saveRefreshToken, session, setNewUser } from '@/auth/session';
 import { BackButton } from '@/components/BackButton';
 import { Screen } from '@/components/Screen';
 import { ScreenTitle } from '@/components/Typography';
@@ -15,6 +15,7 @@ import { colors, font, radius, spacing } from '@/theme';
 interface TokenPair {
   access_token: string;
   refresh_token: string;
+  is_new_user: boolean;
 }
 
 export default function Otp() {
@@ -32,7 +33,9 @@ export default function Otp() {
         device_id: await getDeviceId(),
       });
       await saveRefreshToken(tokens.refresh_token);
-      // Дальше онбординг: имя → организация → PIN, и только потом «Дом» (дизайн-ТЗ 6.1)
+      await setNewUser(tokens.is_new_user === true);
+      // Новый аккаунт — онбординг: имя → организация → PIN (дизайн-ТЗ 6.1).
+      // Существующий — только PIN на этом устройстве, регистрацию не повторяем.
       session.setState({ accessToken: tokens.access_token, status: 'onboarding' });
     } catch {
       setError(true);

@@ -10,6 +10,25 @@ async def test_otp_register_and_me(client):
     assert me.json()["status"] == "active"
 
 
+async def test_is_new_user_only_on_first_login(client):
+    """Онбординг клиент показывает по этому флагу: второй вход — не регистрация."""
+
+    async def verify(identifier: str, device_id: str) -> dict:
+        resp = await client.post("/api/v1/auth/otp/request", json={"identifier": identifier})
+        code = resp.json()["debug_code"]
+        resp = await client.post(
+            "/api/v1/auth/otp/verify",
+            json={"identifier": identifier, "code": code, "device_id": device_id},
+        )
+        assert resp.status_code == 200, resp.text
+        return resp.json()
+
+    assert (await verify("returning@example.com", "device-first-001"))["is_new_user"] is True
+    # То же устройство и новое (потерянный телефон) — аккаунт уже существует
+    assert (await verify("returning@example.com", "device-first-001"))["is_new_user"] is False
+    assert (await verify("returning@example.com", "device-second-02"))["is_new_user"] is False
+
+
 async def test_phone_identifier(client):
     resp = await client.post("/api/v1/auth/otp/request", json={"identifier": "+7 (912) 345-67-89"})
     assert resp.status_code == 200

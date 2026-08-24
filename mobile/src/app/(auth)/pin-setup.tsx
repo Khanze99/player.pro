@@ -4,7 +4,7 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { savePin, session } from '@/auth/session';
+import { clearNewUser, savePin, session } from '@/auth/session';
 import { BackButton } from '@/components/BackButton';
 import { PinPad } from '@/components/PinPad';
 import { Screen } from '@/components/Screen';
@@ -36,6 +36,8 @@ export default function PinSetup() {
     if (changingPin) {
       router.back();
     } else {
+      // Онбординг пройден: следующий вход на этом устройстве — уже не регистрация
+      await clearNewUser();
       session.getState().setStatus('active');
     }
   };

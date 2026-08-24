@@ -11,6 +11,7 @@ const KEYS = {
   pinHash: 'pp_pin_hash',
   deviceId: 'pp_device_id',
   pinAttempts: 'pp_pin_attempts',
+  newUser: 'pp_new_user',
 } as const;
 
 export const MAX_PIN_ATTEMPTS = 5;
@@ -53,6 +54,20 @@ export async function getDeviceId(): Promise<string> {
 export const getRefreshToken = () => secureStorage.get(KEYS.refresh);
 export const saveRefreshToken = (token: string) => secureStorage.set(KEYS.refresh, token);
 
+/**
+ * Регистрация это или вход в существующий аккаунт — решает сервер (`is_new_user`
+ * в ответе на верификацию OTP). Флаг переживает перезапуск: онбординг могут
+ * прервать на любом шаге, а угадывать «новизну» по пустому профилю нельзя —
+ * у давнего аккаунта ФИО тоже может быть не заполнено.
+ */
+export const setNewUser = (isNew: boolean) =>
+  secureStorage.set(KEYS.newUser, isNew ? '1' : '0');
+
+/** Неизвестно (флага нет) — считаем вход повторным: лишняя регистрация хуже. */
+export const isNewUser = async () => (await secureStorage.get(KEYS.newUser)) === '1';
+
+export const clearNewUser = () => secureStorage.delete(KEYS.newUser);
+
 async function hashPin(pin: string): Promise<string> {
   const deviceId = await getDeviceId(); // соль — чтобы хэш не переносился между устройствами
   return Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, `${deviceId}:${pin}`);
@@ -81,6 +96,7 @@ export async function clearSession(): Promise<void> {
   await secureStorage.delete(KEYS.refresh);
   await secureStorage.delete(KEYS.pinHash);
   await secureStorage.delete(KEYS.pinAttempts);
+  await secureStorage.delete(KEYS.newUser);
 }
 
 /** Определяет стартовое состояние при запуске приложения. */
