@@ -5,6 +5,10 @@ import os
 os.environ["OTP_STORE"] = "memory"
 os.environ["NIGHTLY_RECALC_ENABLED"] = "false"
 os.environ["DEBUG"] = "true"
+# Каналы доставки OTP — только лог: с боевым SMTP из локального .env тесты
+# уходили бы письмами на выдуманные адреса и падали по таймауту Postbox
+os.environ["OTP_EMAIL_CHANNEL"] = "log"
+os.environ["OTP_PHONE_CHANNEL"] = "log"
 # Фича-флаги фиксируем: иначе локальный .env протекал бы в тесты и они
 # начинали бы зависеть от того, что разработчик включил у себя
 os.environ["FEATURE_CYCLE_ENABLED"] = "false"
