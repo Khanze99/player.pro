@@ -31,7 +31,7 @@ export class ApiError extends Error {
   }
 }
 
-/** Сетевая ошибка (нет соединения) — сигнал для офлайн-очереди. */
+/** Сетевая ошибка: соединения нет — экран сообщает об этом и ждёт повтора. */
 export class NetworkError extends Error {}
 
 async function rawRequest(path: string, init: RequestInit): Promise<Response> {

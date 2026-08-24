@@ -26,7 +26,7 @@ export default function Welcome() {
       await post('/auth/otp/request', { identifier: identifier.trim() });
       router.push({ pathname: '/(auth)/otp', params: { identifier: identifier.trim() } });
     } catch (e) {
-      setError(e instanceof ApiError ? e.detail : t('common.offlineSaved'));
+      setError(e instanceof ApiError ? e.detail : t('common.noConnection'));
     } finally {
       setLoading(false);
     }

@@ -66,17 +66,18 @@ export default function Rpe() {
 
   const save = async () => {
     try {
-      const sent = await submit.mutateAsync({
+      await submit.mutateAsync({
         date: todayISO(),
         exertion: exertion!,
         performance: performance!,
         duration_min: duration,
         event_id: eventId,
       });
-      toast(sent ? t('common.saved') : t('common.offlineSaved'));
+      toast(t('common.saved'));
       router.back();
     } catch (e) {
-      toast(e instanceof ApiError ? e.detail : t('common.retry'));
+      // Без сети экран не закрываем: оценка остаётся на месте, отправит кнопкой
+      toast(e instanceof ApiError ? e.detail : t('common.noConnection'));
     }
   };
 

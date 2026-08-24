@@ -75,7 +75,7 @@ export default function Wellness() {
 
   const save = async () => {
     try {
-      const sent = await submit.mutateAsync({
+      await submit.mutateAsync({
         date: todayISO(),
         mood: mood!,
         energy: energy!,
@@ -91,7 +91,7 @@ export default function Wellness() {
         comment: comment.trim() ? comment.trim() : null,
         pain_points: painPoints,
       });
-      toast(sent ? t('common.saved') : t('common.offlineSaved'));
+      toast(t('common.saved'));
       router.back();
     } catch (e) {
       if (e instanceof ApiError && e.status === 409) {
@@ -99,7 +99,8 @@ export default function Wellness() {
         router.back();
         return;
       }
-      toast(e instanceof ApiError ? e.detail : t('common.retry'));
+      // Без сети экран не закрываем: ответы остаются на месте, отправит кнопкой
+      toast(e instanceof ApiError ? e.detail : t('common.noConnection'));
     }
   };
 

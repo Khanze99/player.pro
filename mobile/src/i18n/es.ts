@@ -8,7 +8,7 @@ const es: typeof ru = {
     back: 'Atrás',
     next: 'Siguiente',
     retry: 'Reintentar',
-    offlineSaved: 'Sin conexión. Guardado en el dispositivo, se enviará solo',
+    noConnection: 'Sin conexión',
     loading: 'Cargando…',
   },
   auth: {

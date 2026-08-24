@@ -39,7 +39,6 @@ import type {
   WellnessPayload,
 } from './types';
 import { daysAgoISO, localDayBounds, todayISO, tzOffsetMin } from './dates';
-import { flushQueue, postOrQueue } from '../offline/queue';
 
 export { todayISO };
 
@@ -322,11 +321,10 @@ function useInvalidateAthleteData() {
   };
 }
 
-/** true — отправлено, false — сохранено офлайн. */
 export function useSubmitWellness() {
   const invalidate = useInvalidateAthleteData();
   return useMutation({
-    mutationFn: (payload: WellnessPayload) => postOrQueue('/wellness', payload),
+    mutationFn: (payload: WellnessPayload) => post('/wellness', payload),
     onSuccess: invalidate,
   });
 }
@@ -334,7 +332,7 @@ export function useSubmitWellness() {
 export function useSubmitRpe() {
   const invalidate = useInvalidateAthleteData();
   return useMutation({
-    mutationFn: (payload: RpePayload) => postOrQueue('/rpe', payload),
+    mutationFn: (payload: RpePayload) => post('/rpe', payload),
     onSuccess: invalidate,
   });
 }
@@ -351,5 +349,3 @@ export function useUpdateMe() {
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['me'] }),
   });
 }
-
-export { flushQueue };

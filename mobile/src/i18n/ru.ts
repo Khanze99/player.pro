@@ -6,7 +6,7 @@ export default {
     back: 'Назад',
     next: 'Далее',
     retry: 'Повторить',
-    offlineSaved: 'Нет сети. Сохранено на устройстве и отправится само',
+    noConnection: 'Нет сети',
     loading: 'Загрузка…',
   },
   auth: {
