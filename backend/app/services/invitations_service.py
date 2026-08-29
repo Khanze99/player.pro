@@ -5,6 +5,7 @@ identifier — на verify приглашение консюмится (см. co
 орг/команде. Отдельный код/ссылку вводить не нужно.
 """
 
+import logging
 from datetime import UTC, datetime, timedelta
 
 from fastapi import HTTPException, status
@@ -14,11 +15,29 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
 from app.models.enums import InvitationStatus
 from app.models.invitation import Invitation
+from app.models.organization import Organization
 from app.models.team import Team, TeamMembership
 from app.models.user import User
 from app.schemas.organization import InvitationCreateIn
-from app.services import users_service
+from app.services import notify_service, users_service
 from app.services.auth_service import _find_user, normalize_identifier
+from app.services.notify_service import NotifyError
+
+logger = logging.getLogger(__name__)
+
+
+async def notify_invitee(kind: str, identifier: str, org_name: str) -> None:
+    """Письмо приглашённому — best-effort, ошибка доставки не отменяет инвайт.
+
+    Приглашение самодостаточно: человек входит обычным OTP по тому же адресу,
+    письмо лишь подсказывает, что пора это сделать. Поэтому лежащий SMTP (или
+    вовсе отсутствующий SMS-канал для телефонных инвайтов) не должен ронять
+    создание приглашения — админ увидит его в списке в любом случае.
+    """
+    try:
+        await notify_service.get_notifier(kind).send_invite(identifier, org_name)
+    except NotifyError as exc:
+        logger.warning("Не удалось уведомить приглашённого %s: %s", identifier, exc)
 
 
 async def create_invitation(db: AsyncSession, admin: User, data: InvitationCreateIn) -> Invitation:
@@ -67,6 +86,9 @@ async def create_invitation(db: AsyncSession, admin: User, data: InvitationCreat
     db.add(invitation)
     await db.commit()
     await db.refresh(invitation)
+
+    org = await db.get(Organization, admin.org_id)
+    await notify_invitee(kind, value, org.name if org else "PlayerPro")
     return invitation
 
 

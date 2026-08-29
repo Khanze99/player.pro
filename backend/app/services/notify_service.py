@@ -1,9 +1,12 @@
-"""Доставка OTP: базовый канал и его реализации (лог, почта, SMS).
+"""Доставка сообщений: базовый канал и его реализации (лог, почта, SMS).
 
 Канал выбирается конфигом отдельно для email и для телефона: на UAT-стенде обоим
 хватает лога, в проде почта уходит по SMTP, а SMS включатся, когда появится
-договор с провайдером. Сервисный слой знает только про `Notifier.send_otp` —
-смена канала не трогает ни auth-логику, ни роуты.
+договор с провайдером. Сервисный слой знает только про `Notifier.send_otp` и
+`Notifier.send_invite` — смена канала не трогает ни auth-логику, ни роуты.
+
+Формулировки живут в базовом классе: канал отвечает за доставку, а не за текст,
+иначе каждый новый тип письма пришлось бы дописывать в трёх местах.
 """
 
 import logging
@@ -22,39 +25,60 @@ class NotifyError(RuntimeError):
 
 
 class Notifier(ABC):
-    """Базовый канал. Наследник умеет одно — доставить код получателю."""
+    """Базовый канал. Наследник умеет одно — доставить сообщение получателю."""
 
     @abstractmethod
-    async def send_otp(self, recipient: str, code: str) -> None: ...
+    async def deliver(self, recipient: str, subject: str, text: str) -> None: ...
+
+    async def send_otp(self, recipient: str, code: str) -> None:
+        await self.deliver(recipient, "Код для входа в PlayerPro", self.otp_text(code))
+
+    async def send_invite(self, recipient: str, org_name: str) -> None:
+        await self.deliver(
+            recipient, f"Приглашение в «{org_name}» — PlayerPro", self.invite_text(recipient, org_name)
+        )
 
     def otp_text(self, code: str) -> str:
         minutes = max(1, settings.otp_ttl_seconds // 60)
         return f"Код для входа в PlayerPro: {code}\nДействует {minutes} мин. Никому не сообщайте этот код."
 
+    def invite_text(self, recipient: str, org_name: str) -> str:
+        """Приглашение не несёт кода: вход обычный, по OTP на этот же адрес.
+
+        Поэтому текст объясняет ровно одно — каким адресом входить. Отдельной
+        ссылки-приглашения в продукте нет и заводить её не нужно.
+        """
+        return (
+            f"Вас пригласили в «{org_name}» в PlayerPro.\n\n"
+            f"Откройте приложение и войдите по этому адресу: {recipient}\n"
+            "Код для входа придёт на эту же почту — отдельный код из письма вводить не нужно.\n\n"
+            f"Приглашение действует {settings.invite_ttl_days} дн."
+        )
+
 
 class LogNotifier(Notifier):
-    """Пишет код в лог — дев и UAT-стенд, где шлюзов ещё нет."""
+    """Пишет сообщение в лог — дев и UAT-стенд, где шлюзов ещё нет."""
 
-    async def send_otp(self, recipient: str, code: str) -> None:
-        logger.info("OTP for %s: %s", recipient, code)
+    async def deliver(self, recipient: str, subject: str, text: str) -> None:
+        logger.info("Notify %s | %s | %s", recipient, subject, text)
 
 
 class EmailNotifier(Notifier):
     """SMTP. smtplib синхронный, поэтому отправка уходит в поток: воркер uvicorn
     один (см. docs/deploy.md), и блокировка event loop подвесила бы весь API."""
 
-    def build_message(self, recipient: str, code: str) -> EmailMessage:
+    def build_message(self, recipient: str, subject: str, text: str) -> EmailMessage:
         message = EmailMessage()
         message["From"] = settings.smtp_from
         message["To"] = recipient
-        message["Subject"] = "Код для входа в PlayerPro"
-        message.set_content(self.otp_text(code))
+        message["Subject"] = subject
+        message.set_content(text)
         return message
 
-    async def send_otp(self, recipient: str, code: str) -> None:
+    async def deliver(self, recipient: str, subject: str, text: str) -> None:
         if not settings.smtp_host:
             raise NotifyError("SMTP не настроен: задайте SMTP_HOST")
-        await to_thread(self._send, self.build_message(recipient, code))
+        await to_thread(self._send, self.build_message(recipient, subject, text))
 
     def _send(self, message: EmailMessage) -> None:
         try:
@@ -79,7 +103,7 @@ class SmsNotifier(Notifier):
     остальной код не меняется.
     """
 
-    async def send_otp(self, recipient: str, code: str) -> None:
+    async def deliver(self, recipient: str, subject: str, text: str) -> None:
         raise NotifyError("SMS-канал не подключён: выберите провайдера")
 
 

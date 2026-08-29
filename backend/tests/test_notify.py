@@ -1,4 +1,4 @@
-"""Каналы доставки OTP (app/services/notify_service.py)."""
+"""Каналы доставки сообщений (app/services/notify_service.py)."""
 
 import logging
 
@@ -63,12 +63,28 @@ async def test_email_requires_smtp_host():
 
 
 def test_email_message_carries_code_and_ttl():
-    message = EmailNotifier().build_message("player@example.com", "123456")
+    notifier = EmailNotifier()
+    message = notifier.build_message("player@example.com", "Код", notifier.otp_text("123456"))
     assert message["To"] == "player@example.com"
     assert message["From"] == settings.smtp_from
     body = message.get_content()
     assert "123456" in body
     assert f"{settings.otp_ttl_seconds // 60} мин" in body
+
+
+def test_invite_text_names_org_and_login_address():
+    """Письмо должно объяснять ровно одно: каким адресом входить."""
+    text = LogNotifier().invite_text("player@example.com", "ФК Рубин")
+    assert "ФК Рубин" in text
+    assert "player@example.com" in text
+    assert f"{settings.invite_ttl_days} дн" in text
+
+
+async def test_send_invite_goes_through_channel(caplog):
+    with caplog.at_level(logging.INFO, logger="app.services.notify_service"):
+        await LogNotifier().send_invite("player@example.com", "ФК Рубин")
+    assert "Приглашение" in caplog.text
+    assert "player@example.com" in caplog.text
 
 
 async def test_request_otp_reports_delivery_failure(client):

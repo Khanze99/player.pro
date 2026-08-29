@@ -1,13 +1,31 @@
 """Инвайты: lifecycle (one-time, TTL, преднастроенная роль) + авто-head_coach при create_team."""
 
+import logging
 from datetime import UTC, datetime, timedelta
 
+import pytest
 from sqlalchemy import select
 
+from app.config import settings
 from app.models.enums import InvitationStatus, TeamRole
 from app.models.invitation import Invitation
 from app.models.team import TeamMembership
+from app.services.notify_service import reset_notifiers
 from tests.conftest import register_user
+
+
+@pytest.fixture
+def email_channel():
+    """Канал доставки — глобальная настройка: возвращаем как было после теста."""
+
+    def apply(kind: str) -> None:
+        settings.otp_email_channel = kind
+        reset_notifiers()
+
+    original = settings.otp_email_channel
+    yield apply
+    settings.otp_email_channel = original
+    reset_notifiers()
 
 
 async def _make_admin_with_team(client):
@@ -112,3 +130,33 @@ async def test_expired_invite_not_consumed(client, db):
 
     await db.refresh(invitation)
     assert invitation.status == InvitationStatus.expired
+
+
+async def test_invite_notifies_invitee(client, caplog, email_channel):
+    """Приглашённому уходит письмо с названием клуба и адресом для входа."""
+    email_channel("log")
+    admin, _org, _team = await _make_admin_with_team(client)
+    with caplog.at_level(logging.INFO, logger="app.services.notify_service"):
+        inv = await client.post(
+            "/api/v1/organizations/invites",
+            json={"identifier": "newcomer@example.com", "global_role": "player"},
+            headers=admin["headers"],
+        )
+    assert inv.status_code == 201, inv.text
+    assert "newcomer@example.com" in caplog.text
+    assert "FC Test" in caplog.text
+
+
+async def test_invite_survives_delivery_failure(client, caplog, email_channel):
+    """Лежащий канал доставки не отменяет приглашение: вход по OTP работает и без письма."""
+    admin, _org, _team = await _make_admin_with_team(client)
+    email_channel("sms")  # ломаем канал уже после входа админа: sms не подключён
+    with caplog.at_level(logging.WARNING, logger="app.services.invitations_service"):
+        inv = await client.post(
+            "/api/v1/organizations/invites",
+            json={"identifier": "newcomer@example.com", "global_role": "player"},
+            headers=admin["headers"],
+        )
+    assert inv.status_code == 201, inv.text
+    assert inv.json()["status"] == "pending"
+    assert "Не удалось уведомить" in caplog.text
