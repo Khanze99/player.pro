@@ -166,8 +166,6 @@ const en: typeof ru = {
     hrFlag: 'HR',
     empty: 'No players in the team yet',
     emptyHint: 'Send invites — players will appear here after their first sign-in',
-    invite: 'Invite to club',
-    inviteHint: 'Player, coach, medic or admin',
     availability: {
       full: 'Available',
       modified: 'Modified',
@@ -221,6 +219,7 @@ const en: typeof ru = {
     language: 'Language',
     privacy: 'Privacy and data',
     cycle: 'Cycle',
+    invite: 'Invite to club',
     changePin: 'Change PIN',
     logout: 'Log out',
     lastName: 'Last name',

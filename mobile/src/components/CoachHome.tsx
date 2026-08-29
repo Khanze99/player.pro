@@ -1,16 +1,14 @@
 // «Дом» тренера/админа: Squad Status — состояние состава на сегодня (раздел 3.2 ТЗ).
-// Красные зоны сервер сортирует наверх; админ отсюда же приглашает людей в клуб.
+// Красные зоны сервер сортирует наверх. Приглашения в клуб живут в профиле:
+// это админское действие, а не часть ежедневной картины состава.
 
 import { useQueryClient } from '@tanstack/react-query';
-import { useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
-import { useMe, useMyTeams, useSquadStatus } from '@/api/hooks';
+import { useMyTeams, useSquadStatus } from '@/api/hooks';
 import type { SquadPlayer } from '@/api/types';
-import { ActionCard } from '@/components/ActionCard';
-import { BoltIcon } from '@/components/Icons';
 import { Screen } from '@/components/Screen';
 import { StatTile } from '@/components/StatTile';
 import { ScreenTitle } from '@/components/Typography';
@@ -75,17 +73,14 @@ function PlayerRow({ player, last }: { player: SquadPlayer; last: boolean }) {
 
 export function CoachHome() {
   const { t, i18n } = useTranslation();
-  const router = useRouter();
   const qc = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
   const [teamId, setTeamId] = useState<string | null>(null);
 
-  const me = useMe();
   const teams = useMyTeams();
   const activeTeamId = teamId ?? teams.data?.[0]?.id;
   const squad = useSquadStatus(activeTeamId);
 
-  const isAdmin = me.data?.global_role === 'admin';
   const players = squad.data?.players ?? [];
   const readyCount = players.filter((p) => p.readiness_zone === 'green').length;
   const riskCount = players.filter((p) => p.readiness_zone === 'red' || p.active_injury).length;
@@ -154,17 +149,6 @@ export function CoachHome() {
             <Text style={styles.emptyHint}>{t('coach.emptyHint')}</Text>
           </View>
         )}
-
-        {isAdmin && (
-          <View style={styles.actions}>
-            <ActionCard
-              icon={<BoltIcon color={colors.brand} />}
-              title={t('coach.invite')}
-              hint={t('coach.inviteHint')}
-              onPress={() => router.push('/invite')}
-            />
-          </View>
-        )}
       </ScrollView>
     </Screen>
   );
@@ -208,7 +192,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     maxWidth: 280,
   },
-  actions: { marginTop: spacing.xl },
 });
 
 const rowStyles = StyleSheet.create({

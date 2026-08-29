@@ -166,8 +166,6 @@ const es: typeof ru = {
     hrFlag: 'Pulso',
     empty: 'Aún no hay jugadores en el equipo',
     emptyHint: 'Envía invitaciones — los jugadores aparecerán aquí tras su primer acceso',
-    invite: 'Invitar al club',
-    inviteHint: 'Jugador, entrenador, médico o admin',
     availability: {
       full: 'Disponible',
       modified: 'Limitado',
@@ -221,6 +219,7 @@ const es: typeof ru = {
     language: 'Idioma',
     privacy: 'Privacidad y datos',
     cycle: 'Ciclo',
+    invite: 'Invitar al club',
     changePin: 'Cambiar PIN',
     logout: 'Salir',
     lastName: 'Apellido',

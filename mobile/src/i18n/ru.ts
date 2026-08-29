@@ -164,8 +164,6 @@ export default {
     hrFlag: 'Пульс',
     empty: 'В команде пока нет игроков',
     emptyHint: 'Отправь приглашения — игроки появятся здесь после первого входа',
-    invite: 'Пригласить в клуб',
-    inviteHint: 'Игрок, тренер, врач или админ',
     availability: {
       full: 'В строю',
       modified: 'Ограничен',
@@ -219,6 +217,7 @@ export default {
     language: 'Язык',
     privacy: 'Приватность и данные',
     cycle: 'Цикл',
+    invite: 'Пригласить в клуб',
     changePin: 'Сменить PIN',
     logout: 'Выйти',
     lastName: 'Фамилия',

@@ -1,4 +1,6 @@
 // Профиль (дизайн-ТЗ 5.6): ФИО, команда, язык RU/EN/ES, смена PIN, выход.
+// Здесь же приглашение в клуб — админское действие над организацией, ему не место
+// на «доме» тренера рядом с ежедневным состоянием состава.
 
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
@@ -47,6 +49,7 @@ export default function Profile() {
   }
 
   const teamName = teams.data?.[0]?.name;
+  const isAdmin = me.data?.global_role === 'admin';
 
   // Фамилию и имя не даём стереть: сервер соберёт из них name для ростера
   const savePart = (field: keyof typeof fio) => () => {
@@ -133,6 +136,12 @@ export default function Profile() {
         </View>
 
         <View style={styles.rows}>
+          {isAdmin ? (
+            <Pressable style={styles.row} accessibilityRole="button" onPress={() => router.push('/invite')}>
+              <Text style={styles.rowText}>{t('profile.invite')}</Text>
+              <ChevronIcon color={colors.textMuted} />
+            </Pressable>
+          ) : null}
           <Pressable
             style={styles.row}
             accessibilityRole="button"
