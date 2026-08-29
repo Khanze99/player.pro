@@ -15,14 +15,26 @@ import { Field } from '@/components/Field';
 import { CloseIcon } from '@/components/Icons';
 import { OptionChips } from '@/components/OptionChips';
 import { Screen } from '@/components/Screen';
-import { Stepper } from '@/components/Stepper';
+import { TimeField } from '@/components/TimeField';
 import { useToast } from '@/components/Toast';
 import { MicroLabel, ScreenTitle } from '@/components/Typography';
 import { colors, font, spacing } from '@/theme';
 
 const TEAM_TYPES: readonly EventType[] = ['training', 'match', 'other'];
 const PERSONAL_TYPES: readonly EventType[] = ['individual', 'other'];
-const MINUTES = ['00', '15', '30', '45'] as const;
+
+const DEFAULT_START_HOUR = 18;
+const DEFAULT_DURATION_MIN = 90;
+const MAX_DURATION_MIN = 600; // столько же принимает бэкенд (EventCreateIn)
+
+const atTime = (dayISO: string, hour: number, minute: number) => {
+  const [y, m, d] = dayISO.split('-').map(Number);
+  return new Date(y, m - 1, d, hour, minute);
+};
+
+const addMinutes = (date: Date, minutes: number) => new Date(date.getTime() + minutes * 60_000);
+
+const minutesBetween = (from: Date, to: Date) => Math.round((to.getTime() - from.getTime()) / 60_000);
 
 export default function EventCreate() {
   const { t, i18n } = useTranslation();
@@ -37,17 +49,45 @@ export default function EventCreate() {
   const isStaff = me.data != null && me.data.global_role !== 'player';
   const types = isStaff ? TEAM_TYPES : PERSONAL_TYPES;
 
+  const day = date ?? toLocalISO(new Date());
+
   const [type, setType] = useState<EventType>(isStaff ? 'training' : 'individual');
   const [title, setTitle] = useState('');
   const [teamId, setTeamId] = useState<string | null>(null);
-  const [hour, setHour] = useState(18);
-  const [minute, setMinute] = useState(0);
-  const [duration, setDuration] = useState(90);
+  const [start, setStart] = useState(() => atTime(day, DEFAULT_START_HOUR, 0));
+  const [end, setEnd] = useState(() =>
+    addMinutes(atTime(day, DEFAULT_START_HOUR, 0), DEFAULT_DURATION_MIN),
+  );
   const [error, setError] = useState<string | null>(null);
 
-  const day = date ?? toLocalISO(new Date());
   const activeTeamId = teamId ?? teams.data?.[0]?.id ?? null;
-  const canSubmit = !isStaff || activeTeamId != null;
+  const duration = minutesBetween(start, end);
+  // Пикер отдаёт только часы и минуты, так что «до» раньше «от» — это тот же день,
+  // а не переход через полночь: событий на две даты в MVP нет
+  const timeError =
+    duration < 1
+      ? t('eventCreate.endBeforeStart')
+      : duration > MAX_DURATION_MIN
+        ? t('eventCreate.tooLong')
+        : null;
+  const canSubmit = (!isStaff || activeTeamId != null) && timeError === null;
+
+  const durationText = [
+    Math.floor(duration / 60) > 0 ? `${Math.floor(duration / 60)} ${t('eventCreate.hoursShort')}` : '',
+    duration % 60 > 0 ? `${duration % 60} ${t('eventCreate.minutesShort')}` : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
+
+  /** Дату берём из календаря, из пикера — только часы и минуты. */
+  const onDay = (value: Date) => atTime(day, value.getHours(), value.getMinutes());
+
+  /** Сдвиг начала тянет конец за собой: длительность обычно уже правильная. */
+  const changeStart = (value: Date) => {
+    const next = onDay(value);
+    if (duration >= 1) setEnd(addMinutes(next, duration));
+    setStart(next);
+  };
 
   const dateLabel = new Date(`${day}T12:00:00`)
     .toLocaleDateString(i18n.language, { weekday: 'long', day: 'numeric', month: 'long' })
@@ -55,8 +95,6 @@ export default function EventCreate() {
 
   const submit = () => {
     setError(null);
-    const [y, m, d] = day.split('-').map(Number);
-    const start = new Date(y, m - 1, d, hour, minute);
     createEvent.mutate(
       {
         team_id: isStaff ? activeTeamId : null,
@@ -124,24 +162,15 @@ export default function EventCreate() {
         />
 
         <View style={styles.section}>
-          <MicroLabel>{t('eventCreate.timeLabel')}</MicroLabel>
-          <View style={styles.timeRow}>
-            <Stepper value={hour} onChange={setHour} step={1} min={5} max={23} />
-            <Text style={styles.timePreview}>
-              {`${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`}
-            </Text>
-          </View>
-          <OptionChips
-            options={MINUTES}
-            value={String(minute).padStart(2, '0') as (typeof MINUTES)[number]}
-            onSelect={(v) => v && setMinute(Number(v))}
-            labelFor={(v) => `:${v}`}
+          <TimeField label={t('eventCreate.startLabel')} value={start} onChange={changeStart} />
+          <TimeField
+            label={t('eventCreate.endLabel')}
+            value={end}
+            onChange={(value) => setEnd(onDay(value))}
           />
-        </View>
-
-        <View style={styles.section}>
-          <MicroLabel>{t('eventCreate.durationLabel')}</MicroLabel>
-          <Stepper value={duration} onChange={setDuration} step={15} min={15} max={240} />
+          <Text style={timeError ? styles.error : styles.hint}>
+            {timeError ?? t('eventCreate.durationHint', { text: durationText })}
+          </Text>
         </View>
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
@@ -170,18 +199,7 @@ const styles = StyleSheet.create({
   },
   close: { padding: spacing.xs },
   section: { gap: spacing.s },
-  timeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: spacing.s,
-  },
-  timePreview: {
-    fontFamily: font.display,
-    fontSize: 22,
-    color: colors.brand,
-    fontVariant: ['tabular-nums'],
-  },
+  hint: { fontFamily: font.medium, fontSize: 13, color: colors.textMuted },
   error: { fontFamily: font.medium, fontSize: 13, color: colors.risk },
   footer: { padding: spacing.screen },
 });
