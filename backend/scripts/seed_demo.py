@@ -24,7 +24,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from sqlalchemy import delete, select  # noqa: E402
 
 from app.database import AsyncSessionLocal  # noqa: E402
+from app.models.audit import AuditLog  # noqa: E402
 from app.models.availability import AvailabilityRecord  # noqa: E402
+from app.models.consent import DataConsent  # noqa: E402
+from app.models.cycle import CycleLog, CycleSettings, CycleSymptomLog  # noqa: E402
 from app.models.enums import (  # noqa: E402
     AttendanceStatus,
     AvailabilityStatus,
@@ -41,7 +44,10 @@ from app.models.enums import (  # noqa: E402
 )
 from app.models.event import Attendance, Event  # noqa: E402
 from app.models.injury import InjuryRecord  # noqa: E402
+from app.models.invitation import Invitation  # noqa: E402
 from app.models.metric import DailyMetric, Streak  # noqa: E402
+from app.models.notification import Notification  # noqa: E402
+from app.models.nutrition import FoodItem, FoodLogEntry, NutritionTarget  # noqa: E402
 from app.models.organization import Organization  # noqa: E402
 from app.models.rpe import RpeEntry  # noqa: E402
 from app.models.team import Team, TeamMembership  # noqa: E402
@@ -302,8 +308,40 @@ def wellness_band(kind: str, rng: random.Random) -> str:
     return rng.choices(["green", "yellow", "red"], weights=[6, 3, 1])[0]
 
 
+# Всё, что ссылается на пользователя: (модель, колонка). Список обязан покрывать
+# каждый FK на `users` — иначе --reset падает на ForeignKeyViolation. Добавил новую
+# таблицу с user_id — допиши сюда, иначе сид перестанет пересоздаваться.
+DEMO_OWNED: tuple[tuple[type, str], ...] = (
+    (DailyMetric, "athlete_id"),
+    (Streak, "athlete_id"),
+    (RpeEntry, "athlete_id"),
+    (WellnessEntry, "athlete_id"),
+    (AvailabilityRecord, "athlete_id"),
+    (AvailabilityRecord, "set_by"),
+    (InjuryRecord, "athlete_id"),
+    (InjuryRecord, "created_by"),
+    (CycleLog, "athlete_id"),
+    (CycleSettings, "user_id"),
+    (FoodLogEntry, "athlete_id"),
+    (FoodItem, "created_by"),  # только custom-продукты автора, у curated created_by=NULL
+    (NutritionTarget, "user_id"),
+    (DataConsent, "athlete_id"),
+    (Notification, "user_id"),
+    (AuditLog, "actor_id"),
+    (Invitation, "invited_by"),
+    (RefreshToken, "user_id"),
+    (Attendance, "user_id"),
+    (TeamMembership, "user_id"),
+    (AthleteProfile, "user_id"),
+)
+
+
 async def wipe_demo(db) -> int:
-    """Удаляет прошлый сид целиком: игроков демо-домена и все их данные."""
+    """Удаляет прошлый сид целиком: игроков демо-домена и все их данные.
+
+    Порядок такой: сначала то, что ссылается на записи игрока (симптомы цикла,
+    посещаемость событий), затем сами записи по DEMO_OWNED, и только потом users.
+    """
     demo_ids = list((await db.execute(select(User.id).where(User.email.like(f"%@{DEMO_DOMAIN}")))).scalars())
     if not demo_ids:
         return 0
@@ -314,22 +352,16 @@ async def wipe_demo(db) -> int:
         await db.execute(delete(RpeEntry).where(RpeEntry.event_id.in_(demo_events)))
         await db.execute(delete(Event).where(Event.id.in_(demo_events)))
 
-    for model in (
-        DailyMetric,
-        Streak,
-        RpeEntry,
-        WellnessEntry,
-        AvailabilityRecord,
-        InjuryRecord,
-        AthleteProfile,
-    ):
-        column = model.user_id if model is AthleteProfile else model.athlete_id
-        await db.execute(delete(model).where(column.in_(demo_ids)))
+    # Симптомы цикла висят на cycle_logs, а не на игроке напрямую
+    demo_cycle_logs = list(
+        (await db.execute(select(CycleLog.id).where(CycleLog.athlete_id.in_(demo_ids)))).scalars()
+    )
+    if demo_cycle_logs:
+        await db.execute(delete(CycleSymptomLog).where(CycleSymptomLog.log_id.in_(demo_cycle_logs)))
 
-    await db.execute(delete(InjuryRecord).where(InjuryRecord.created_by.in_(demo_ids)))
-    await db.execute(delete(RefreshToken).where(RefreshToken.user_id.in_(demo_ids)))
-    await db.execute(delete(Attendance).where(Attendance.user_id.in_(demo_ids)))
-    await db.execute(delete(TeamMembership).where(TeamMembership.user_id.in_(demo_ids)))
+    for model, column in DEMO_OWNED:
+        await db.execute(delete(model).where(getattr(model, column).in_(demo_ids)))
+
     await db.execute(delete(User).where(User.id.in_(demo_ids)))
     await db.commit()
     return len(demo_ids)
