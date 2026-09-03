@@ -50,6 +50,17 @@ const en: typeof ru = {
     guideNext: 'Next',
     guideDone: 'Got it',
   },
+  consent: {
+    title: 'Before you start',
+    intro: "This is a legal requirement (152-FZ) - you can't use the app without both.",
+    termsPrefix: 'I accept the ',
+    termsLink: 'Terms of Use',
+    termsMiddle: ' and consent to the processing of my personal data under the ',
+    privacyLink: 'Privacy Policy',
+    termsSuffix: '.',
+    health: 'I consent to the processing of data about my wellness, training load and readiness (a special category of personal data) for the purpose of providing the app’s features.',
+    continue: 'Accept and continue',
+  },
   home: {
     greeting: 'Hi, {{name}}!',
     greetingNoName: 'Hi!',
@@ -397,6 +408,11 @@ const en: typeof ru = {
     revoked: 'Access closed',
     legal: 'This is a special category of personal data (152-FZ, art. 10). Data is stored on club servers and never shared with third parties. Withdrawing consent closes access immediately.',
     policyVersion: 'Consent version',
+  },
+  legalDocs: {
+    termsTitle: 'Terms of Use',
+    privacyPolicyTitle: 'Privacy Policy',
+    draftBanner: 'Draft document. Requires legal review before publication.',
   },
   dashboard: {
     title: 'Dashboard',

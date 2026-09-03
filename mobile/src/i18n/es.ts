@@ -50,6 +50,17 @@ const es: typeof ru = {
     guideNext: 'Siguiente',
     guideDone: 'Entendido',
   },
+  consent: {
+    title: 'Antes de empezar',
+    intro: 'Es un requisito legal (152-FZ) - no puedes usar la app sin ambos consentimientos.',
+    termsPrefix: 'Acepto el ',
+    termsLink: 'Acuerdo de Usuario',
+    termsMiddle: ' y doy mi consentimiento para el tratamiento de mis datos personales conforme a la ',
+    privacyLink: 'Política de Privacidad',
+    termsSuffix: '.',
+    health: 'Doy mi consentimiento para el tratamiento de datos sobre mi bienestar, carga de entrenamiento y preparación (categoría especial de datos personales) con el fin de prestar las funciones de la app.',
+    continue: 'Aceptar y continuar',
+  },
   home: {
     greeting: '¡Hola, {{name}}!',
     greetingNoName: '¡Hola!',
@@ -397,6 +408,11 @@ const es: typeof ru = {
     revoked: 'Acceso cerrado',
     legal: 'Categoría especial de datos personales (152-FZ, art. 10). Los datos se guardan en servidores del club y no se comparten con terceros. Retirar el consentimiento cierra el acceso de inmediato.',
     policyVersion: 'Versión del consentimiento',
+  },
+  legalDocs: {
+    termsTitle: 'Acuerdo de Usuario',
+    privacyPolicyTitle: 'Política de Privacidad',
+    draftBanner: 'Documento borrador. Requiere revisión legal antes de publicarse.',
   },
   dashboard: {
     title: 'Panel',

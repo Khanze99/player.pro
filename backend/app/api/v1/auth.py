@@ -43,5 +43,5 @@ async def logout(data: LogoutIn, db: DbSession):
 
 
 @router.get("/me", response_model=MeOut)
-async def me(user: CurrentUser):
-    return user
+async def me(user: CurrentUser, db: DbSession):
+    return await auth_service.build_me_out(db, user)

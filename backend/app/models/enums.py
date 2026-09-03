@@ -42,6 +42,14 @@ class ConsentAudience(str, enum.Enum):
     coach = "coach"
 
 
+class PolicyConsentKind(str, enum.Enum):
+    """Юридический гейт при регистрации (152-ФЗ): бинарное принял/не принял,
+    без audience-лестницы — не путать с ConsentScope/ConsentAudience (DataConsent)."""
+
+    terms = "terms"
+    health_data = "health_data"
+
+
 class CyclePhase(str, enum.Enum):
     """Фаза цикла. suppressed — гормональная контрацепция подавляет естественный цикл,
     фазы в привычном смысле нет; unknown — данных недостаточно для расчёта."""

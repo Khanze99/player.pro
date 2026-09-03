@@ -15,6 +15,8 @@ export interface Me {
   phone: string | null;
   email: string | null;
   status: string;
+  terms_accepted: boolean;
+  health_consent_accepted: boolean;
 }
 
 export interface DailyMetric {
@@ -351,6 +353,21 @@ export interface Consent {
 export interface ConsentList {
   policy_version: string;
   consents: Consent[];
+}
+
+// Гейт согласий при регистрации (backend/app/schemas/policy_consent.py) — ДРУГОЙ примитив,
+// чем Consent/ConsentList выше: бинарный accept/revoke, а не audience-лестница «кому открыто».
+export type PolicyConsentKind = 'terms' | 'health_data';
+
+export interface PolicyConsentStatus {
+  granted: boolean;
+  policy_version: string | null;
+  granted_at: string | null;
+}
+
+export interface PolicyConsents {
+  terms: PolicyConsentStatus;
+  health_data: PolicyConsentStatus;
 }
 
 // Цикл (backend/app/schemas/cycle.py). Спецкатегория — доступ только по согласию.

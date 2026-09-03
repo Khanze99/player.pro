@@ -19,6 +19,8 @@ import type {
   ConsentAudience,
   ConsentList,
   ConsentScope,
+  PolicyConsentKind,
+  PolicyConsents,
   AttendanceStatus,
   AvailabilitySummary,
   CalendarEvent,
@@ -113,6 +115,19 @@ export function useSetConsent() {
     mutationFn: (payload: { scope: ConsentScope; audience: ConsentAudience }) =>
       api<Consent>('/consents/me', { method: 'PUT', body: JSON.stringify(payload) }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['consents'] }),
+  });
+}
+
+// Гейт согласий при регистрации (ToS + спецкатегория здоровья) — см. docs/plan-onboarding-consent.md.
+export const usePolicyConsents = () =>
+  useQuery({ queryKey: ['policy-consents'], queryFn: () => api<PolicyConsents>('/consents/policy') });
+
+export function useSetPolicyConsent() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: { kind: PolicyConsentKind; granted: boolean }) =>
+      api<PolicyConsents>('/consents/policy', { method: 'PUT', body: JSON.stringify(payload) }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['policy-consents'] }),
   });
 }
 

@@ -57,3 +57,7 @@ class MeOut(BaseModel):
     phone: str | None
     email: str | None
     status: UserStatus
+    # Юридический гейт онбординга (152-ФЗ ст. 9/10) — считается независимо по
+    # каждому kind, см. policy_consent_service.status_for.
+    terms_accepted: bool
+    health_consent_accepted: bool

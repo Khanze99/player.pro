@@ -7,14 +7,15 @@ from app.core import authz
 from app.models.enums import Sex
 from app.schemas.auth import MeOut
 from app.schemas.user import AthleteProfileIn, AthleteProfileOut, UserUpdateIn
-from app.services import users_service
+from app.services import auth_service, users_service
 
 router = APIRouter(prefix="/users", tags=["users"])
 
 
 @router.patch("/me", response_model=MeOut)
 async def update_me(data: UserUpdateIn, user: CurrentUser, db: DbSession):
-    return await users_service.update_me(db, user, data)
+    updated = await users_service.update_me(db, user, data)
+    return await auth_service.build_me_out(db, updated)
 
 
 @router.get("/me/profile", response_model=AthleteProfileOut)

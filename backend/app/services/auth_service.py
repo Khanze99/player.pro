@@ -14,8 +14,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
 from app.core.otp import OtpStore
 from app.core.security import create_access_token, generate_otp_code, generate_refresh_token, hash_token
-from app.models.enums import UserStatus
+from app.models.enums import PolicyConsentKind, UserStatus
 from app.models.user import RefreshToken, User
+from app.schemas.auth import MeOut
+from app.services import policy_consent_service
 from app.services.notify_service import NotifyError, get_notifier
 
 logger = logging.getLogger(__name__)
@@ -161,3 +163,24 @@ async def logout(db: AsyncSession, raw_token: str) -> None:
     if token is not None:
         token.revoked = True
         await db.commit()
+
+
+async def build_me_out(db: AsyncSession, user: User) -> MeOut:
+    """Профиль + статус юридического гейта — единый ответ для клиентского
+    роутинга онбординга (docs/plan-onboarding-consent.md), без похода в
+    /consents/policy отдельным запросом."""
+    consent_status = await policy_consent_service.status_for(db, user.id)
+    return MeOut(
+        id=user.id,
+        last_name=user.last_name,
+        first_name=user.first_name,
+        middle_name=user.middle_name,
+        locale=user.locale,
+        global_role=user.global_role,
+        org_id=user.org_id,
+        phone=user.phone,
+        email=user.email,
+        status=user.status,
+        terms_accepted=consent_status[PolicyConsentKind.terms].granted,
+        health_consent_accepted=consent_status[PolicyConsentKind.health_data].granted,
+    )

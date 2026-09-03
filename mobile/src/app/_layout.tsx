@@ -50,15 +50,20 @@ function AuthGate() {
     const routeOnboarding = async () => {
       // Приложение перезапустили посреди онбординга: access-токена в памяти нет
       if (!session.getState().accessToken) await refreshAccessToken();
-      let target: '/(auth)/profile-setup' | '/(auth)/pin-setup' = '/(auth)/pin-setup';
+      let target: '/(auth)/consent' | '/(auth)/profile-setup' | '/(auth)/pin-setup' = '/(auth)/pin-setup';
       if (await isNewUser()) {
-        target = '/(auth)/profile-setup';
+        // Безопасный дефолт для нового пользователя — самый ранний незавершённый шаг:
+        // без обоих согласий (152-ФЗ, docs/plan-onboarding-consent.md) дальше пускать нельзя,
+        // сервер и сам это отклонит на любом эндпоинте кроме auth/consents.
+        target = '/(auth)/consent';
         try {
           const me = await api<Me>('/auth/me');
-          // Приглашённому админ мог задать ФИО — тогда спрашивать нечего
-          if (me.last_name && me.first_name) target = '/(auth)/pin-setup';
+          if (me.terms_accepted && me.health_consent_accepted) {
+            // Согласия уже даны — приглашённому админ мог задать ФИО, тогда спрашивать нечего
+            target = me.last_name && me.first_name ? '/(auth)/pin-setup' : '/(auth)/profile-setup';
+          }
         } catch {
-          // сеть недоступна — безопасный дефолт: полный онбординг
+          // сеть недоступна — оставляем самый ранний шаг
         }
       }
       // Статус мог смениться, пока ждали сеть (например, signOut по 401)
@@ -125,6 +130,8 @@ function AppStack() {
         <Stack.Screen name="food-add" options={{ presentation: 'modal' }} />
         <Stack.Screen name="food-create" options={{ presentation: 'modal' }} />
         <Stack.Screen name="privacy" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="terms" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="privacy-policy" options={{ presentation: 'modal' }} />
         <Stack.Screen name="cycle" options={{ presentation: 'modal' }} />
       </Stack>
       <ToastHost />

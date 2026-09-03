@@ -70,7 +70,14 @@ async def db():
 
 
 async def register_user(client: AsyncClient, identifier: str, device_id: str = "test-device-0001") -> dict:
-    """OTP-флоу целиком; возвращает {"access", "refresh", "user_id", "headers"}."""
+    """OTP-флоу целиком + юридический гейт согласий; возвращает
+    {"access", "refresh", "user_id", "headers"}.
+
+    Большинству тестов нужен полностью прошедший онбординг пользователь —
+    require_consented (docs/plan-onboarding-consent.md) иначе блокирует все
+    эндпоинты кроме auth/consent. Сценарии «согласие не дано» — отдельные
+    тесты самого гейта, не через этот фикстурный хелпер.
+    """
     resp = await client.post("/api/v1/auth/otp/request", json={"identifier": identifier})
     assert resp.status_code == 200, resp.text
     code = resp.json()["debug_code"]
@@ -81,6 +88,11 @@ async def register_user(client: AsyncClient, identifier: str, device_id: str = "
     assert resp.status_code == 200, resp.text
     tokens = resp.json()
     headers = {"Authorization": f"Bearer {tokens['access_token']}"}
+    for kind in ("terms", "health_data"):
+        resp = await client.put(
+            "/api/v1/consents/policy", json={"kind": kind, "granted": True}, headers=headers
+        )
+        assert resp.status_code == 200, resp.text
     me = await client.get("/api/v1/auth/me", headers=headers)
     assert me.status_code == 200, me.text
     return {
