@@ -3,7 +3,7 @@
 
 import { StyleSheet, Text, View } from 'react-native';
 
-import { colors, font, radius, spacing } from '../theme';
+import { spacing, type Theme, useStyles } from '../theme';
 
 interface Props {
   label: string;
@@ -11,6 +11,7 @@ interface Props {
 }
 
 export function Chip({ label, dotColor }: Props) {
+  const styles = useStyles(makeStyles);
   return (
     <View style={styles.chip}>
       <View
@@ -24,15 +25,15 @@ export function Chip({ label, dotColor }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (th: Theme) => StyleSheet.create({
   chip: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.s,
-    backgroundColor: colors.surface,
+    backgroundColor: th.surface,
     borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.chip,
+    borderColor: th.border,
+    borderRadius: th.radius.chip,
     paddingHorizontal: spacing.m,
     paddingVertical: 7,
   },
@@ -45,5 +46,5 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 0 },
     elevation: 3,
   },
-  label: { fontFamily: font.semibold, fontSize: 10.5, color: colors.text, letterSpacing: 1 },
+  label: { fontFamily: th.font.semibold, fontSize: 10.5, color: th.text, letterSpacing: 1 },
 });

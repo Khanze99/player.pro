@@ -27,7 +27,7 @@ import { OptionChips } from '@/components/OptionChips';
 import { Screen } from '@/components/Screen';
 import { useToast } from '@/components/Toast';
 import { MicroLabel, ScreenTitle } from '@/components/Typography';
-import { colors, font, radius, spacing } from '@/theme';
+import { spacing, type Theme, useStyles, useTheme } from '@/theme';
 
 const KINDS: readonly CustomFoodKind[] = ['homemade', 'new_product', 'restaurant', 'other'];
 const CATEGORIES: readonly FoodCategory[] = [
@@ -53,6 +53,8 @@ const num = (value: string) => {
 };
 
 export default function FoodCreate() {
+  const th = useTheme();
+  const styles = useStyles(makeStyles);
   const { t } = useTranslation();
   const router = useRouter();
   const toast = useToast((s) => s.show);
@@ -110,7 +112,7 @@ export default function FoodCreate() {
               accessibilityLabel={t('common.cancel')}
               style={styles.close}
             >
-              <CloseIcon color={colors.textMuted} />
+              <CloseIcon color={th.textMuted} />
             </Pressable>
           </View>
 
@@ -189,7 +191,7 @@ export default function FoodCreate() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (th: Theme) => StyleSheet.create({
   flex: { flex: 1 },
   content: { padding: spacing.screen, gap: spacing.l, paddingBottom: spacing.l },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
@@ -197,14 +199,14 @@ const styles = StyleSheet.create({
   section: { gap: spacing.s },
   macroRow: { flexDirection: 'row', gap: spacing.s },
   macroCell: { flex: 1 },
-  hint: { fontFamily: font.regular, fontSize: 12, color: colors.textMuted },
-  error: { fontFamily: font.medium, fontSize: 13, color: colors.risk },
+  hint: { fontFamily: th.font.regular, fontSize: 12, color: th.textMuted },
+  error: { fontFamily: th.font.medium, fontSize: 13, color: th.risk },
   footer: {
     padding: spacing.screen,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.border,
-    backgroundColor: colors.bg,
-    borderTopLeftRadius: radius.card,
-    borderTopRightRadius: radius.card,
+    borderTopColor: th.border,
+    backgroundColor: th.bg,
+    borderTopLeftRadius: th.radius.card,
+    borderTopRightRadius: th.radius.card,
   },
 });

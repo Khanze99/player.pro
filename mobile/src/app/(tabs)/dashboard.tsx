@@ -18,11 +18,12 @@ import type {
   TeamInjury,
   TeamSummary,
 } from '@/api/types';
+import { TeamBadge } from '@/components/TeamBadge';
 import { Donut } from '@/components/Donut';
 import { Screen } from '@/components/Screen';
 import { Segmented } from '@/components/Segmented';
 import { MicroLabel, ScreenTitle } from '@/components/Typography';
-import { colors, eventTypeColor, font, loadZoneColor, radius, readinessColor, spacing } from '@/theme';
+import { eventTypeColor, loadZoneColor, readinessColor, spacing, type Theme, useStyles, useTheme } from '@/theme';
 
 type Section = 'summary' | 'status' | 'injuries';
 type StatusTab = 'readiness' | 'load' | 'performance' | 'availability';
@@ -37,6 +38,7 @@ const zoneColor = (zone: string) =>
     : readinessColor(zone);
 
 function Card({ title, children }: { title?: string; children: React.ReactNode }) {
+  const styles = useStyles(makeStyles);
   return (
     <View style={styles.card}>
       {title ? <MicroLabel>{title}</MicroLabel> : null}
@@ -46,6 +48,7 @@ function Card({ title, children }: { title?: string; children: React.ReactNode }
 }
 
 function GaugeRow({ summary }: { summary: TeamSummary }) {
+  const styles = useStyles(makeStyles);
   const { t } = useTranslation();
   const gauge = (key: 'readiness' | 'load' | 'performance' | 'availability') => summary[key];
 
@@ -83,6 +86,8 @@ function GaugeRow({ summary }: { summary: TeamSummary }) {
 }
 
 function EventRow({ event, past }: { event: DashboardEvent; past: boolean }) {
+  const th = useTheme();
+  const styles = useStyles(makeStyles);
   const { t, i18n } = useTranslation();
   const when = new Date(event.planned_start).toLocaleDateString(i18n.language, {
     day: 'numeric',
@@ -90,7 +95,7 @@ function EventRow({ event, past }: { event: DashboardEvent; past: boolean }) {
   });
   return (
     <View style={styles.row}>
-      <View style={[styles.eventDot, { backgroundColor: eventTypeColor(event.type) }]} />
+      <View style={[styles.eventDot, { backgroundColor: eventTypeColor(event.type, th) }]} />
       <View style={styles.rowMain}>
         <Text style={styles.rowTitle} numberOfLines={1}>
           {event.title ?? t(`calendar.types.${event.type}`)}
@@ -111,8 +116,10 @@ function EventRow({ event, past }: { event: DashboardEvent; past: boolean }) {
 }
 
 function AlertRow({ alert }: { alert: TeamAlert }) {
+  const th = useTheme();
+  const styles = useStyles(makeStyles);
   const { t } = useTranslation();
-  const color = alert.severity === 'risk' ? colors.risk : colors.caution;
+  const color = alert.severity === 'risk' ? th.risk : th.caution;
   return (
     <View style={styles.row}>
       <View style={[styles.severityBar, { backgroundColor: color }]} />
@@ -129,6 +136,8 @@ function AlertRow({ alert }: { alert: TeamAlert }) {
 }
 
 function SummarySection({ teamId }: { teamId: string | undefined }) {
+  const th = useTheme();
+  const styles = useStyles(makeStyles);
   const { t } = useTranslation();
   const summary = useTeamSummary(teamId);
 
@@ -165,13 +174,13 @@ function SummarySection({ teamId }: { teamId: string | undefined }) {
           ))}
         </View>
         <View style={styles.flagRow}>
-          <Text style={[styles.flag, { color: colors.caution }]}>
+          <Text style={[styles.flag, { color: th.caution }]}>
             {t('dashboard.withPain', { n: w.with_pain })}
           </Text>
-          <Text style={[styles.flag, { color: colors.risk }]}>
+          <Text style={[styles.flag, { color: th.risk }]}>
             {t('dashboard.withInjury', { n: w.with_injury_flag })}
           </Text>
-          <Text style={[styles.flag, { color: colors.brand }]}>
+          <Text style={[styles.flag, { color: th.brandOn }]}>
             {t('dashboard.withSymptom', { n: w.with_symptom_flag })}
           </Text>
         </View>
@@ -211,6 +220,8 @@ function SummarySection({ teamId }: { teamId: string | undefined }) {
 
 /** Одна строка состава. Что показывать справа — зависит от выбранной вкладки. */
 function PlayerRow({ player, tab }: { player: SquadPlayer; tab: StatusTab }) {
+  const th = useTheme();
+  const styles = useStyles(makeStyles);
   const { t } = useTranslation();
 
   const view: Record<StatusTab, { value: string; color: string; hint: string }> = {
@@ -269,7 +280,7 @@ function PlayerRow({ player, tab }: { player: SquadPlayer; tab: StatusTab }) {
       <View style={styles.rowSide}>
         <Text style={[styles.rowValue, { color }]}>{hint}</Text>
         {player.active_injury ? (
-          <Text style={[styles.rowHint, { color: colors.risk }]}>{t('coach.injury')}</Text>
+          <Text style={[styles.rowHint, { color: th.risk }]}>{t('coach.injury')}</Text>
         ) : null}
       </View>
     </View>
@@ -277,6 +288,7 @@ function PlayerRow({ player, tab }: { player: SquadPlayer; tab: StatusTab }) {
 }
 
 function StatusSection({ teamId }: { teamId: string | undefined }) {
+  const styles = useStyles(makeStyles);
   const { t } = useTranslation();
   const [tab, setTab] = useState<StatusTab>('readiness');
   const squad = useSquadStatus(teamId);
@@ -320,8 +332,10 @@ function StatusSection({ teamId }: { teamId: string | undefined }) {
 }
 
 function InjuryRow({ item }: { item: TeamInjury }) {
+  const th = useTheme();
+  const styles = useStyles(makeStyles);
   const { t, i18n } = useTranslation();
-  const color = item.kind === 'illness' ? colors.brand : colors.risk;
+  const color = item.kind === 'illness' ? th.brandOn : th.risk;
   const since = new Date(item.start_date).toLocaleDateString(i18n.language, {
     day: 'numeric',
     month: 'short',
@@ -354,6 +368,7 @@ function InjuryRow({ item }: { item: TeamInjury }) {
 }
 
 function InjuriesSection({ teamId }: { teamId: string | undefined }) {
+  const styles = useStyles(makeStyles);
   const { t } = useTranslation();
   const injuries = useTeamInjuries(teamId);
 
@@ -401,6 +416,8 @@ function InjuriesSection({ teamId }: { teamId: string | undefined }) {
 }
 
 export default function Dashboard() {
+  const th = useTheme();
+  const styles = useStyles(makeStyles);
   const { t, i18n } = useTranslation();
   const qc = useQueryClient();
   const [section, setSection] = useState<Section>('summary');
@@ -409,6 +426,7 @@ export default function Dashboard() {
 
   const teams = useMyTeams();
   const activeTeamId = teamId ?? teams.data?.[0]?.id;
+  const activeTeam = teams.data?.find((team) => team.id === activeTeamId);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -424,12 +442,15 @@ export default function Dashboard() {
       <ScrollView
         contentContainerStyle={styles.content}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.textMuted} />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={th.textMuted} />
         }
       >
         <View style={styles.header}>
-          <Text style={styles.date}>{dateLabel}</Text>
-          <ScreenTitle>{t('dashboard.title')}</ScreenTitle>
+          <View>
+            <Text style={styles.date}>{dateLabel}</Text>
+            <ScreenTitle>{t('dashboard.title')}</ScreenTitle>
+          </View>
+          <TeamBadge teamName={activeTeam?.name} />
         </View>
 
         {(teams.data?.length ?? 0) > 1 ? (
@@ -459,13 +480,18 @@ export default function Dashboard() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (th: Theme) => StyleSheet.create({
   content: { padding: spacing.screen, paddingBottom: 40, gap: spacing.l },
-  header: { marginBottom: spacing.xs },
+  header: {
+    marginBottom: spacing.xs,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
   date: {
-    fontFamily: font.semibold,
+    fontFamily: th.font.semibold,
     fontSize: 11,
-    color: colors.textMuted,
+    color: th.textMuted,
     letterSpacing: 1.4,
     marginBottom: 4,
   },
@@ -475,32 +501,32 @@ const styles = StyleSheet.create({
   gaugeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.s },
 
   card: {
-    backgroundColor: colors.surface,
+    backgroundColor: th.surface,
     borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.card,
+    borderColor: th.border,
+    borderRadius: th.radius.card,
     padding: spacing.l,
     gap: spacing.s,
   },
-  cardHint: { fontFamily: font.regular, fontSize: 13, color: colors.textMuted },
-  bigStat: { fontFamily: font.display, fontSize: 30, color: colors.text },
-  bigStatMuted: { fontFamily: font.display, fontSize: 18, color: colors.textMuted },
+  cardHint: { fontFamily: th.font.regular, fontSize: 13, color: th.textMuted },
+  bigStat: { fontFamily: th.font.display, fontSize: 30, color: th.text },
+  bigStatMuted: { fontFamily: th.font.display, fontSize: 18, color: th.textMuted },
 
   scaleGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.s, marginTop: spacing.s },
   scaleCell: {
     flexGrow: 1,
     flexBasis: '30%',
-    backgroundColor: colors.surface2,
-    borderRadius: radius.chip,
+    backgroundColor: th.surface2,
+    borderRadius: th.radius.chip,
     paddingVertical: spacing.s,
     alignItems: 'center',
   },
-  scaleValue: { fontFamily: font.bold, fontSize: 16, color: colors.text },
-  scaleLabel: { fontFamily: font.regular, fontSize: 10, color: colors.textMuted, letterSpacing: 0.4 },
+  scaleValue: { fontFamily: th.font.bold, fontSize: 16, color: th.text },
+  scaleLabel: { fontFamily: th.font.regular, fontSize: 10, color: th.textMuted, letterSpacing: 0.4 },
 
   flagRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.m, marginTop: spacing.xs },
-  flag: { fontFamily: font.medium, fontSize: 12 },
-  missing: { fontFamily: font.regular, fontSize: 12, color: colors.textMuted, marginTop: spacing.xs },
+  flag: { fontFamily: th.font.medium, fontSize: 12 },
+  missing: { fontFamily: th.font.regular, fontSize: 12, color: th.textMuted, marginTop: spacing.xs },
 
   row: {
     flexDirection: 'row',
@@ -508,23 +534,23 @@ const styles = StyleSheet.create({
     gap: spacing.m,
     paddingVertical: spacing.m,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
+    borderBottomColor: th.border,
   },
   rowMain: { flex: 1, gap: 2 },
   rowSide: { alignItems: 'flex-end', gap: 2 },
-  rowTitle: { fontFamily: font.semibold, fontSize: 14, color: colors.text },
-  rowHint: { fontFamily: font.regular, fontSize: 11, color: colors.textMuted },
-  rowValue: { fontFamily: font.bold, fontSize: 13, color: colors.text },
+  rowTitle: { fontFamily: th.font.semibold, fontSize: 14, color: th.text },
+  rowHint: { fontFamily: th.font.regular, fontSize: 11, color: th.textMuted },
+  rowValue: { fontFamily: th.font.bold, fontSize: 13, color: th.text },
 
   badge: {
     width: 46,
     height: 40,
-    borderRadius: radius.control,
+    borderRadius: th.radius.control,
     borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  badgeText: { fontFamily: font.display, fontSize: 14, color: colors.text },
+  badgeText: { fontFamily: th.font.display, fontSize: 14, color: th.text },
   eventDot: { width: 8, height: 8, borderRadius: 4 },
   severityBar: { width: 3, height: 32, borderRadius: 2 },
 
@@ -533,11 +559,11 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 6,
     borderRadius: 3,
-    backgroundColor: colors.surface2,
+    backgroundColor: th.surface2,
     overflow: 'hidden',
   },
-  hotspotBar: { height: 6, borderRadius: 3, backgroundColor: colors.risk },
-  hotspotCount: { fontFamily: font.bold, fontSize: 13, color: colors.text, minWidth: 20, textAlign: 'right' },
+  hotspotBar: { height: 6, borderRadius: 3, backgroundColor: th.risk },
+  hotspotCount: { fontFamily: th.font.bold, fontSize: 13, color: th.text, minWidth: 20, textAlign: 'right' },
 
-  empty: { fontFamily: font.regular, fontSize: 14, color: colors.textMuted, textAlign: 'center' },
+  empty: { fontFamily: th.font.regular, fontSize: 14, color: th.textMuted, textAlign: 'center' },
 });

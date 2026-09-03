@@ -17,12 +17,14 @@ import { Screen } from '@/components/Screen';
 import { Segmented } from '@/components/Segmented';
 import { useToast } from '@/components/Toast';
 import { MicroLabel, ScreenTitle } from '@/components/Typography';
-import { colors, font, radius, spacing } from '@/theme';
+import { spacing, type Theme, useStyles, useTheme } from '@/theme';
 
 const SCOPES: readonly ConsentScope[] = ['cycle', 'nutrition', 'body_metrics'];
 const AUDIENCES: readonly ConsentAudience[] = ['none', 'medic', 'coach'];
 
 export default function Privacy() {
+  const th = useTheme();
+  const styles = useStyles(makeStyles);
   const { t } = useTranslation();
   const router = useRouter();
   const toast = useToast((s) => s.show);
@@ -52,7 +54,7 @@ export default function Privacy() {
               accessibilityLabel={t('common.back')}
               style={styles.close}
             >
-              <CloseIcon color={colors.textMuted} />
+              <CloseIcon color={th.textMuted} />
             </Pressable>
           </View>
 
@@ -86,22 +88,22 @@ export default function Privacy() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (th: Theme) => StyleSheet.create({
   flex: { flex: 1 },
   content: { padding: spacing.screen, gap: spacing.l, paddingBottom: 40 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   close: { padding: spacing.xs },
-  intro: { fontFamily: font.regular, fontSize: 14, color: colors.textMuted, lineHeight: 20 },
+  intro: { fontFamily: th.font.regular, fontSize: 14, color: th.textMuted, lineHeight: 20 },
   card: {
-    backgroundColor: colors.surface,
+    backgroundColor: th.surface,
     borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.card,
+    borderColor: th.border,
+    borderRadius: th.radius.card,
     padding: spacing.l,
     gap: spacing.m,
   },
-  scopeHint: { fontFamily: font.regular, fontSize: 13, color: colors.textMuted, marginTop: -spacing.s },
-  audienceHint: { fontFamily: font.medium, fontSize: 12, color: colors.brand },
-  legal: { fontFamily: font.regular, fontSize: 12, color: colors.textMuted, lineHeight: 18 },
-  version: { fontFamily: font.regular, fontSize: 11, color: colors.low },
+  scopeHint: { fontFamily: th.font.regular, fontSize: 13, color: th.textMuted, marginTop: -spacing.s },
+  audienceHint: { fontFamily: th.font.medium, fontSize: 12, color: th.brandOn },
+  legal: { fontFamily: th.font.regular, fontSize: 12, color: th.textMuted, lineHeight: 18 },
+  version: { fontFamily: th.font.regular, fontSize: 11, color: th.low },
 });

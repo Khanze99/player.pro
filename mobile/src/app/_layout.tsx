@@ -13,12 +13,12 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
 
+import { ThemeProvider, useTheme } from '@/theme';
 import '@/i18n';
 import { api, refreshAccessToken } from '@/api/client';
 import type { Me } from '@/api/types';
 import { bootstrapSession, isNewUser, session } from '@/auth/session';
 import { ToastHost } from '@/components/Toast';
-import { colors } from '@/theme';
 
 void SplashScreen.preventAutoHideAsync();
 
@@ -93,28 +93,42 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider initialMetrics={initialWindowMetrics}>
       <QueryClientProvider client={queryClient}>
-        <AuthGate />
-        <Stack
-          screenOptions={{
-            headerShown: false,
-            contentStyle: { backgroundColor: colors.bg },
-          }}
-        >
-          <Stack.Screen name="(tabs)" />
-          <Stack.Screen name="(auth)" />
-          <Stack.Screen name="wellness" options={{ presentation: 'modal' }} />
-          <Stack.Screen name="rpe" options={{ presentation: 'modal' }} />
-          <Stack.Screen name="invite" options={{ presentation: 'modal' }} />
-          <Stack.Screen name="event-create" options={{ presentation: 'modal' }} />
-          <Stack.Screen name="event/[id]" options={{ presentation: 'modal' }} />
-          <Stack.Screen name="food-add" options={{ presentation: 'modal' }} />
-          <Stack.Screen name="food-create" options={{ presentation: 'modal' }} />
-          <Stack.Screen name="privacy" options={{ presentation: 'modal' }} />
-          <Stack.Screen name="cycle" options={{ presentation: 'modal' }} />
-        </Stack>
-        <ToastHost />
-        <StatusBar style="light" />
+        <ThemeProvider>
+          <AppStack />
+        </ThemeProvider>
       </QueryClientProvider>
     </SafeAreaProvider>
+  );
+}
+
+// Тема организации приезжает с сервера после логина (docs/plan-org-branding.md,
+// этап 2); пока провайдер отдаёт тему продукта по умолчанию.
+function AppStack() {
+  const th = useTheme();
+
+  return (
+    <>
+      <AuthGate />
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          contentStyle: { backgroundColor: th.bg },
+        }}
+      >
+        <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="(auth)" />
+        <Stack.Screen name="wellness" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="rpe" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="invite" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="event-create" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="event/[id]" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="food-add" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="food-create" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="privacy" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="cycle" options={{ presentation: 'modal' }} />
+      </Stack>
+      <ToastHost />
+      <StatusBar style="light" />
+    </>
   );
 }

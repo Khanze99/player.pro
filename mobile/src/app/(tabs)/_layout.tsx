@@ -6,19 +6,20 @@ import { Redirect, Tabs } from 'expo-router';
 import { View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
+import { useTheme } from '@/theme';
 import { useFeatures, useMe } from '@/api/hooks';
 import { session } from '@/auth/session';
 import { AppleIcon, CalendarIcon, ChartIcon, GridIcon, HomeIcon, UserIcon } from '@/components/Icons';
-import { colors, font } from '@/theme';
 
 export default function TabsLayout() {
+  const th = useTheme();
   const { t } = useTranslation();
   const status = session((s) => s.status);
   const me = useMe(status === 'active');
   const features = useFeatures(status === 'active');
   const isStaff = me.data != null && me.data.global_role !== 'player';
 
-  if (status === 'loading') return <View style={{ flex: 1, backgroundColor: colors.bg }} />;
+  if (status === 'loading') return <View style={{ flex: 1, backgroundColor: th.bg }} />;
   if (status === 'signedOut') return <Redirect href="/(auth)/welcome" />;
   if (status === 'onboarding') return <Redirect href="/(auth)/profile-setup" />;
   if (status === 'locked') return <Redirect href="/(auth)/pin" />;
@@ -28,15 +29,15 @@ export default function TabsLayout() {
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: colors.surface,
-          borderTopColor: colors.border,
+          backgroundColor: th.surface,
+          borderTopColor: th.border,
           height: 84,
           paddingTop: 8,
         },
-        tabBarActiveTintColor: colors.brand,
-        tabBarInactiveTintColor: colors.textMuted,
-        tabBarLabelStyle: { fontFamily: font.semibold, fontSize: 10, letterSpacing: 0.6 },
-        sceneStyle: { backgroundColor: colors.bg },
+        tabBarActiveTintColor: th.brandOn,
+        tabBarInactiveTintColor: th.textMuted,
+        tabBarLabelStyle: { fontFamily: th.font.semibold, fontSize: 10, letterSpacing: 0.6 },
+        sceneStyle: { backgroundColor: th.bg },
       }}
     >
       <Tabs.Screen

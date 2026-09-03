@@ -2,7 +2,7 @@
 
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { colors, font, radius, spacing } from '../theme';
+import { spacing, type Theme, useStyles } from '../theme';
 
 interface Props {
   value: number;
@@ -13,6 +13,7 @@ interface Props {
 }
 
 export function Stepper({ value, onChange, step = 5, min = 5, max = 300 }: Props) {
+  const styles = useStyles(makeStyles);
   return (
     <View style={styles.row}>
       <Pressable
@@ -34,23 +35,23 @@ export function Stepper({ value, onChange, step = 5, min = 5, max = 300 }: Props
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (th: Theme) => StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: spacing.l },
   button: {
     width: 56,
     height: 56,
-    borderRadius: radius.control,
-    backgroundColor: colors.surface2,
+    borderRadius: th.radius.control,
+    backgroundColor: th.surface2,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: th.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  buttonText: { fontFamily: font.semibold, fontSize: 24, color: colors.text },
+  buttonText: { fontFamily: th.font.semibold, fontSize: 24, color: th.text },
   value: {
-    fontFamily: font.semibold,
+    fontFamily: th.font.semibold,
     fontSize: 24,
-    color: colors.text,
+    color: th.text,
     minWidth: 64,
     textAlign: 'center',
     fontVariant: ['tabular-nums'],

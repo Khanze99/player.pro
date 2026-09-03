@@ -6,7 +6,7 @@ import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { useAnimatedValue } from '../hooks/useAnimatedValue';
 
-import { colors, font, spacing } from '../theme';
+import { spacing, type Theme, useStyles } from '../theme';
 
 interface Props {
   title: string;
@@ -20,6 +20,7 @@ interface Props {
 const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', '⌫'];
 
 export function PinPad({ title, subtitle, error, shakeKey = 0, onComplete }: Props) {
+  const styles = useStyles(makeStyles);
   const [digits, setDigits] = useState('');
   const [seenShakeKey, setSeenShakeKey] = useState(shakeKey);
   const shake = useAnimatedValue(0);
@@ -80,13 +81,13 @@ export function PinPad({ title, subtitle, error, shakeKey = 0, onComplete }: Pro
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (th: Theme) => StyleSheet.create({
   wrap: { flex: 1, alignItems: 'center', justifyContent: 'flex-end', paddingBottom: spacing.xxl },
-  title: { fontFamily: font.bold, fontSize: 24, color: colors.text },
+  title: { fontFamily: th.font.bold, fontSize: 24, color: th.text },
   subtitle: {
-    fontFamily: font.regular,
+    fontFamily: th.font.regular,
     fontSize: 15,
-    color: colors.textMuted,
+    color: th.textMuted,
     marginTop: spacing.s,
     textAlign: 'center',
   },
@@ -96,11 +97,11 @@ const styles = StyleSheet.create({
     height: 16,
     borderRadius: 8,
     borderWidth: 2,
-    borderColor: colors.border,
+    borderColor: th.border,
     backgroundColor: 'transparent',
   },
-  dotFilled: { backgroundColor: colors.brand, borderColor: colors.brand },
-  error: { fontFamily: font.medium, fontSize: 13, color: colors.risk, marginVertical: spacing.l },
+  dotFilled: { backgroundColor: th.brand, borderColor: th.brandOn },
+  error: { fontFamily: th.font.medium, fontSize: 13, color: th.risk, marginVertical: spacing.l },
   pad: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -115,6 +116,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  keyPressed: { backgroundColor: colors.surface2 },
-  keyText: { fontFamily: font.medium, fontSize: 28, color: colors.text },
+  keyPressed: { backgroundColor: th.surface2 },
+  keyText: { fontFamily: th.font.medium, fontSize: 28, color: th.text },
 });

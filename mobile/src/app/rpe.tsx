@@ -18,9 +18,10 @@ import { Screen } from '@/components/Screen';
 import { Stepper } from '@/components/Stepper';
 import { useToast } from '@/components/Toast';
 import { MicroLabel, ScreenTitle } from '@/components/Typography';
-import { colors, font, spacing } from '@/theme';
+import { spacing, type Theme, useStyles } from '@/theme';
 
 export default function Rpe() {
+  const styles = useStyles(makeStyles);
   const { t, i18n } = useTranslation();
   const router = useRouter();
   const toast = useToast((s) => s.show);
@@ -145,14 +146,14 @@ export default function Rpe() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (th: Theme) => StyleSheet.create({
   content: { padding: spacing.screen },
   section: { gap: spacing.s, marginBottom: spacing.xl },
-  session: { fontFamily: font.medium, fontSize: 17, color: colors.text },
+  session: { fontFamily: th.font.medium, fontSize: 17, color: th.text },
   preview: {
-    fontFamily: font.semibold,
+    fontFamily: th.font.semibold,
     fontSize: 18,
-    color: colors.brand,
+    color: th.brandOn,
     textAlign: 'center',
   },
   footer: { padding: spacing.screen, paddingTop: spacing.m },

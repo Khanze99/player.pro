@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 import Svg, { ClipPath, Defs, Path } from 'react-native-svg';
 
 import type { BodyRegion, BodySide, PainPoint } from '@/api/types';
-import { colors, font, spacing } from '@/theme';
+import { spacing, type Theme, useStyles, useTheme } from '@/theme';
 import { MANNEQUIN_DIVIDERS, MANNEQUIN_SIL, MANNEQUIN_ZONES } from './mannequinPaths';
 
 interface Props {
@@ -17,6 +17,8 @@ interface Props {
 }
 
 export function BodyMap({ value, onChange, severity = 5 }: Props) {
+  const th = useTheme();
+  const styles = useStyles(makeStyles);
   const { t } = useTranslation();
 
   const isOn = (region: BodyRegion, side: BodySide) =>
@@ -58,7 +60,7 @@ export function BodyMap({ value, onChange, severity = 5 }: Props) {
             key={`${z.region}:${z.side}`}
             d={z.d}
             clipPath="url(#mannequinSil)"
-            fill={colors.brand}
+            fill={th.brand}
             fillOpacity={isOn(z.region, z.side) ? 0.8 : 0}
             onPress={() => toggle(z.region, z.side)}
           />
@@ -82,12 +84,12 @@ export function BodyMap({ value, onChange, severity = 5 }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (th: Theme) => StyleSheet.create({
   labels: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     paddingHorizontal: spacing.l,
     marginBottom: spacing.xs,
   },
-  label: { fontFamily: font.medium, fontSize: 12, color: colors.textMuted, letterSpacing: 1 },
+  label: { fontFamily: th.font.medium, fontSize: 12, color: th.textMuted, letterSpacing: 1 },
 });

@@ -10,9 +10,11 @@ import { ApiError, post } from '@/api/client';
 import { Button } from '@/components/Button';
 import { Field } from '@/components/Field';
 import { Screen } from '@/components/Screen';
-import { colors, font, spacing } from '@/theme';
+import { spacing, type Theme, useStyles, useTheme } from '@/theme';
 
 export default function Welcome() {
+  const th = useTheme();
+  const styles = useStyles(makeStyles);
   const { t } = useTranslation();
   const router = useRouter();
   const [identifier, setIdentifier] = useState('');
@@ -38,7 +40,7 @@ export default function Welcome() {
         <View style={styles.content}>
           <View style={styles.brand}>
             <Text style={styles.logo}>PLAYER</Text>
-            <Text style={[styles.logo, { color: colors.brand }]}>PRO</Text>
+            <Text style={[styles.logo, { color: th.brandOn }]}>PRO</Text>
           </View>
           <Text style={styles.subtitle}>{t('auth.welcomeSubtitle')}</Text>
           <Field
@@ -63,24 +65,24 @@ export default function Welcome() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (th: Theme) => StyleSheet.create({
   flex: { flex: 1 },
   content: { flex: 1, justifyContent: 'center', padding: spacing.screen, gap: spacing.l },
   brand: { flexDirection: 'row', justifyContent: 'center', marginBottom: spacing.s },
-  logo: { fontFamily: font.display, fontSize: 30, color: colors.text, letterSpacing: 2 },
+  logo: { fontFamily: th.font.display, fontSize: 30, color: th.text, letterSpacing: 2 },
   subtitle: {
-    fontFamily: font.regular,
+    fontFamily: th.font.regular,
     fontSize: 15,
-    color: colors.textMuted,
+    color: th.textMuted,
     textAlign: 'center',
     marginBottom: spacing.l,
   },
-  error: { fontFamily: font.medium, fontSize: 13, color: colors.risk, textAlign: 'center' },
+  error: { fontFamily: th.font.medium, fontSize: 13, color: th.risk, textAlign: 'center' },
   // Версию показываем на входе: тестировщику надо назвать её, не роясь в настройках.
   version: {
-    fontFamily: font.regular,
+    fontFamily: th.font.regular,
     fontSize: 12,
-    color: colors.textMuted,
+    color: th.textMuted,
     textAlign: 'center',
     paddingBottom: spacing.l,
   },

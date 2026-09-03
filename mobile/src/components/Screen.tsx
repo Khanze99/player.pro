@@ -7,7 +7,7 @@ import { StyleSheet, View } from 'react-native';
 import { SafeAreaView, type Edges } from 'react-native-safe-area-context';
 import Svg, { Defs, Ellipse, RadialGradient, Stop } from 'react-native-svg';
 
-import { colors, gradients } from '@/theme';
+import { type Theme, useStyles, useTheme } from '@/theme';
 
 interface Props {
   children: ReactNode;
@@ -15,16 +15,19 @@ interface Props {
   glowColor?: string;
 }
 
-export function Screen({ children, edges = ['top'], glowColor = colors.brand }: Props) {
+export function Screen({ children, edges = ['top'], glowColor }: Props) {
+  const th = useTheme();
+  const styles = useStyles(makeStyles);
+  const glow = glowColor ?? th.brand;
   return (
     <View style={styles.root}>
-      <LinearGradient colors={gradients.screen} style={StyleSheet.absoluteFill} />
+      <LinearGradient colors={th.gradients.screen} style={StyleSheet.absoluteFill} />
       <Svg style={styles.glow} width="100%" height={320} pointerEvents="none">
         <Defs>
           <RadialGradient id="halo" cx="50%" cy="0%" rx="65%" ry="100%">
-            <Stop offset="0%" stopColor={glowColor} stopOpacity={0.16} />
-            <Stop offset="70%" stopColor={glowColor} stopOpacity={0.04} />
-            <Stop offset="100%" stopColor={glowColor} stopOpacity={0} />
+            <Stop offset="0%" stopColor={glow} stopOpacity={0.16} />
+            <Stop offset="70%" stopColor={glow} stopOpacity={0.04} />
+            <Stop offset="100%" stopColor={glow} stopOpacity={0} />
           </RadialGradient>
         </Defs>
         <Ellipse cx="50%" cy="0" rx="60%" ry="320" fill="url(#halo)" />
@@ -36,8 +39,8 @@ export function Screen({ children, edges = ['top'], glowColor = colors.brand }: 
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.bg },
+const makeStyles = (th: Theme) => StyleSheet.create({
+  root: { flex: 1, backgroundColor: th.bg },
   glow: { position: 'absolute', top: 0, left: 0, right: 0 },
   safe: { flex: 1 },
 });

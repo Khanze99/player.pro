@@ -5,12 +5,13 @@ import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
-import { colors, font, radius, spacing } from '../theme';
+import { spacing, type Theme, useStyles } from '../theme';
 
 const GUIDE_KEY = 'pp_guide_done';
 const STEPS = ['onboarding.guide1', 'onboarding.guide2', 'onboarding.guide3'] as const;
 
 export function Guide() {
+  const styles = useStyles(makeStyles);
   const { t } = useTranslation();
   const [step, setStep] = useState(0);
   const [visible, setVisible] = useState(false);
@@ -52,7 +53,7 @@ export function Guide() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (th: Theme) => StyleSheet.create({
   overlay: {
     position: 'absolute',
     top: 0,
@@ -64,10 +65,10 @@ const styles = StyleSheet.create({
     paddingBottom: 100,
   },
   card: {
-    backgroundColor: colors.surface2,
+    backgroundColor: th.surface2,
     borderWidth: 1,
-    borderColor: colors.borderBright,
-    borderRadius: radius.card,
+    borderColor: th.borderBright,
+    borderRadius: th.radius.card,
     padding: spacing.xl,
     gap: spacing.l,
     shadowColor: '#000',
@@ -77,9 +78,9 @@ const styles = StyleSheet.create({
     elevation: 12,
   },
   dots: { flexDirection: 'row', gap: 6 },
-  dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.border },
-  dotActive: { backgroundColor: colors.brand, width: 18 },
-  text: { fontFamily: font.medium, fontSize: 15, color: colors.text, lineHeight: 22 },
+  dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: th.border },
+  dotActive: { backgroundColor: th.brand, width: 18 },
+  text: { fontFamily: th.font.medium, fontSize: 15, color: th.text, lineHeight: 22 },
   button: { alignSelf: 'flex-end', paddingVertical: spacing.s, paddingHorizontal: spacing.m },
-  buttonText: { fontFamily: font.semibold, fontSize: 15, color: colors.brand },
+  buttonText: { fontFamily: th.font.semibold, fontSize: 15, color: th.brandOn },
 });

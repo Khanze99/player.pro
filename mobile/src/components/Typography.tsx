@@ -4,7 +4,7 @@
 import type { ReactNode } from 'react';
 import { StyleSheet, Text, type StyleProp, type TextStyle } from 'react-native';
 
-import { colors, font } from '@/theme';
+import { type Theme, useStyles } from '@/theme';
 
 interface Props {
   children: ReactNode;
@@ -12,19 +12,21 @@ interface Props {
 }
 
 export function ScreenTitle({ children, style }: Props) {
+  const styles = useStyles(makeStyles);
   return <Text style={[styles.title, style]}>{children}</Text>;
 }
 
 export function MicroLabel({ children, style }: Props) {
+  const styles = useStyles(makeStyles);
   return <Text style={[styles.micro, style]}>{children}</Text>;
 }
 
-const styles = StyleSheet.create({
-  title: { fontFamily: font.bold, fontSize: 24, color: colors.text, letterSpacing: -0.3 },
+const makeStyles = (th: Theme) => StyleSheet.create({
+  title: { fontFamily: th.font.bold, fontSize: 24, color: th.text, letterSpacing: -0.3 },
   micro: {
-    fontFamily: font.semibold,
+    fontFamily: th.font.semibold,
     fontSize: 11,
-    color: colors.textMuted,
+    color: th.textMuted,
     letterSpacing: 1.4,
     textTransform: 'uppercase',
   },

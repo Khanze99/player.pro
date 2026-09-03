@@ -79,6 +79,9 @@ services:
   api:
     build: ../backend
     env_file: ../backend/.env.prod
+    volumes:
+      # Гербы организаций переживают пересборку образа только в томе
+      - branding_data:/app/static/branding
     depends_on:
       postgres:
         condition: service_healthy
@@ -100,6 +103,7 @@ services:
 volumes:
   postgres_data:
   redis_data:
+  branding_data:
   certbot_webroot:
   certbot_conf:
 ```
@@ -218,6 +222,31 @@ curl -s http://localhost/health   # {"status":"ok"}
 ```bash
 docker compose -f infra/docker-compose.prod.yml exec api python scripts/seed_demo.py
 ```
+
+### Брендинг организации
+
+Тема и герб клуба (`docs/plan-org-branding.md`). Файл герба нужно сначала занести
+внутрь контейнера — том `branding_data` с хоста напрямую не виден:
+
+```bash
+CO="docker compose -f infra/docker-compose.prod.yml"
+
+# 1. Тема: JSON с цветами (только отличия от продуктовой палитры)
+$CO cp themes/rubin.json api:/tmp/theme.json
+
+# 2. Герб: PNG 512×512 с прозрачностью, вписанный в квадрат по длинной стороне
+$CO cp crest.png api:/tmp/crest.png
+
+# 3. Заведение: скрипт сам кладёт герб в /app/static/branding/<org_id>.png
+$CO exec api python scripts/seed_branding.py \
+    --org "ФК Рубин" --file /tmp/theme.json --logo-file /tmp/crest.png
+```
+
+Скрипт печатает предупреждения о контрасте — нечитаемые пары лучше увидеть здесь,
+чем на экране у игрока. Версия темы поднимается сама, клиенты перечитают её по ней.
+
+Герб лежит в томе `branding_data` и переживает пересборку образа. Если тома нет,
+все гербы исчезнут при первом же релизе.
 
 ## Шаг 5. Домен и TLS
 

@@ -6,7 +6,7 @@ import { AccessibilityInfo, Animated, StyleSheet, Text, View } from 'react-nativ
 import Svg, { Circle, Defs, Line, LinearGradient, Stop } from 'react-native-svg';
 
 import { useAnimatedValue } from '../hooks/useAnimatedValue';
-import { colors, font, readinessColor } from '../theme';
+import { readinessColor, type Theme, useStyles, useTheme } from '../theme';
 
 const SIZE = 250;
 const STROKE = 12;
@@ -21,6 +21,7 @@ interface Props {
 }
 
 function Ticks({ color, progress }: { color: string; progress: number }) {
+  const th = useTheme();
   const cx = SIZE / 2;
   const tickOuter = SIZE / 2 - 2;
   const tickInner = tickOuter - 7;
@@ -37,7 +38,7 @@ function Ticks({ color, progress }: { color: string; progress: number }) {
             y1={cx + tickInner * Math.sin(angle)}
             x2={cx + tickOuter * Math.cos(angle)}
             y2={cx + tickOuter * Math.sin(angle)}
-            stroke={active ? color : colors.surface2}
+            stroke={active ? color : th.surface2}
             strokeOpacity={active ? 0.9 : 1}
             strokeWidth={2}
             strokeLinecap="round"
@@ -49,7 +50,9 @@ function Ticks({ color, progress }: { color: string; progress: number }) {
 }
 
 export function ReadinessRing({ value, zone, label }: Props) {
-  const color = value === null ? colors.low : readinessColor(zone);
+  const th = useTheme();
+  const styles = useStyles(makeStyles);
+  const color = value === null ? th.low : readinessColor(zone);
   const progress = value === null ? 0 : value / 100;
   const scale = useAnimatedValue(1);
   const [reduceMotion, setReduceMotion] = useState(false);
@@ -84,7 +87,7 @@ export function ReadinessRing({ value, zone, label }: Props) {
           </LinearGradient>
         </Defs>
         <Ticks color={color} progress={progress} />
-        <Circle cx={SIZE / 2} cy={SIZE / 2} r={R} stroke={colors.surface2} strokeWidth={STROKE} fill="none" />
+        <Circle cx={SIZE / 2} cy={SIZE / 2} r={R} stroke={th.surface2} strokeWidth={STROKE} fill="none" />
         {value !== null && (
           <>
             {/* Свечение под дугой */}
@@ -115,7 +118,7 @@ export function ReadinessRing({ value, zone, label }: Props) {
         )}
       </Svg>
       <View style={styles.center}>
-        <Text style={[styles.value, { color: value === null ? colors.textMuted : colors.text }]}>
+        <Text style={[styles.value, { color: value === null ? th.textMuted : th.text }]}>
           {value ?? '—'}
         </Text>
         <Text style={styles.label}>{label.toUpperCase()}</Text>
@@ -124,14 +127,14 @@ export function ReadinessRing({ value, zone, label }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (th: Theme) => StyleSheet.create({
   wrap: { width: SIZE, height: SIZE, alignItems: 'center', justifyContent: 'center' },
   center: { position: 'absolute', alignItems: 'center' },
-  value: { fontFamily: font.display, fontSize: 62, lineHeight: 74 },
+  value: { fontFamily: th.font.display, fontSize: 62, lineHeight: 74 },
   label: {
-    fontFamily: font.semibold,
+    fontFamily: th.font.semibold,
     fontSize: 11,
-    color: colors.textMuted,
+    color: th.textMuted,
     letterSpacing: 2.4,
     marginTop: -2,
   },

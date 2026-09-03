@@ -8,7 +8,7 @@ import { useState } from 'react';
 import { Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
-import { colors, font, radius, spacing } from '../theme';
+import { spacing, type Theme, useStyles, useTheme } from '../theme';
 
 interface Props {
   label: string;
@@ -17,6 +17,8 @@ interface Props {
 }
 
 export function TimeField({ label, value, onChange }: Props) {
+  const th = useTheme();
+  const styles = useStyles(makeStyles);
   const { t, i18n } = useTranslation();
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState(value);
@@ -28,7 +30,7 @@ export function TimeField({ label, value, onChange }: Props) {
       mode="time"
       value={open ? draft : value}
       is24Hour
-      accentColor={colors.brand}
+      accentColor={th.brandOn}
       onValueChange={(_event, date) => onPick(date)}
       onDismiss={() => setOpen(false)}
     />
@@ -80,41 +82,41 @@ export function TimeField({ label, value, onChange }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (th: Theme) => StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  label: { fontFamily: font.medium, fontSize: 15, color: colors.textMuted },
+  label: { fontFamily: th.font.medium, fontSize: 15, color: th.textMuted },
   pill: {
     minWidth: 104,
     paddingVertical: spacing.s,
     paddingHorizontal: spacing.m,
-    borderRadius: radius.control,
-    backgroundColor: colors.surface2,
+    borderRadius: th.radius.control,
+    backgroundColor: th.surface2,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: th.border,
     alignItems: 'center',
   },
   value: {
-    fontFamily: font.display,
+    fontFamily: th.font.display,
     fontSize: 22,
-    color: colors.text,
+    color: th.text,
     fontVariant: ['tabular-nums'],
   },
   backdrop: { flex: 1, backgroundColor: '#0009' },
   sheet: {
-    backgroundColor: colors.surface,
+    backgroundColor: th.surface,
     paddingHorizontal: spacing.screen,
     paddingTop: spacing.l,
     paddingBottom: spacing.xl,
-    borderTopLeftRadius: radius.card,
-    borderTopRightRadius: radius.card,
+    borderTopLeftRadius: th.radius.card,
+    borderTopRightRadius: th.radius.card,
     gap: spacing.m,
   },
-  sheetTitle: { fontFamily: font.semibold, fontSize: 17, color: colors.text, textAlign: 'center' },
+  sheetTitle: { fontFamily: th.font.semibold, fontSize: 17, color: th.text, textAlign: 'center' },
   done: {
     paddingVertical: spacing.m,
-    borderRadius: radius.control,
-    backgroundColor: colors.brand,
+    borderRadius: th.radius.control,
+    backgroundColor: th.brand,
     alignItems: 'center',
   },
-  doneText: { fontFamily: font.semibold, fontSize: 16, color: colors.bg },
+  doneText: { fontFamily: th.font.semibold, fontSize: 16, color: th.bg },
 });

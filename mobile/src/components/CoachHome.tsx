@@ -11,35 +11,38 @@ import { useMyTeams, useSquadStatus } from '@/api/hooks';
 import type { SquadPlayer } from '@/api/types';
 import { Screen } from '@/components/Screen';
 import { StatTile } from '@/components/StatTile';
+import { TeamBadge } from '@/components/TeamBadge';
 import { ScreenTitle } from '@/components/Typography';
-import { colors, font, loadZoneColor, radius, readinessColor, spacing } from '@/theme';
+import { loadZoneColor, readinessColor, spacing, type Theme, useStyles, useTheme } from '@/theme';
 
-function availabilityColor(status: SquadPlayer['availability']): string {
+function availabilityColor(status: SquadPlayer['availability'], th: Theme): string {
   switch (status) {
     case 'full':
-      return colors.good;
+      return th.good;
     case 'modified':
-      return colors.caution;
+      return th.caution;
     case 'unavailable':
-      return colors.risk;
+      return th.risk;
     default:
-      return colors.low;
+      return th.low;
   }
 }
 
 function PlayerRow({ player, last }: { player: SquadPlayer; last: boolean }) {
+  const th = useTheme();
+  const rowStyles = useStyles(makeRowStyles);
   const { t } = useTranslation();
   const zoneColor = readinessColor(player.readiness_zone);
 
   const flags: { label: string; color: string }[] = [];
-  if (!player.wellness_filled) flags.push({ label: t('coach.noSurvey'), color: colors.textMuted });
-  if (player.active_injury) flags.push({ label: t('coach.injury'), color: colors.risk });
-  if (player.hr_flag) flags.push({ label: t('coach.hrFlag'), color: colors.caution });
+  if (!player.wellness_filled) flags.push({ label: t('coach.noSurvey'), color: th.textMuted });
+  if (player.active_injury) flags.push({ label: t('coach.injury'), color: th.risk });
+  if (player.hr_flag) flags.push({ label: t('coach.hrFlag'), color: th.caution });
 
   return (
     <View style={[rowStyles.row, last && { borderBottomWidth: 0 }]}>
       <View style={[rowStyles.badge, { borderColor: zoneColor }]}>
-        <Text style={[rowStyles.badgeText, { color: player.readiness != null ? colors.text : colors.textMuted }]}>
+        <Text style={[rowStyles.badgeText, { color: player.readiness != null ? th.text : th.textMuted }]}>
           {player.readiness ?? '—'}
         </Text>
       </View>
@@ -56,7 +59,7 @@ function PlayerRow({ player, last }: { player: SquadPlayer; last: boolean }) {
             ))}
           </View>
         ) : (
-          <Text style={[rowStyles.flag, { color: colors.textMuted }]}>
+          <Text style={[rowStyles.flag, { color: th.textMuted }]}>
             {t(`coach.availability.${player.availability ?? 'full'}`).toUpperCase()}
           </Text>
         )}
@@ -65,13 +68,15 @@ function PlayerRow({ player, last }: { player: SquadPlayer; last: boolean }) {
         <Text style={[rowStyles.acwr, { color: loadZoneColor(player.load_zone) }]}>
           {player.acwr != null ? player.acwr.toFixed(2) : '—'}
         </Text>
-        <View style={[rowStyles.availDot, { backgroundColor: availabilityColor(player.availability) }]} />
+        <View style={[rowStyles.availDot, { backgroundColor: availabilityColor(player.availability, th) }]} />
       </View>
     </View>
   );
 }
 
 export function CoachHome() {
+  const th = useTheme();
+  const styles = useStyles(makeStyles);
   const { t, i18n } = useTranslation();
   const qc = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
@@ -80,6 +85,7 @@ export function CoachHome() {
   const teams = useMyTeams();
   const activeTeamId = teamId ?? teams.data?.[0]?.id;
   const squad = useSquadStatus(activeTeamId);
+  const activeTeam = teams.data?.find((team) => team.id === activeTeamId);
 
   const players = squad.data?.players ?? [];
   const readyCount = players.filter((p) => p.readiness_zone === 'green').length;
@@ -100,12 +106,15 @@ export function CoachHome() {
       <ScrollView
         contentContainerStyle={styles.content}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.textMuted} />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={th.textMuted} />
         }
       >
         <View style={styles.header}>
-          <Text style={styles.date}>{dateLabel}</Text>
-          <ScreenTitle>{t('coach.title')}</ScreenTitle>
+          <View>
+            <Text style={styles.date}>{dateLabel}</Text>
+            <ScreenTitle>{t('coach.title')}</ScreenTitle>
+          </View>
+          <TeamBadge teamName={activeTeam?.name} />
         </View>
 
         {(teams.data?.length ?? 0) > 1 && (
@@ -128,12 +137,12 @@ export function CoachHome() {
         )}
 
         <View style={styles.tiles}>
-          <StatTile label={t('coach.ready')} value={String(readyCount)} accent={colors.good} />
-          <StatTile label={t('coach.risk')} value={String(riskCount)} accent={colors.risk} />
+          <StatTile label={t('coach.ready')} value={String(readyCount)} accent={th.good} />
+          <StatTile label={t('coach.risk')} value={String(riskCount)} accent={th.risk} />
           <StatTile
             label={t('coach.surveys')}
             value={`${filledCount}/${players.length}`}
-            accent={colors.brand}
+            accent={th.brandOn}
           />
         </View>
 
@@ -154,13 +163,18 @@ export function CoachHome() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (th: Theme) => StyleSheet.create({
   content: { padding: spacing.screen, paddingBottom: 40 },
-  header: { marginBottom: spacing.l },
+  header: {
+    marginBottom: spacing.l,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
   date: {
-    fontFamily: font.semibold,
+    fontFamily: th.font.semibold,
     fontSize: 11,
-    color: colors.textMuted,
+    color: th.textMuted,
     letterSpacing: 1.4,
     marginBottom: 4,
   },
@@ -168,33 +182,33 @@ const styles = StyleSheet.create({
   teamChip: {
     paddingHorizontal: spacing.m,
     paddingVertical: spacing.s,
-    borderRadius: radius.chip,
-    backgroundColor: colors.surface2,
+    borderRadius: th.radius.chip,
+    backgroundColor: th.surface2,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: th.border,
   },
-  teamChipActive: { backgroundColor: colors.brand, borderColor: colors.brand },
-  teamText: { fontFamily: font.medium, fontSize: 13, color: colors.textMuted },
-  teamTextActive: { color: '#FFFFFF' },
+  teamChipActive: { backgroundColor: th.brand, borderColor: th.brandOn },
+  teamText: { fontFamily: th.font.medium, fontSize: 13, color: th.textMuted },
+  teamTextActive: { color: th.onBrand },
   tiles: { flexDirection: 'row', gap: spacing.s, marginBottom: spacing.l },
   list: {
-    backgroundColor: colors.surface,
+    backgroundColor: th.surface,
     borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.card,
+    borderColor: th.border,
+    borderRadius: th.radius.card,
   },
   empty: { alignItems: 'center', paddingVertical: spacing.xxl, gap: spacing.s },
-  emptyTitle: { fontFamily: font.semibold, fontSize: 16, color: colors.text },
+  emptyTitle: { fontFamily: th.font.semibold, fontSize: 16, color: th.text },
   emptyHint: {
-    fontFamily: font.regular,
+    fontFamily: th.font.regular,
     fontSize: 14,
-    color: colors.textMuted,
+    color: th.textMuted,
     textAlign: 'center',
     maxWidth: 280,
   },
 });
 
-const rowStyles = StyleSheet.create({
+const makeRowStyles = (th: Theme) => StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -202,7 +216,7 @@ const rowStyles = StyleSheet.create({
     paddingHorizontal: spacing.l,
     paddingVertical: spacing.m,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
+    borderBottomColor: th.border,
   },
   badge: {
     width: 46,
@@ -212,12 +226,12 @@ const rowStyles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  badgeText: { fontFamily: font.display, fontSize: 15 },
+  badgeText: { fontFamily: th.font.display, fontSize: 15 },
   main: { flex: 1, gap: 3 },
-  name: { fontFamily: font.semibold, fontSize: 15, color: colors.text },
+  name: { fontFamily: th.font.semibold, fontSize: 15, color: th.text },
   flags: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.s },
-  flag: { fontFamily: font.semibold, fontSize: 10, letterSpacing: 0.8 },
+  flag: { fontFamily: th.font.semibold, fontSize: 10, letterSpacing: 0.8 },
   side: { alignItems: 'flex-end', gap: 6 },
-  acwr: { fontFamily: font.semibold, fontSize: 14 },
+  acwr: { fontFamily: th.font.semibold, fontSize: 14 },
   availDot: { width: 8, height: 8, borderRadius: 4 },
 });

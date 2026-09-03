@@ -18,13 +18,14 @@ import {
 } from '@/api/hooks';
 import { toLocalISO } from '@/api/dates';
 import type { MacroTotals, MealGroup, MealType } from '@/api/types';
+import { TeamBadge } from '@/components/TeamBadge';
 import { Button } from '@/components/Button';
 import { Field } from '@/components/Field';
 import { PlusIcon } from '@/components/Icons';
 import { Screen } from '@/components/Screen';
 import { useToast } from '@/components/Toast';
 import { MicroLabel, ScreenTitle } from '@/components/Typography';
-import { colors, font, radius, spacing } from '@/theme';
+import { spacing, type Theme, useStyles, useTheme } from '@/theme';
 
 const MEALS: readonly MealType[] = ['breakfast', 'lunch', 'dinner', 'snack'];
 
@@ -35,6 +36,7 @@ const shiftDay = (iso: string, days: number) => {
 };
 
 function MacroBar({ totals, targetKcal }: { totals: MacroTotals; targetKcal: number | null }) {
+  const styles = useStyles(makeStyles);
   const { t } = useTranslation();
   const progress = targetKcal ? Math.min(1, totals.kcal / targetKcal) : 0;
   const left = targetKcal ? Math.round(targetKcal - totals.kcal) : null;
@@ -84,6 +86,8 @@ function MacroBar({ totals, targetKcal }: { totals: MacroTotals; targetKcal: num
 }
 
 function MealCard({ group, day }: { group: MealGroup; day: string }) {
+  const th = useTheme();
+  const styles = useStyles(makeStyles);
   const { t } = useTranslation();
   const router = useRouter();
   const toast = useToast((s) => s.show);
@@ -129,7 +133,7 @@ function MealCard({ group, day }: { group: MealGroup; day: string }) {
           accessibilityRole="button"
           onPress={() => router.push({ pathname: '/food-add', params: { day, meal: group.meal } })}
         >
-          <PlusIcon color={colors.brand} size={18} />
+          <PlusIcon color={th.brandOn} size={18} />
           <Text style={styles.addText}>{t('nutrition.add')}</Text>
         </Pressable>
         {group.entries.length === 0 ? (
@@ -158,6 +162,7 @@ function MealCard({ group, day }: { group: MealGroup; day: string }) {
 }
 
 function TargetCard({ current }: { current: number | null }) {
+  const styles = useStyles(makeStyles);
   const { t } = useTranslation();
   const toast = useToast((s) => s.show);
   const setTarget = useSetNutritionTarget();
@@ -191,6 +196,7 @@ function TargetCard({ current }: { current: number | null }) {
 }
 
 export default function Nutrition() {
+  const styles = useStyles(makeStyles);
   const { t, i18n } = useTranslation();
   const [day, setDay] = useState(todayISO());
   const nutritionDay = useNutritionDay(day);
@@ -204,7 +210,10 @@ export default function Nutrition() {
   return (
     <Screen>
       <ScrollView contentContainerStyle={styles.content}>
-        <ScreenTitle>{t('nutrition.title')}</ScreenTitle>
+        <View style={styles.header}>
+          <ScreenTitle>{t('nutrition.title')}</ScreenTitle>
+          <TeamBadge />
+        </View>
 
         <View style={styles.dayNav}>
           <Pressable
@@ -247,69 +256,70 @@ export default function Nutrition() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (th: Theme) => StyleSheet.create({
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   content: { padding: spacing.screen, gap: spacing.l, paddingBottom: 40 },
   dayNav: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   navButton: {
     width: 40,
     height: 40,
-    borderRadius: radius.control,
-    backgroundColor: colors.surface2,
+    borderRadius: th.radius.control,
+    backgroundColor: th.surface2,
     alignItems: 'center',
     justifyContent: 'center',
   },
   navDisabled: { opacity: 0.35 },
-  navText: { fontFamily: font.semibold, fontSize: 18, color: colors.text },
-  dayLabel: { fontFamily: font.semibold, fontSize: 15, color: colors.text },
+  navText: { fontFamily: th.font.semibold, fontSize: 18, color: th.text },
+  dayLabel: { fontFamily: th.font.semibold, fontSize: 15, color: th.text },
 
   card: {
-    backgroundColor: colors.surface,
+    backgroundColor: th.surface,
     borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.card,
+    borderColor: th.border,
+    borderRadius: th.radius.card,
     padding: spacing.l,
     gap: spacing.m,
   },
-  cardHint: { fontFamily: font.regular, fontSize: 12, color: colors.textMuted },
-  error: { fontFamily: font.medium, fontSize: 13, color: colors.risk },
+  cardHint: { fontFamily: th.font.regular, fontSize: 12, color: th.textMuted },
+  error: { fontFamily: th.font.medium, fontSize: 13, color: th.risk },
 
   kcalRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-  kcalValue: { fontFamily: font.display, fontSize: 32, color: colors.text },
+  kcalValue: { fontFamily: th.font.display, fontSize: 32, color: th.text },
   leftBox: { alignItems: 'flex-end' },
-  leftValue: { fontFamily: font.bold, fontSize: 20, color: colors.brand },
-  factLabel: { fontFamily: font.regular, fontSize: 10, color: colors.textMuted, letterSpacing: 0.4 },
+  leftValue: { fontFamily: th.font.bold, fontSize: 20, color: th.brandOn },
+  factLabel: { fontFamily: th.font.regular, fontSize: 10, color: th.textMuted, letterSpacing: 0.4 },
 
-  progressTrack: { height: 8, borderRadius: 4, backgroundColor: colors.surface2, overflow: 'hidden' },
-  progressFill: { height: 8, borderRadius: 4, backgroundColor: colors.brand },
+  progressTrack: { height: 8, borderRadius: 4, backgroundColor: th.surface2, overflow: 'hidden' },
+  progressFill: { height: 8, borderRadius: 4, backgroundColor: th.brand },
 
   macroRow: { flexDirection: 'row', gap: spacing.s },
   macroCell: {
     flex: 1,
-    backgroundColor: colors.surface2,
-    borderRadius: radius.chip,
+    backgroundColor: th.surface2,
+    borderRadius: th.radius.chip,
     paddingVertical: spacing.s,
     alignItems: 'center',
   },
-  macroValue: { fontFamily: font.bold, fontSize: 14, color: colors.text },
+  macroValue: { fontFamily: th.font.bold, fontSize: 14, color: th.text },
 
   mealHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  mealKcal: { fontFamily: font.semibold, fontSize: 13, color: colors.textMuted },
+  mealKcal: { fontFamily: th.font.semibold, fontSize: 13, color: th.textMuted },
   entryRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.m,
     paddingVertical: spacing.s,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
+    borderBottomColor: th.border,
   },
   entryMain: { flex: 1, gap: 2 },
-  entryName: { fontFamily: font.medium, fontSize: 14, color: colors.text },
-  entryKcal: { fontFamily: font.bold, fontSize: 14, color: colors.text },
+  entryName: { fontFamily: th.font.medium, fontSize: 14, color: th.text },
+  entryKcal: { fontFamily: th.font.bold, fontSize: 14, color: th.text },
 
   mealActions: { flexDirection: 'row', alignItems: 'center', gap: spacing.l },
   addButton: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
-  addText: { fontFamily: font.semibold, fontSize: 13, color: colors.brand },
-  copyText: { fontFamily: font.medium, fontSize: 13, color: colors.textMuted },
+  addText: { fontFamily: th.font.semibold, fontSize: 13, color: th.brandOn },
+  copyText: { fontFamily: th.font.medium, fontSize: 13, color: th.textMuted },
 
-  empty: { fontFamily: font.regular, fontSize: 14, color: colors.textMuted, textAlign: 'center' },
+  empty: { fontFamily: th.font.regular, fontSize: 14, color: th.textMuted, textAlign: 'center' },
 });

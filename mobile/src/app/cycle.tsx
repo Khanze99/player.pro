@@ -30,7 +30,7 @@ import { Screen } from '@/components/Screen';
 import { Segmented } from '@/components/Segmented';
 import { useToast } from '@/components/Toast';
 import { MicroLabel, ScreenTitle } from '@/components/Typography';
-import { colors, font, radius, readinessColor, spacing } from '@/theme';
+import { readinessColor, spacing, type Theme, useStyles, useTheme } from '@/theme';
 
 type Tab = 'today' | 'calendar' | 'insights';
 
@@ -58,27 +58,29 @@ const CONTRACEPTIONS: readonly Contraception[] = [
   'injection',
 ];
 
-const phaseColor = (phase: string) => {
+const phaseColor = (phase: string, th: Theme) => {
   switch (phase) {
     case 'menstrual':
-      return colors.risk;
+      return th.risk;
     case 'ovulation':
-      return colors.caution;
+      return th.caution;
     case 'follicular':
-      return colors.good;
+      return th.good;
     case 'luteal':
-      return colors.brand;
+      return th.brandOn;
     default:
-      return colors.low;
+      return th.low;
   }
 };
 
 function StateCard() {
+  const th = useTheme();
+  const styles = useStyles(makeStyles);
   const { t, i18n } = useTranslation();
   const state = useCycleState();
   if (!state.data) return null;
   const s = state.data;
-  const color = phaseColor(s.phase);
+  const color = phaseColor(s.phase, th);
   const fmt = (iso: string | null) =>
     iso ? new Date(iso).toLocaleDateString(i18n.language, { day: 'numeric', month: 'long' }) : '—';
 
@@ -121,6 +123,7 @@ function StateCard() {
 }
 
 function TodayTab() {
+  const styles = useStyles(makeStyles);
   const { t } = useTranslation();
   const toast = useToast((s) => s.show);
   const logs = useCycleLogs(7);
@@ -177,6 +180,7 @@ function TodayTab() {
           accessibilityState={{ checked: !!periodStart }}
           style={[styles.bigToggle, periodStart && styles.bigToggleActive]}
         >
+          {/* белый на статусной заливке: статусы темой не подменяются */}
           <Text style={[styles.bigToggleText, periodStart && { color: '#FFFFFF' }]}>
             {t('cycle.periodStart')}
           </Text>
@@ -219,6 +223,8 @@ function TodayTab() {
 }
 
 function CalendarTab() {
+  const th = useTheme();
+  const styles = useStyles(makeStyles);
   const { t, i18n } = useTranslation();
   const logs = useCycleLogs(90);
 
@@ -234,7 +240,7 @@ function CalendarTab() {
             <View
               style={[
                 styles.logDot,
-                { backgroundColor: log.period_start ? colors.risk : colors.surface2 },
+                { backgroundColor: log.period_start ? th.risk : th.surface2 },
               ]}
             />
             <View style={styles.logMain}>
@@ -262,6 +268,8 @@ function CalendarTab() {
 }
 
 function InsightsTab() {
+  const th = useTheme();
+  const styles = useStyles(makeStyles);
   const { t } = useTranslation();
   const insights = useCycleInsights();
 
@@ -293,7 +301,7 @@ function InsightsTab() {
           .map((p) => (
             <View key={p.phase} style={styles.insightRow}>
               <View style={styles.insightHead}>
-                <Text style={[styles.insightPhase, { color: phaseColor(p.phase) }]}>
+                <Text style={[styles.insightPhase, { color: phaseColor(p.phase, th) }]}>
                   {t(`cycle.phase.${p.phase}`)}
                 </Text>
                 <Text style={styles.cardHint}>{t('cycle.days', { n: p.days })}</Text>
@@ -331,6 +339,7 @@ function InsightsTab() {
 }
 
 function SettingsCard() {
+  const styles = useStyles(makeStyles);
   const { t } = useTranslation();
   const router = useRouter();
   const settings = useCycleSettings();
@@ -354,6 +363,8 @@ function SettingsCard() {
 }
 
 export default function Cycle() {
+  const th = useTheme();
+  const styles = useStyles(makeStyles);
   const { t } = useTranslation();
   const router = useRouter();
   const [tab, setTab] = useState<Tab>('today');
@@ -374,7 +385,7 @@ export default function Cycle() {
             accessibilityLabel={t('common.back')}
             style={styles.close}
           >
-            <CloseIcon color={colors.textMuted} />
+            <CloseIcon color={th.textMuted} />
           </Pressable>
         </View>
 
@@ -412,82 +423,82 @@ export default function Cycle() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (th: Theme) => StyleSheet.create({
   content: { padding: spacing.screen, gap: spacing.l, paddingBottom: 40 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   close: { padding: spacing.xs },
   tabBody: { gap: spacing.l },
 
   card: {
-    backgroundColor: colors.surface,
+    backgroundColor: th.surface,
     borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.card,
+    borderColor: th.border,
+    borderRadius: th.radius.card,
     padding: spacing.l,
     gap: spacing.m,
   },
-  cardTitle: { fontFamily: font.bold, fontSize: 17, color: colors.text },
-  cardHint: { fontFamily: font.regular, fontSize: 13, color: colors.textMuted, lineHeight: 18 },
+  cardTitle: { fontFamily: th.font.bold, fontSize: 17, color: th.text },
+  cardHint: { fontFamily: th.font.regular, fontSize: 13, color: th.textMuted, lineHeight: 18 },
 
   stateHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-  phase: { fontFamily: font.display, fontSize: 22 },
+  phase: { fontFamily: th.font.display, fontSize: 22 },
   phaseDot: { width: 14, height: 14, borderRadius: 7, marginTop: spacing.s },
   factRow: { flexDirection: 'row', gap: spacing.m },
-  fact: { flex: 1, backgroundColor: colors.surface2, borderRadius: radius.chip, padding: spacing.m },
-  factValue: { fontFamily: font.bold, fontSize: 15, color: colors.text },
-  factLabel: { fontFamily: font.regular, fontSize: 10, color: colors.textMuted, letterSpacing: 0.4 },
+  fact: { flex: 1, backgroundColor: th.surface2, borderRadius: th.radius.chip, padding: spacing.m },
+  factValue: { fontFamily: th.font.bold, fontSize: 15, color: th.text },
+  factLabel: { fontFamily: th.font.regular, fontSize: 10, color: th.textMuted, letterSpacing: 0.4 },
 
   alert: {
     backgroundColor: '#FF5C5C1A',
-    borderRadius: radius.chip,
+    borderRadius: th.radius.chip,
     padding: spacing.m,
     borderWidth: 1,
-    borderColor: colors.risk,
+    borderColor: th.risk,
   },
-  alertText: { fontFamily: font.medium, fontSize: 13, color: colors.risk, lineHeight: 18 },
+  alertText: { fontFamily: th.font.medium, fontSize: 13, color: th.risk, lineHeight: 18 },
 
   bigToggle: {
     paddingVertical: spacing.l,
-    borderRadius: radius.control,
-    backgroundColor: colors.surface2,
+    borderRadius: th.radius.control,
+    backgroundColor: th.surface2,
     borderWidth: 1.5,
-    borderColor: colors.border,
+    borderColor: th.border,
     alignItems: 'center',
   },
-  bigToggleActive: { backgroundColor: colors.risk, borderColor: colors.risk },
-  bigToggleText: { fontFamily: font.semibold, fontSize: 15, color: colors.text },
+  bigToggleActive: { backgroundColor: th.risk, borderColor: th.risk },
+  bigToggleText: { fontFamily: th.font.semibold, fontSize: 15, color: th.text },
 
   severityRow: { gap: spacing.s, marginTop: spacing.s },
-  severityLabel: { fontFamily: font.medium, fontSize: 13, color: colors.text },
+  severityLabel: { fontFamily: th.font.medium, fontSize: 13, color: th.text },
 
   logRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.m, paddingVertical: spacing.s },
   logDot: { width: 10, height: 10, borderRadius: 5 },
   logMain: { flex: 1, gap: 2 },
-  logDate: { fontFamily: font.semibold, fontSize: 14, color: colors.text },
+  logDate: { fontFamily: th.font.semibold, fontSize: 14, color: th.text },
 
   insightRow: { gap: spacing.s, paddingVertical: spacing.s },
   insightHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  insightPhase: { fontFamily: font.semibold, fontSize: 14 },
+  insightPhase: { fontFamily: th.font.semibold, fontSize: 14 },
   insightBars: { flexDirection: 'row', alignItems: 'center', gap: spacing.m },
   insightMetric: { alignItems: 'center', minWidth: 56 },
-  insightValue: { fontFamily: font.bold, fontSize: 16, color: colors.text },
+  insightValue: { fontFamily: th.font.bold, fontSize: 16, color: th.text },
   loadTrack: {
     flex: 1,
     height: 6,
     borderRadius: 3,
-    backgroundColor: colors.surface2,
+    backgroundColor: th.surface2,
     overflow: 'hidden',
   },
-  loadFill: { height: 6, borderRadius: 3, backgroundColor: colors.brand },
+  loadFill: { height: 6, borderRadius: 3, backgroundColor: th.brand },
   disclaimer: {
-    fontFamily: font.regular,
+    fontFamily: th.font.regular,
     fontSize: 11,
-    color: colors.low,
+    color: th.low,
     lineHeight: 16,
     marginTop: spacing.s,
   },
 
   privacyLink: { paddingVertical: spacing.s },
-  privacyText: { fontFamily: font.medium, fontSize: 13, color: colors.brand },
-  empty: { fontFamily: font.regular, fontSize: 14, color: colors.textMuted, textAlign: 'center' },
+  privacyText: { fontFamily: th.font.medium, fontSize: 13, color: th.brandOn },
+  empty: { fontFamily: th.font.regular, fontSize: 14, color: th.textMuted, textAlign: 'center' },
 });

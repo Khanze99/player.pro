@@ -3,7 +3,7 @@
 
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { colors, font, radius, spacing } from '../theme';
+import { spacing, type Theme, useStyles } from '../theme';
 
 interface Props<T extends string> {
   options: readonly T[];
@@ -21,6 +21,7 @@ export function Segmented<T extends string>({
   labelFor,
   scrollable = false,
 }: Props<T>) {
+  const styles = useStyles(makeStyles);
   const items = options.map((option) => {
     const active = option === value;
     return (
@@ -52,11 +53,11 @@ export function Segmented<T extends string>({
   return <View style={styles.track}>{items}</View>;
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (th: Theme) => StyleSheet.create({
   track: {
     flexDirection: 'row',
-    backgroundColor: colors.surface2,
-    borderRadius: radius.control,
+    backgroundColor: th.surface2,
+    borderRadius: th.radius.control,
     padding: 3,
     gap: 3,
   },
@@ -64,12 +65,12 @@ const styles = StyleSheet.create({
   item: {
     paddingVertical: spacing.s,
     paddingHorizontal: spacing.m,
-    borderRadius: radius.chip,
+    borderRadius: th.radius.chip,
     alignItems: 'center',
     justifyContent: 'center',
   },
   itemFlex: { flex: 1 },
-  itemActive: { backgroundColor: colors.brand },
-  text: { fontFamily: font.semibold, fontSize: 13, color: colors.textMuted },
-  textActive: { color: '#FFFFFF' },
+  itemActive: { backgroundColor: th.brand },
+  text: { fontFamily: th.font.semibold, fontSize: 13, color: th.textMuted },
+  textActive: { color: th.onBrand },
 });

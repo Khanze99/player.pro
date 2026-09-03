@@ -4,6 +4,7 @@ from app.api.v1 import (
     analytics,
     auth,
     availability,
+    branding,
     consent,
     cycle,
     dashboard,
@@ -21,6 +22,7 @@ from app.api.v1 import (
 router = APIRouter(prefix="/api/v1")
 
 router.include_router(auth.router)
+router.include_router(branding.router)
 router.include_router(features.router)
 router.include_router(users.router)
 router.include_router(consent.router)

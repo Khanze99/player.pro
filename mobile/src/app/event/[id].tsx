@@ -12,22 +12,24 @@ import { CloseIcon, TrashIcon } from '@/components/Icons';
 import { Screen } from '@/components/Screen';
 import { useToast } from '@/components/Toast';
 import { MicroLabel, ScreenTitle } from '@/components/Typography';
-import { colors, eventTypeColor, font, radius, spacing } from '@/theme';
+import { eventTypeColor, spacing, type Theme, useStyles, useTheme } from '@/theme';
 
 const STATUSES: readonly AttendanceStatus[] = ['present', 'absent', 'excused'];
 
-function statusColor(status: AttendanceStatus): string {
+function statusColor(status: AttendanceStatus, th: Theme): string {
   switch (status) {
     case 'present':
-      return colors.good;
+      return th.good;
     case 'absent':
-      return colors.risk;
+      return th.risk;
     case 'excused':
-      return colors.caution;
+      return th.caution;
   }
 }
 
 export default function EventDetail() {
+  const th = useTheme();
+  const styles = useStyles(makeStyles);
   const { t, i18n } = useTranslation();
   const router = useRouter();
   const toast = useToast((s) => s.show);
@@ -93,12 +95,12 @@ export default function EventDetail() {
             accessibilityLabel={t('common.cancel')}
             style={styles.close}
           >
-            <CloseIcon color={colors.textMuted} />
+            <CloseIcon color={th.textMuted} />
           </Pressable>
         </View>
 
         <View style={styles.meta}>
-          <Chip label={t(`calendar.types.${params.type}`)} dotColor={eventTypeColor(params.type)} />
+          <Chip label={t(`calendar.types.${params.type}`)} dotColor={eventTypeColor(params.type, th)} />
           <Text style={styles.metaText}>
             {timeLabel} · {t('calendar.durationMin', { min: params.duration })}
           </Text>
@@ -124,7 +126,7 @@ export default function EventDetail() {
                       <View style={styles.statusRow}>
                         {STATUSES.map((status) => {
                           const active = current === status;
-                          const color = statusColor(status);
+                          const color = statusColor(status, th);
                           return (
                             <Pressable
                               key={status}
@@ -159,7 +161,7 @@ export default function EventDetail() {
             onPress={confirmDelete}
             style={({ pressed }) => [styles.deleteRow, pressed && { opacity: 0.7 }]}
           >
-            <TrashIcon color={colors.risk} />
+            <TrashIcon color={th.risk} />
             <Text style={styles.deleteText}>{t('eventDetail.delete')}</Text>
           </Pressable>
         )}
@@ -168,58 +170,59 @@ export default function EventDetail() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (th: Theme) => StyleSheet.create({
   content: { padding: spacing.screen, gap: spacing.xl, paddingBottom: 40 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   headerMain: { flex: 1, paddingRight: spacing.m },
   date: {
-    fontFamily: font.semibold,
+    fontFamily: th.font.semibold,
     fontSize: 11,
-    color: colors.textMuted,
+    color: th.textMuted,
     letterSpacing: 1.4,
     marginBottom: 4,
   },
   close: { padding: spacing.xs },
   meta: { flexDirection: 'row', alignItems: 'center', gap: spacing.m },
-  metaText: { fontFamily: font.medium, fontSize: 14, color: colors.textMuted },
+  metaText: { fontFamily: th.font.medium, fontSize: 14, color: th.textMuted },
   section: { gap: spacing.s },
   list: {
-    backgroundColor: colors.surface,
+    backgroundColor: th.surface,
     borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.card,
+    borderColor: th.border,
+    borderRadius: th.radius.card,
   },
   row: {
     gap: spacing.s,
     paddingHorizontal: spacing.l,
     paddingVertical: spacing.m,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
+    borderBottomColor: th.border,
   },
-  rowName: { fontFamily: font.semibold, fontSize: 15, color: colors.text },
+  rowName: { fontFamily: th.font.semibold, fontSize: 15, color: th.text },
   statusRow: { flexDirection: 'row', gap: spacing.s },
   statusChip: {
     flex: 1,
     paddingVertical: spacing.s,
-    borderRadius: radius.chip,
-    backgroundColor: colors.surface2,
+    borderRadius: th.radius.chip,
+    backgroundColor: th.surface2,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: th.border,
     alignItems: 'center',
   },
-  statusText: { fontFamily: font.medium, fontSize: 12, color: colors.textMuted },
-  statusTextActive: { color: '#FFFFFF', fontFamily: font.semibold },
-  emptyText: { fontFamily: font.regular, fontSize: 14, color: colors.textMuted },
+  statusText: { fontFamily: th.font.medium, fontSize: 12, color: th.textMuted },
+  // заливка чипа — статусный цвет, а он темой не подменяется
+  statusTextActive: { color: '#FFFFFF', fontFamily: th.font.semibold },
+  emptyText: { fontFamily: th.font.regular, fontSize: 14, color: th.textMuted },
   deleteRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.s,
     minHeight: 52,
-    borderRadius: radius.control,
+    borderRadius: th.radius.control,
     borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
+    borderColor: th.border,
+    backgroundColor: th.surface,
   },
-  deleteText: { fontFamily: font.semibold, fontSize: 15, color: colors.risk },
+  deleteText: { fontFamily: th.font.semibold, fontSize: 15, color: th.risk },
 });

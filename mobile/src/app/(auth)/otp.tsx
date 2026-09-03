@@ -10,7 +10,7 @@ import { getDeviceId, saveRefreshToken, session, setNewUser } from '@/auth/sessi
 import { BackButton } from '@/components/BackButton';
 import { Screen } from '@/components/Screen';
 import { ScreenTitle } from '@/components/Typography';
-import { colors, font, radius, spacing } from '@/theme';
+import { spacing, type Theme, useStyles } from '@/theme';
 
 interface TokenPair {
   access_token: string;
@@ -19,6 +19,7 @@ interface TokenPair {
 }
 
 export default function Otp() {
+  const styles = useStyles(makeStyles);
   const { t } = useTranslation();
   const { identifier } = useLocalSearchParams<{ identifier: string }>();
   const [code, setCode] = useState('');
@@ -94,25 +95,25 @@ export default function Otp() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (th: Theme) => StyleSheet.create({
   content: { flex: 1, justifyContent: 'center', padding: spacing.screen, gap: spacing.m },
   center: { textAlign: 'center' },
-  subtitle: { fontFamily: font.regular, fontSize: 15, color: colors.textMuted, textAlign: 'center' },
+  subtitle: { fontFamily: th.font.regular, fontSize: 15, color: th.textMuted, textAlign: 'center' },
   cells: { flexDirection: 'row', gap: spacing.s, justifyContent: 'center', marginTop: spacing.l },
   cell: {
     width: 48,
     height: 60,
-    borderRadius: radius.control,
-    backgroundColor: colors.surface2,
+    borderRadius: th.radius.control,
+    backgroundColor: th.surface2,
     borderWidth: 1.5,
-    borderColor: colors.border,
+    borderColor: th.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  cellFilled: { borderColor: colors.brand },
-  cellCurrent: { borderColor: colors.brand, backgroundColor: colors.surface },
-  cellError: { borderColor: colors.risk },
-  cellText: { fontFamily: font.display, fontSize: 24, color: colors.text },
+  cellFilled: { borderColor: th.brandOn },
+  cellCurrent: { borderColor: th.brandOn, backgroundColor: th.surface },
+  cellError: { borderColor: th.risk },
+  cellText: { fontFamily: th.font.display, fontSize: 24, color: th.text },
   hiddenInput: { position: 'absolute', opacity: 0, height: 1, width: 1 },
-  error: { fontFamily: font.medium, fontSize: 13, color: colors.risk, textAlign: 'center' },
+  error: { fontFamily: th.font.medium, fontSize: 13, color: th.risk, textAlign: 'center' },
 });

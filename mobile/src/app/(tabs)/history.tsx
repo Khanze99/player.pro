@@ -14,13 +14,16 @@ import {
   useWellnessHistory,
 } from '@/api/hooks';
 import type { DailyMetric } from '@/api/types';
+import { TeamBadge } from '@/components/TeamBadge';
 import { Chip } from '@/components/Chip';
 import { BoltIcon, FlameIcon, SunIcon } from '@/components/Icons';
 import { Screen } from '@/components/Screen';
 import { MicroLabel, ScreenTitle } from '@/components/Typography';
-import { colors, font, loadZoneColor, radius, readinessColor, spacing } from '@/theme';
+import { loadZoneColor, readinessColor, spacing, type Theme, useStyles, useTheme } from '@/theme';
 
 function LoadBars({ metrics }: { metrics: DailyMetric[] }) {
+  const th = useTheme();
+  const styles = useStyles(makeStyles);
   const week = metrics.slice(-7);
   const max = Math.max(...week.map((m) => m.daily_load), 1);
   return (
@@ -32,7 +35,7 @@ function LoadBars({ metrics }: { metrics: DailyMetric[] }) {
               styles.bar,
               {
                 height: Math.max(4, (m.daily_load / max) * 96),
-                backgroundColor: m.daily_load > 0 ? colors.brand : colors.surface2,
+                backgroundColor: m.daily_load > 0 ? th.brand : th.surface2,
               },
             ]}
           />
@@ -75,6 +78,8 @@ function ReadinessSparkline({ metrics }: { metrics: DailyMetric[] }) {
 }
 
 export default function History() {
+  const th = useTheme();
+  const styles = useStyles(makeStyles);
   const { t, i18n } = useTranslation();
   const me = useMe();
   const metrics = useMetrics(28);
@@ -118,12 +123,15 @@ export default function History() {
   return (
     <Screen>
       <ScrollView contentContainerStyle={styles.content}>
-        <ScreenTitle>{t('history.title')}</ScreenTitle>
+        <View style={styles.header}>
+          <ScreenTitle>{t('history.title')}</ScreenTitle>
+          <TeamBadge />
+        </View>
 
         <View style={styles.card}>
           <MicroLabel>{t('history.streak')}</MicroLabel>
           <View style={styles.streakRow}>
-            <FlameIcon color={colors.caution} size={30} />
+            <FlameIcon color={th.caution} size={30} />
             <Text style={styles.streakValue}>{wellnessStreak}</Text>
             <Text style={styles.streakUnit}>{t('history.days')}</Text>
           </View>
@@ -139,7 +147,7 @@ export default function History() {
           <View style={styles.acwrRow}>
             <MicroLabel>{t('history.acwr')}</MicroLabel>
             {accumulating ? (
-              <Chip label={t('history.accumulating')} dotColor={colors.low} />
+              <Chip label={t('history.accumulating')} dotColor={th.low} />
             ) : (
               <Chip
                 label={`${latestWithLoad!.acwr!.toFixed(2)} · ${t(`home.loadZone.${latestWithLoad!.load_zone}`)}`}
@@ -166,16 +174,16 @@ export default function History() {
               {avail.availability_percent !== null ? ` · ${Math.round(avail.availability_percent)}%` : ''}
             </MicroLabel>
             <View style={styles.availBar}>
-              <View style={{ flex: avail.full_days, backgroundColor: colors.good }} />
-              <View style={{ flex: avail.modified_days, backgroundColor: colors.caution }} />
-              <View style={{ flex: avail.unavailable_days, backgroundColor: colors.risk }} />
+              <View style={{ flex: avail.full_days, backgroundColor: th.good }} />
+              <View style={{ flex: avail.modified_days, backgroundColor: th.caution }} />
+              <View style={{ flex: avail.unavailable_days, backgroundColor: th.risk }} />
             </View>
             <View style={styles.availLegend}>
-              <Chip label={`${t('history.availFull')} ${avail.full_days}`} dotColor={colors.good} />
-              <Chip label={`${t('history.availModified')} ${avail.modified_days}`} dotColor={colors.caution} />
+              <Chip label={`${t('history.availFull')} ${avail.full_days}`} dotColor={th.good} />
+              <Chip label={`${t('history.availModified')} ${avail.modified_days}`} dotColor={th.caution} />
               <Chip
                 label={`${t('history.availUnavailable')} ${avail.unavailable_days}`}
-                dotColor={colors.risk}
+                dotColor={th.risk}
               />
             </View>
           </View>
@@ -190,9 +198,9 @@ export default function History() {
               <View key={item.key} style={styles.entryRow}>
                 <View style={styles.entryIcon}>
                   {item.kind === 'wellness' ? (
-                    <SunIcon color={colors.brand} size={16} />
+                    <SunIcon color={th.brandOn} size={16} />
                   ) : (
-                    <BoltIcon color={colors.caution} size={16} />
+                    <BoltIcon color={th.caution} size={16} />
                   )}
                 </View>
                 <Text style={styles.entryLabel} numberOfLines={1}>
@@ -208,37 +216,38 @@ export default function History() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (th: Theme) => StyleSheet.create({
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   content: { padding: spacing.screen, paddingBottom: 40, gap: spacing.m },
   card: {
-    backgroundColor: colors.surface,
+    backgroundColor: th.surface,
     borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.card,
+    borderColor: th.border,
+    borderRadius: th.radius.card,
     padding: spacing.xl,
     gap: spacing.m,
   },
   streakRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.m },
-  streakValue: { fontFamily: font.display, fontSize: 38, color: colors.text },
-  streakUnit: { fontFamily: font.regular, fontSize: 15, color: colors.textMuted },
+  streakValue: { fontFamily: th.font.display, fontSize: 38, color: th.text },
+  streakUnit: { fontFamily: th.font.regular, fontSize: 15, color: th.textMuted },
   barsRow: { flexDirection: 'row', alignItems: 'flex-end', gap: spacing.s, height: 120 },
   barCell: { flex: 1, alignItems: 'center', justifyContent: 'flex-end', gap: spacing.xs },
   bar: { width: '70%', borderRadius: 5 },
   barLabel: {
-    fontFamily: font.regular,
+    fontFamily: th.font.regular,
     fontSize: 11,
-    color: colors.textMuted,
+    color: th.textMuted,
     fontVariant: ['tabular-nums'],
   },
   acwrRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  hint: { fontFamily: font.regular, fontSize: 13, color: colors.textMuted },
-  empty: { fontFamily: font.regular, fontSize: 15, color: colors.textMuted },
+  hint: { fontFamily: th.font.regular, fontSize: 13, color: th.textMuted },
+  empty: { fontFamily: th.font.regular, fontSize: 15, color: th.textMuted },
   availBar: {
     flexDirection: 'row',
     height: 10,
     borderRadius: 5,
     overflow: 'hidden',
-    backgroundColor: colors.surface2,
+    backgroundColor: th.surface2,
   },
   availLegend: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.s },
   entryRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.m, minHeight: 42 },
@@ -246,10 +255,10 @@ const styles = StyleSheet.create({
     width: 30,
     height: 30,
     borderRadius: 10,
-    backgroundColor: colors.surface2,
+    backgroundColor: th.surface2,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  entryLabel: { flex: 1, fontFamily: font.regular, fontSize: 15, color: colors.text },
-  entryDate: { fontFamily: font.medium, fontSize: 12, color: colors.textMuted },
+  entryLabel: { flex: 1, fontFamily: th.font.regular, fontSize: 15, color: th.text },
+  entryDate: { fontFamily: th.font.medium, fontSize: 12, color: th.textMuted },
 });

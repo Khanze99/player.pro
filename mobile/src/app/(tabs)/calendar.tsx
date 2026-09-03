@@ -8,18 +8,21 @@ import { useTranslation } from 'react-i18next';
 
 import { useMyEvents } from '@/api/hooks';
 import type { CalendarEvent } from '@/api/types';
+import { TeamBadge } from '@/components/TeamBadge';
 import { PlusIcon } from '@/components/Icons';
 import { toLocalISO } from '@/api/dates';
 import { MonthCalendar } from '@/components/MonthCalendar';
 import { Screen } from '@/components/Screen';
 import { ScreenTitle } from '@/components/Typography';
-import { colors, eventTypeColor, font, radius, spacing } from '@/theme';
+import { eventTypeColor, spacing, type Theme, useStyles, useTheme } from '@/theme';
 
 function timeLabel(iso: string, locale: string): string {
   return new Date(iso).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
 }
 
 export default function Calendar() {
+  const th = useTheme();
+  const styles = useStyles(makeStyles);
   const { t, i18n } = useTranslation();
   const router = useRouter();
   const [month, setMonth] = useState(() => new Date());
@@ -42,10 +45,10 @@ export default function Calendar() {
     for (const event of events.data ?? []) {
       const day = toLocalISO(new Date(event.planned_start));
       (grouped[day] ??= []).push(event);
-      (dayMarks[day] ??= []).push(eventTypeColor(event.type));
+      (dayMarks[day] ??= []).push(eventTypeColor(event.type, th));
     }
     return { marks: dayMarks, byDay: grouped };
-  }, [events.data]);
+  }, [events.data, th]);
 
   const dayEvents = byDay[selected] ?? [];
 
@@ -75,7 +78,10 @@ export default function Calendar() {
   return (
     <Screen>
       <ScrollView contentContainerStyle={styles.content}>
-        <ScreenTitle style={styles.title}>{t('calendar.title')}</ScreenTitle>
+        <View style={styles.header}>
+          <ScreenTitle>{t('calendar.title')}</ScreenTitle>
+          <TeamBadge />
+        </View>
 
         <MonthCalendar
           month={month}
@@ -96,7 +102,7 @@ export default function Calendar() {
                 onPress={() => openEvent(event)}
                 style={[styles.row, i === dayEvents.length - 1 && { borderBottomWidth: 0 }]}
               >
-                <View style={[styles.typeBar, { backgroundColor: eventTypeColor(event.type) }]} />
+                <View style={[styles.typeBar, { backgroundColor: eventTypeColor(event.type, th) }]} />
                 <View style={styles.rowMain}>
                   <Text style={styles.rowTitle} numberOfLines={1}>
                     {event.title || t(`calendar.types.${event.type}`)}
@@ -126,28 +132,33 @@ export default function Calendar() {
         onPress={() => router.push({ pathname: '/event-create', params: { date: selected } })}
         style={({ pressed }) => [styles.fab, pressed && { opacity: 0.85 }]}
       >
-        <PlusIcon color="#FFFFFF" />
+        <PlusIcon color={th.onBrand} />
       </Pressable>
     </Screen>
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (th: Theme) => StyleSheet.create({
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.l,
+  },
   content: { padding: spacing.screen, paddingBottom: 120 },
-  title: { marginBottom: spacing.l },
   dayLabel: {
-    fontFamily: font.semibold,
+    fontFamily: th.font.semibold,
     fontSize: 11,
-    color: colors.textMuted,
+    color: th.textMuted,
     letterSpacing: 1.4,
     marginTop: spacing.xl,
     marginBottom: spacing.m,
   },
   list: {
-    backgroundColor: colors.surface,
+    backgroundColor: th.surface,
     borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.card,
+    borderColor: th.border,
+    borderRadius: th.radius.card,
   },
   row: {
     flexDirection: 'row',
@@ -156,19 +167,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.l,
     paddingVertical: spacing.m,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
+    borderBottomColor: th.border,
   },
   typeBar: { width: 4, height: 36, borderRadius: 2 },
   rowMain: { flex: 1, gap: 2 },
-  rowTitle: { fontFamily: font.semibold, fontSize: 15, color: colors.text },
-  rowMeta: { fontFamily: font.regular, fontSize: 12, color: colors.textMuted },
+  rowTitle: { fontFamily: th.font.semibold, fontSize: 15, color: th.text },
+  rowMeta: { fontFamily: th.font.regular, fontSize: 12, color: th.textMuted },
   rowSide: { alignItems: 'flex-end', gap: 2 },
-  rowTime: { fontFamily: font.semibold, fontSize: 15, color: colors.text, fontVariant: ['tabular-nums'] },
-  rowDuration: { fontFamily: font.regular, fontSize: 12, color: colors.textMuted },
+  rowTime: { fontFamily: th.font.semibold, fontSize: 15, color: th.text, fontVariant: ['tabular-nums'] },
+  rowDuration: { fontFamily: th.font.regular, fontSize: 12, color: th.textMuted },
   empty: {
-    fontFamily: font.regular,
+    fontFamily: th.font.regular,
     fontSize: 14,
-    color: colors.textMuted,
+    color: th.textMuted,
     textAlign: 'center',
     paddingVertical: spacing.xxl,
   },
@@ -179,10 +190,10 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: colors.brand,
+    backgroundColor: th.brand,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: colors.brand,
+    shadowColor: th.brand,
     shadowOpacity: 0.45,
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 4 },

@@ -4,7 +4,7 @@ PYTHON := $(VENV)/bin/python
 PIP := $(VENV)/bin/pip
 COMPOSE := docker compose -f ../infra/docker-compose.yml
 
-.PHONY: help install dev test lint format migration upgrade downgrade seed seed-reset foods foods-off infra-up infra-down clean
+.PHONY: help install dev test lint format migration upgrade downgrade seed seed-reset branding foods foods-off infra-up infra-down clean
 
 help: ## Список команд
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-12s\033[0m %s\n", $$1, $$2}'
@@ -44,6 +44,10 @@ seed: ## Демо-данные: команда 25 игроков + месяц н
 
 seed-reset: ## Пересоздать демо-данные с нуля
 	$(PYTHON) scripts/seed_demo.py --reset
+
+branding: ## Тема организации: make branding org="ФК Рубин" f=themes/rubin.json [logo_file=герб.png]
+	@test -n "$(org)" -a -n "$(f)" || (echo 'Нужно: make branding org="ФК Рубин" f=themes/rubin.json'; exit 1)
+	$(PYTHON) scripts/seed_branding.py --org "$(org)" --file $(f) $(if $(logo),--logo $(logo),) $(if $(logo_file),--logo-file $(logo_file),)
 
 foods: ## Базовый справочник продуктов (~50 позиций)
 	$(PYTHON) scripts/import_foods.py

@@ -11,9 +11,10 @@ import { Button } from '@/components/Button';
 import { Field } from '@/components/Field';
 import { Screen } from '@/components/Screen';
 import { ScreenTitle } from '@/components/Typography';
-import { colors, font, spacing } from '@/theme';
+import { spacing, type Theme, useStyles } from '@/theme';
 
 export default function OrgCreate() {
+  const styles = useStyles(makeStyles);
   const { t, i18n } = useTranslation();
   const router = useRouter();
   const [orgName, setOrgName] = useState('');
@@ -69,9 +70,9 @@ export default function OrgCreate() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (th: Theme) => StyleSheet.create({
   flex: { flex: 1 },
   content: { flex: 1, padding: spacing.screen, gap: spacing.l, justifyContent: 'center' },
-  error: { fontFamily: font.medium, fontSize: 13, color: colors.risk },
+  error: { fontFamily: th.font.medium, fontSize: 13, color: th.risk },
   footer: { padding: spacing.screen },
 });

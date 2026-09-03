@@ -4,7 +4,7 @@
 import { StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 
-import { colors, font, radius, spacing } from '../theme';
+import { spacing, type Theme, useStyles, useTheme } from '../theme';
 
 const SIZE = 72;
 const STROKE = 7;
@@ -22,6 +22,8 @@ interface Props {
 }
 
 export function Donut({ value, scaleMax, color, label, caption, digits = 0 }: Props) {
+  const th = useTheme();
+  const styles = useStyles(makeStyles);
   const hasValue = value !== null;
   const progress = hasValue ? Math.max(0, Math.min(1, value / scaleMax)) : 0;
   const dash = CIRCUMFERENCE * progress;
@@ -34,7 +36,7 @@ export function Donut({ value, scaleMax, color, label, caption, digits = 0 }: Pr
             cx={SIZE / 2}
             cy={SIZE / 2}
             r={R}
-            stroke={colors.surface2}
+            stroke={th.surface2}
             strokeWidth={STROKE}
             fill="none"
           />
@@ -60,14 +62,14 @@ export function Donut({ value, scaleMax, color, label, caption, digits = 0 }: Pr
       <Text style={styles.label} numberOfLines={1}>
         {label}
       </Text>
-      <Text style={[styles.caption, { color: hasValue ? color : colors.textMuted }]} numberOfLines={2}>
+      <Text style={[styles.caption, { color: hasValue ? color : th.textMuted }]} numberOfLines={2}>
         {caption}
       </Text>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (th: Theme) => StyleSheet.create({
   wrap: {
     // Не flex:1 — иначе внутри flexWrap все четыре ужимаются в одну строку
     // и SVG фиксированной ширины вылезает за карточку. Basis < 50% даёт сетку 2×2.
@@ -75,10 +77,10 @@ const styles = StyleSheet.create({
     flexBasis: '46%',
     minWidth: 0,
     alignItems: 'center',
-    backgroundColor: colors.surface,
+    backgroundColor: th.surface,
     borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.card,
+    borderColor: th.border,
+    borderRadius: th.radius.card,
     paddingVertical: spacing.l,
     paddingHorizontal: spacing.s,
     gap: 2,
@@ -93,14 +95,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  value: { fontFamily: font.display, fontSize: 18, color: colors.text },
+  value: { fontFamily: th.font.display, fontSize: 18, color: th.text },
   label: {
-    fontFamily: font.semibold,
+    fontFamily: th.font.semibold,
     fontSize: 10,
-    color: colors.textMuted,
+    color: th.textMuted,
     letterSpacing: 1.1,
     marginTop: spacing.s,
     textTransform: 'uppercase',
   },
-  caption: { fontFamily: font.medium, fontSize: 12, textAlign: 'center' },
+  caption: { fontFamily: th.font.medium, fontSize: 12, textAlign: 'center' },
 });

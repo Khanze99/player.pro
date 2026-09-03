@@ -9,13 +9,15 @@ import { useTranslation } from 'react-i18next';
 import { api, patch } from '@/api/client';
 import type { Me } from '@/api/types';
 import { useMe } from '@/api/hooks';
+import { BackButton } from '@/components/BackButton';
 import { Button } from '@/components/Button';
 import { Field } from '@/components/Field';
 import { Screen } from '@/components/Screen';
 import { ScreenTitle } from '@/components/Typography';
-import { spacing } from '@/theme';
+import { spacing, type Theme, useStyles } from '@/theme';
 
 export default function ProfileSetup() {
+  const styles = useStyles(makeStyles);
   const { t } = useTranslation();
   const router = useRouter();
   const me = useMe();
@@ -52,6 +54,7 @@ export default function ProfileSetup() {
 
   return (
     <Screen>
+      <BackButton fallbackTo="/(auth)/consent" />
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <View style={styles.content}>
           <ScreenTitle>{t('onboarding.profileTitle')}</ScreenTitle>
@@ -88,7 +91,7 @@ export default function ProfileSetup() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (th: Theme) => StyleSheet.create({
   flex: { flex: 1 },
   content: { flex: 1, padding: spacing.screen, gap: spacing.l, justifyContent: 'center' },
   footer: { padding: spacing.screen },

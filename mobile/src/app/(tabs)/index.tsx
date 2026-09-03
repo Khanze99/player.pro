@@ -12,7 +12,6 @@ import {
   todayISO,
   useMe,
   useMetrics,
-  useMyTeams,
   useRpeHistory,
   useRpeSessions,
   useStreaks,
@@ -21,14 +20,14 @@ import {
 import { sessionEndTime, sessionLabel } from '@/api/sessions';
 import type { RpeSession } from '@/api/types';
 import { ActionCard } from '@/components/ActionCard';
-import { Chip } from '@/components/Chip';
+import { TeamBadge } from '@/components/TeamBadge';
 import { CoachHome } from '@/components/CoachHome';
 import { Guide } from '@/components/Guide';
 import { BoltIcon, SunIcon } from '@/components/Icons';
 import { ReadinessRing } from '@/components/ReadinessRing';
 import { Screen } from '@/components/Screen';
 import { StatTile } from '@/components/StatTile';
-import { colors, font, loadZoneColor, readinessColor, spacing } from '@/theme';
+import { loadZoneColor, readinessColor, spacing, type Theme, useStyles, useTheme } from '@/theme';
 
 /** Подсказка карточки RPE: ждём конца тренировки / какую сессию оценить / сколько их. */
 function rpeCardHint({
@@ -62,13 +61,14 @@ export default function Home() {
 }
 
 function PlayerHome() {
+  const th = useTheme();
+  const styles = useStyles(makeStyles);
   const { t, i18n } = useTranslation();
   const router = useRouter();
   const qc = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
 
   const me = useMe();
-  const teams = useMyTeams();
   const metrics = useMetrics(28);
   const streaks = useStreaks();
   const wellnessToday = useWellnessHistory(1);
@@ -93,7 +93,6 @@ function PlayerHome() {
       : (rpeToday.data?.length ?? 0) > 0;
   const wellnessStreak = streaks.data?.find((s) => s.type === 'wellness')?.count ?? 0;
   const loadZone = todayMetric?.load_zone ?? 'no_data';
-  const teamName = teams.data?.[0]?.name;
 
   // Здороваемся по имени, а не по display-name «Фамилия Имя»
   const firstName = me.data?.first_name || undefined;
@@ -110,11 +109,11 @@ function PlayerHome() {
   const rpeHint = rpeCardHint({ locked: rpeLocked, nextSession, pending, t, locale: i18n.language });
 
   return (
-    <Screen glowColor={todayMetric?.readiness != null ? zoneColor : colors.brand}>
+    <Screen glowColor={todayMetric?.readiness != null ? zoneColor : th.brand}>
       <ScrollView
         contentContainerStyle={styles.content}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.textMuted} />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={th.textMuted} />
         }
       >
         <View style={styles.header}>
@@ -124,10 +123,7 @@ function PlayerHome() {
               {firstName ? t('home.greeting', { name: firstName }) : t('home.greetingNoName')}
             </Text>
           </View>
-          <Chip
-            label={teamName ?? t('home.personalMode')}
-            dotColor={teamName ? colors.brand : colors.low}
-          />
+          <TeamBadge />
         </View>
 
         <View style={styles.ringWrap}>
@@ -145,7 +141,7 @@ function PlayerHome() {
           <StatTile
             label={t('home.todayLoad')}
             value={String(Math.round(todayMetric?.daily_load ?? 0))}
-            accent={colors.brand}
+            accent={th.brandOn}
           />
           <StatTile
             label="ACWR"
@@ -155,13 +151,13 @@ function PlayerHome() {
           <StatTile
             label={t('home.streakLabel')}
             value={String(wellnessStreak)}
-            accent={colors.caution}
+            accent={th.caution}
           />
         </View>
 
         <View style={styles.actions}>
           <ActionCard
-            icon={<SunIcon color={surveyDone ? colors.brand : '#FFFFFF'} />}
+            icon={<SunIcon color={surveyDone ? th.brandOn : th.onBrand} />}
             title={t('home.fillSurvey')}
             hint={t('home.fillSurveyHint')}
             primary={!surveyDone}
@@ -170,7 +166,7 @@ function PlayerHome() {
             onPress={() => router.push('/wellness')}
           />
           <ActionCard
-            icon={<BoltIcon color={colors.brand} />}
+            icon={<BoltIcon color={th.brandOn} />}
             title={t('home.rateLoad')}
             hint={rpeHint}
             done={rpeDone}
@@ -185,22 +181,22 @@ function PlayerHome() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (th: Theme) => StyleSheet.create({
   content: { padding: spacing.screen, paddingBottom: 40 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   date: {
-    fontFamily: font.semibold,
+    fontFamily: th.font.semibold,
     fontSize: 11,
-    color: colors.textMuted,
+    color: th.textMuted,
     letterSpacing: 1.4,
     marginBottom: 4,
   },
-  greeting: { fontFamily: font.bold, fontSize: 24, color: colors.text, letterSpacing: -0.3 },
+  greeting: { fontFamily: th.font.bold, fontSize: 24, color: th.text, letterSpacing: -0.3 },
   ringWrap: { alignItems: 'center', marginVertical: spacing.xl },
   emptyHint: {
-    fontFamily: font.regular,
+    fontFamily: th.font.regular,
     fontSize: 14,
-    color: colors.textMuted,
+    color: th.textMuted,
     textAlign: 'center',
     marginTop: spacing.m,
     maxWidth: 260,

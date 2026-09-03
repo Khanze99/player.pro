@@ -18,7 +18,7 @@ import { Screen } from '@/components/Screen';
 import { TimeField } from '@/components/TimeField';
 import { useToast } from '@/components/Toast';
 import { MicroLabel, ScreenTitle } from '@/components/Typography';
-import { colors, font, spacing } from '@/theme';
+import { spacing, type Theme, useStyles, useTheme } from '@/theme';
 
 const TEAM_TYPES: readonly EventType[] = ['training', 'match', 'other'];
 const PERSONAL_TYPES: readonly EventType[] = ['individual', 'other'];
@@ -37,6 +37,8 @@ const addMinutes = (date: Date, minutes: number) => new Date(date.getTime() + mi
 const minutesBetween = (from: Date, to: Date) => Math.round((to.getTime() - from.getTime()) / 60_000);
 
 export default function EventCreate() {
+  const th = useTheme();
+  const styles = useStyles(makeStyles);
   const { t, i18n } = useTranslation();
   const router = useRouter();
   const toast = useToast((s) => s.show);
@@ -128,7 +130,7 @@ export default function EventCreate() {
             accessibilityLabel={t('common.cancel')}
             style={styles.close}
           >
-            <CloseIcon color={colors.textMuted} />
+            <CloseIcon color={th.textMuted} />
           </Pressable>
         </View>
 
@@ -187,19 +189,19 @@ export default function EventCreate() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (th: Theme) => StyleSheet.create({
   content: { padding: spacing.screen, gap: spacing.l },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   date: {
-    fontFamily: font.semibold,
+    fontFamily: th.font.semibold,
     fontSize: 11,
-    color: colors.textMuted,
+    color: th.textMuted,
     letterSpacing: 1.4,
     marginBottom: 4,
   },
   close: { padding: spacing.xs },
   section: { gap: spacing.s },
-  hint: { fontFamily: font.medium, fontSize: 13, color: colors.textMuted },
-  error: { fontFamily: font.medium, fontSize: 13, color: colors.risk },
+  hint: { fontFamily: th.font.medium, fontSize: 13, color: th.textMuted },
+  error: { fontFamily: th.font.medium, fontSize: 13, color: th.risk },
   footer: { padding: spacing.screen },
 });

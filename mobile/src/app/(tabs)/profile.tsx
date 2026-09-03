@@ -8,16 +8,16 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { post } from '@/api/client';
-import { useFeatures, useMe, useMyProfile, useMyTeams, useUpdateMe } from '@/api/hooks';
+import { useFeatures, useMe, useMyProfile, useUpdateMe } from '@/api/hooks';
 import { getRefreshToken, session } from '@/auth/session';
-import { Chip } from '@/components/Chip';
+import { TeamBadge } from '@/components/TeamBadge';
 import { Field } from '@/components/Field';
 import { ChevronIcon } from '@/components/Icons';
 import { Screen } from '@/components/Screen';
 import { useToast } from '@/components/Toast';
 import { MicroLabel, ScreenTitle } from '@/components/Typography';
 import type { AppLocale } from '@/i18n';
-import { colors, font, radius, spacing } from '@/theme';
+import { spacing, type Theme, useStyles, useTheme } from '@/theme';
 
 const LOCALES: { code: AppLocale; label: string }[] = [
   { code: 'ru', label: 'Русский' },
@@ -26,11 +26,12 @@ const LOCALES: { code: AppLocale; label: string }[] = [
 ];
 
 export default function Profile() {
+  const th = useTheme();
+  const styles = useStyles(makeStyles);
   const { t, i18n } = useTranslation();
   const router = useRouter();
   const toast = useToast((s) => s.show);
   const me = useMe();
-  const teams = useMyTeams();
   const profile = useMyProfile();
   const features = useFeatures();
   const updateMe = useUpdateMe();
@@ -48,7 +49,6 @@ export default function Profile() {
     setFio(meFio);
   }
 
-  const teamName = teams.data?.[0]?.name;
   const isAdmin = me.data?.global_role === 'admin';
 
   // Фамилию и имя не даём стереть: сервер соберёт из них name для ростера
@@ -85,10 +85,7 @@ export default function Profile() {
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.header}>
           <ScreenTitle>{t('profile.title')}</ScreenTitle>
-          <Chip
-            label={teamName ?? t('home.personalMode')}
-            dotColor={teamName ? colors.brand : colors.low}
-          />
+          <TeamBadge showPersonal />
         </View>
 
         <View style={styles.fio}>
@@ -139,7 +136,7 @@ export default function Profile() {
           {isAdmin ? (
             <Pressable style={styles.row} accessibilityRole="button" onPress={() => router.push('/invite')}>
               <Text style={styles.rowText}>{t('profile.invite')}</Text>
-              <ChevronIcon color={colors.textMuted} />
+              <ChevronIcon color={th.textMuted} />
             </Pressable>
           ) : null}
           <Pressable
@@ -148,7 +145,7 @@ export default function Profile() {
             onPress={() => router.push('/(auth)/pin-setup')}
           >
             <Text style={styles.rowText}>{t('profile.changePin')}</Text>
-            <ChevronIcon color={colors.textMuted} />
+            <ChevronIcon color={th.textMuted} />
           </Pressable>
           {/* Питание живёт отдельной вкладкой, здесь его нет.
               Цикл скрыт фича-флагом с бэкенда и показывается только указавшим
@@ -156,13 +153,13 @@ export default function Profile() {
           {features.data?.cycle && profile.data?.sex === 'female' ? (
             <Pressable style={styles.row} accessibilityRole="button" onPress={() => router.push('/cycle')}>
               <Text style={styles.rowText}>{t('profile.cycle')}</Text>
-              <ChevronIcon color={colors.textMuted} />
+              <ChevronIcon color={th.textMuted} />
             </Pressable>
           ) : null}
           {features.data?.cycle || features.data?.nutrition ? (
             <Pressable style={styles.row} accessibilityRole="button" onPress={() => router.push('/privacy')}>
               <Text style={styles.rowText}>{t('profile.privacy')}</Text>
-              <ChevronIcon color={colors.textMuted} />
+              <ChevronIcon color={th.textMuted} />
             </Pressable>
           ) : null}
           <Pressable
@@ -170,7 +167,7 @@ export default function Profile() {
             accessibilityRole="button"
             onPress={() => void logout()}
           >
-            <Text style={[styles.rowText, { color: colors.risk }]}>{t('profile.logout')}</Text>
+            <Text style={[styles.rowText, { color: th.risk }]}>{t('profile.logout')}</Text>
           </Pressable>
         </View>
       </ScrollView>
@@ -178,7 +175,7 @@ export default function Profile() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (th: Theme) => StyleSheet.create({
   content: { padding: spacing.screen, paddingBottom: 40, gap: spacing.xl },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   section: { gap: spacing.s },
@@ -187,21 +184,21 @@ const styles = StyleSheet.create({
   localeChip: {
     flex: 1,
     minHeight: 48,
-    borderRadius: radius.control,
-    backgroundColor: colors.surface2,
+    borderRadius: th.radius.control,
+    backgroundColor: th.surface2,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: th.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  localeChipActive: { backgroundColor: colors.brand, borderColor: colors.brand },
-  localeText: { fontFamily: font.medium, fontSize: 15, color: colors.textMuted },
-  localeTextActive: { color: '#FFFFFF' },
+  localeChipActive: { backgroundColor: th.brand, borderColor: th.brandOn },
+  localeText: { fontFamily: th.font.medium, fontSize: 15, color: th.textMuted },
+  localeTextActive: { color: th.onBrand },
   rows: {
-    backgroundColor: colors.surface,
+    backgroundColor: th.surface,
     borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.card,
+    borderColor: th.border,
+    borderRadius: th.radius.card,
   },
   row: {
     flexDirection: 'row',
@@ -210,7 +207,7 @@ const styles = StyleSheet.create({
     minHeight: 56,
     paddingHorizontal: spacing.xl,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
+    borderBottomColor: th.border,
   },
-  rowText: { fontFamily: font.medium, fontSize: 16, color: colors.text },
+  rowText: { fontFamily: th.font.medium, fontSize: 16, color: th.text },
 });

@@ -26,7 +26,7 @@ import { ScaleBar } from '@/components/ScaleBar';
 import { Screen } from '@/components/Screen';
 import { useToast } from '@/components/Toast';
 import { MicroLabel, ScreenTitle } from '@/components/Typography';
-import { colors, font, radius, spacing } from '@/theme';
+import { spacing, type Theme, useStyles, useTheme } from '@/theme';
 
 const SLEEP_HOURS = [5, 6, 7, 8, 9, 10];
 const INJURY_TYPES: readonly InjuryType[] = [
@@ -50,6 +50,8 @@ const SYMPTOM_TYPES: readonly SymptomType[] = [
 ];
 
 export default function Wellness() {
+  const th = useTheme();
+  const styles = useStyles(makeStyles);
   const { t } = useTranslation();
   const router = useRouter();
   const toast = useToast((s) => s.show);
@@ -174,7 +176,7 @@ export default function Wellness() {
             onChangeText={(v) => setRestingHr(v.replace(/\D/g, '').slice(0, 3))}
             keyboardType="number-pad"
             placeholder="—"
-            placeholderTextColor={colors.textMuted}
+            placeholderTextColor={th.textMuted}
             accessibilityLabel={t('wellness.restingHr')}
           />
 
@@ -183,7 +185,7 @@ export default function Wellness() {
             <Switch
               value={injury}
               onValueChange={setInjury}
-              trackColor={{ true: colors.risk, false: colors.surface2 }}
+              trackColor={{ true: th.risk, false: th.surface2 }}
             />
           </View>
           {injury && (
@@ -203,7 +205,7 @@ export default function Wellness() {
             <Switch
               value={symptom}
               onValueChange={setSymptom}
-              trackColor={{ true: colors.caution, false: colors.surface2 }}
+              trackColor={{ true: th.caution, false: th.surface2 }}
             />
           </View>
           {symptom && (
@@ -224,7 +226,7 @@ export default function Wellness() {
             value={comment}
             onChangeText={setComment}
             placeholder={t('wellness.commentPlaceholder')}
-            placeholderTextColor={colors.textMuted}
+            placeholderTextColor={th.textMuted}
             multiline
             maxLength={1000}
           />
@@ -242,7 +244,7 @@ export default function Wellness() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (th: Theme) => StyleSheet.create({
   flex: { flex: 1 },
   header: {
     flexDirection: 'row',
@@ -252,33 +254,33 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.m,
   },
   progressBadge: {
-    backgroundColor: colors.surface2,
+    backgroundColor: th.surface2,
     borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.chip,
+    borderColor: th.border,
+    borderRadius: th.radius.chip,
     paddingHorizontal: spacing.m,
     paddingVertical: 6,
   },
   progress: {
-    fontFamily: font.semibold,
+    fontFamily: th.font.semibold,
     fontSize: 11,
-    color: colors.textMuted,
+    color: th.textMuted,
     letterSpacing: 1,
     fontVariant: ['tabular-nums'],
   },
   content: { paddingHorizontal: spacing.screen, paddingBottom: spacing.xxl },
   section: { marginBottom: spacing.m },
   sectionLabel: {
-    fontFamily: font.semibold,
+    fontFamily: th.font.semibold,
     fontSize: 18,
-    color: colors.text,
+    color: th.text,
     marginTop: spacing.xl,
     marginBottom: spacing.m,
   },
   subLabel: {
-    fontFamily: font.medium,
+    fontFamily: th.font.medium,
     fontSize: 13,
-    color: colors.textMuted,
+    color: th.textMuted,
     marginTop: spacing.s,
     marginBottom: spacing.s,
   },
@@ -286,25 +288,25 @@ const styles = StyleSheet.create({
   hourChip: {
     flex: 1,
     minHeight: 48,
-    borderRadius: radius.control,
-    backgroundColor: colors.surface2,
+    borderRadius: th.radius.control,
+    backgroundColor: th.surface2,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: th.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  hourChipActive: { backgroundColor: colors.brand, borderColor: colors.brand },
-  hourText: { fontFamily: font.semibold, fontSize: 16, color: colors.textMuted },
-  hourTextActive: { color: '#FFFFFF' },
+  hourChipActive: { backgroundColor: th.brand, borderColor: th.brandOn },
+  hourText: { fontFamily: th.font.semibold, fontSize: 16, color: th.textMuted },
+  hourTextActive: { color: th.onBrand },
   hrInput: {
-    backgroundColor: colors.surface2,
+    backgroundColor: th.surface2,
     borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.control,
+    borderColor: th.border,
+    borderRadius: th.radius.control,
     minHeight: 56,
     paddingHorizontal: spacing.l,
-    color: colors.text,
-    fontFamily: font.semibold,
+    color: th.text,
+    fontFamily: th.font.semibold,
     fontSize: 20,
     width: 120,
   },
@@ -315,17 +317,17 @@ const styles = StyleSheet.create({
     minHeight: 48,
     marginTop: spacing.l,
   },
-  toggleLabel: { fontFamily: font.semibold, fontSize: 18, color: colors.text },
+  toggleLabel: { fontFamily: th.font.semibold, fontSize: 18, color: th.text },
   commentInput: {
-    backgroundColor: colors.surface2,
+    backgroundColor: th.surface2,
     borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.control,
+    borderColor: th.border,
+    borderRadius: th.radius.control,
     minHeight: 80,
     paddingHorizontal: spacing.l,
     paddingTop: spacing.m,
-    color: colors.text,
-    fontFamily: font.regular,
+    color: th.text,
+    fontFamily: th.font.regular,
     fontSize: 15,
     textAlignVertical: 'top',
   },

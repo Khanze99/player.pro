@@ -1,5 +1,6 @@
 from app.models.audit import AuditLog
 from app.models.availability import AvailabilityRecord
+from app.models.branding import OrganizationBranding
 from app.models.consent import DataConsent
 from app.models.cycle import CycleLog, CycleSettings, CycleSymptomLog
 from app.models.enums import (
@@ -85,6 +86,7 @@ __all__ = [
     "FoodLogEntry",
     "NutritionTarget",
     "Organization",
+    "OrganizationBranding",
     "PainPoint",
     "RpeEntry",
     "Location",

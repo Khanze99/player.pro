@@ -77,6 +77,10 @@ services:
     build: ../backend
     image: playerpro-backend
     environment: *backend-env
+    volumes:
+      # Гербы организаций: пересобираются вместе с образом, поэтому живут в томе,
+      # иначе исчезают при первом же релизе (docs/plan-org-branding.md)
+      - branding_data:/app/static/branding
     ports:
       - "${API_PORT:-8000}:8000"
     depends_on:
@@ -108,3 +112,4 @@ services:
 volumes:
   postgres_data:
   redis_data:
+  branding_data:

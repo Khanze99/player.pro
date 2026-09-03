@@ -11,7 +11,7 @@ import {
   View,
 } from 'react-native';
 
-import { colors, font, radius, spacing } from '../theme';
+import { spacing, type Theme, useStyles } from '../theme';
 
 const MAX = 10;
 
@@ -26,6 +26,7 @@ interface Props {
 const clamp = (n: number) => Math.max(1, Math.min(MAX, n));
 
 export function ScaleBar({ label, lowLabel, highLabel, value, onChange }: Props) {
+  const styles = useStyles(makeStyles);
   const [trackWidth, setTrackWidth] = useState(0);
   const filled = value ?? 0;
 
@@ -79,37 +80,37 @@ export function ScaleBar({ label, lowLabel, highLabel, value, onChange }: Props)
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (th: Theme) => StyleSheet.create({
   wrap: { marginBottom: spacing.xl },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' },
-  label: { fontFamily: font.semibold, fontSize: 17, color: colors.text },
+  label: { fontFamily: th.font.semibold, fontSize: 17, color: th.text },
   value: {
-    fontFamily: font.display,
+    fontFamily: th.font.display,
     fontSize: 22,
-    color: colors.brand,
+    color: th.brandOn,
     fontVariant: ['tabular-nums'],
   },
-  valueEmpty: { color: colors.textMuted },
+  valueEmpty: { color: th.textMuted },
   row: { flexDirection: 'row', alignItems: 'center', gap: spacing.m, marginTop: spacing.m },
   step: {
     width: 46,
     height: 46,
-    borderRadius: radius.control,
-    backgroundColor: colors.surface2,
+    borderRadius: th.radius.control,
+    backgroundColor: th.surface2,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: th.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  stepPressed: { backgroundColor: colors.border },
-  stepText: { fontFamily: font.semibold, fontSize: 26, color: colors.text, lineHeight: 30 },
+  stepPressed: { backgroundColor: th.border },
+  stepText: { fontFamily: th.font.semibold, fontSize: 26, color: th.text, lineHeight: 30 },
   track: {
     flex: 1,
     height: 18,
     borderRadius: 9,
-    backgroundColor: colors.surface2,
+    backgroundColor: th.surface2,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: th.border,
     overflow: 'hidden',
     justifyContent: 'center',
   },
@@ -118,10 +119,10 @@ const styles = StyleSheet.create({
     left: 0,
     top: 0,
     bottom: 0,
-    backgroundColor: colors.brand,
+    backgroundColor: th.brand,
     borderRadius: 9,
   },
-  tick: { position: 'absolute', top: 4, bottom: 4, width: 1, backgroundColor: colors.bg, opacity: 0.35 },
+  tick: { position: 'absolute', top: 4, bottom: 4, width: 1, backgroundColor: th.bg, opacity: 0.35 },
   anchors: { flexDirection: 'row', justifyContent: 'space-between', marginTop: spacing.s },
-  anchor: { fontFamily: font.regular, fontSize: 13, color: colors.textMuted },
+  anchor: { fontFamily: th.font.regular, fontSize: 13, color: th.textMuted },
 });

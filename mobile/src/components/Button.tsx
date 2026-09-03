@@ -1,7 +1,7 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { ActivityIndicator, Pressable, StyleSheet, Text } from 'react-native';
 
-import { colors, font, gradients, radius, spacing } from '../theme';
+import { spacing, type Theme, useStyles, useTheme } from '../theme';
 
 interface Props {
   title: string;
@@ -11,6 +11,8 @@ interface Props {
 }
 
 export function Button({ title, onPress, disabled, loading }: Props) {
+  const th = useTheme();
+  const styles = useStyles(makeStyles);
   const inactive = disabled || loading;
   return (
     <Pressable
@@ -24,33 +26,33 @@ export function Button({ title, onPress, disabled, loading }: Props) {
       ]}
     >
       <LinearGradient
-        colors={gradients.brand}
+        colors={th.gradients.brand}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.gradient}
       >
-        {loading ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.text}>{title}</Text>}
+        {loading ? <ActivityIndicator color={th.onBrand} /> : <Text style={styles.text}>{title}</Text>}
       </LinearGradient>
     </Pressable>
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (th: Theme) => StyleSheet.create({
   wrap: {
-    borderRadius: radius.control,
-    shadowColor: colors.brand,
+    borderRadius: th.radius.control,
+    shadowColor: th.brand,
     shadowOpacity: 0.35,
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 4 },
     elevation: 6,
   },
   gradient: {
-    borderRadius: radius.control,
+    borderRadius: th.radius.control,
     minHeight: 56,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: spacing.xl,
   },
   disabled: { opacity: 0.4, shadowOpacity: 0 },
-  text: { fontFamily: font.semibold, fontSize: 17, color: '#FFFFFF', letterSpacing: 0.2 },
+  text: { fontFamily: th.font.semibold, fontSize: 17, color: th.onBrand, letterSpacing: 0.2 },
 });

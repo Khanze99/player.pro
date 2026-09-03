@@ -26,12 +26,13 @@ import { Screen } from '@/components/Screen';
 import { Segmented } from '@/components/Segmented';
 import { useToast } from '@/components/Toast';
 import { MicroLabel, ScreenTitle } from '@/components/Typography';
-import { colors, font, radius, spacing } from '@/theme';
+import { spacing, type Theme, useStyles, useTheme } from '@/theme';
 
 type Mode = 'search' | 'recent' | 'scan';
 const MODES: readonly Mode[] = ['search', 'recent', 'scan'];
 
 function FoodRow({ item, onPick }: { item: FoodItem; onPick: (item: FoodItem) => void }) {
+  const styles = useStyles(makeStyles);
   return (
     <Pressable style={styles.foodRow} onPress={() => onPick(item)} accessibilityRole="button">
       <View style={styles.foodMain}>
@@ -48,6 +49,7 @@ function FoodRow({ item, onPick }: { item: FoodItem; onPick: (item: FoodItem) =>
 }
 
 function Scanner({ onFound }: { onFound: (item: FoodItem) => void }) {
+  const styles = useStyles(makeStyles);
   const { t } = useTranslation();
   const [permission, requestPermission] = useCameraPermissions();
   const lookup = useLookupBarcode();
@@ -89,6 +91,8 @@ function Scanner({ onFound }: { onFound: (item: FoodItem) => void }) {
 }
 
 export default function FoodAdd() {
+  const th = useTheme();
+  const styles = useStyles(makeStyles);
   const { t } = useTranslation();
   const router = useRouter();
   const toast = useToast((s) => s.show);
@@ -141,7 +145,7 @@ export default function FoodAdd() {
               accessibilityLabel={t('common.cancel')}
               style={styles.close}
             >
-              <CloseIcon color={colors.textMuted} />
+              <CloseIcon color={th.textMuted} />
             </Pressable>
           </View>
 
@@ -237,21 +241,21 @@ export default function FoodAdd() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (th: Theme) => StyleSheet.create({
   flex: { flex: 1 },
   content: { padding: spacing.screen, gap: spacing.l, paddingBottom: 40 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   close: { padding: spacing.xs },
 
   card: {
-    backgroundColor: colors.surface,
+    backgroundColor: th.surface,
     borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.card,
+    borderColor: th.border,
+    borderRadius: th.radius.card,
     padding: spacing.l,
     gap: spacing.m,
   },
-  cardHint: { fontFamily: font.regular, fontSize: 12, color: colors.textMuted },
+  cardHint: { fontFamily: th.font.regular, fontSize: 12, color: th.textMuted },
 
   foodRow: {
     flexDirection: 'row',
@@ -259,24 +263,24 @@ const styles = StyleSheet.create({
     gap: spacing.m,
     paddingVertical: spacing.s,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
+    borderBottomColor: th.border,
   },
   foodMain: { flex: 1, gap: 2 },
-  foodName: { fontFamily: font.semibold, fontSize: 14, color: colors.text },
-  verified: { fontFamily: font.bold, fontSize: 13, color: colors.good },
+  foodName: { fontFamily: th.font.semibold, fontSize: 14, color: th.text },
+  verified: { fontFamily: th.font.bold, fontSize: 13, color: th.good },
 
-  preview: { fontFamily: font.medium, fontSize: 13, color: colors.brand },
-  error: { fontFamily: font.medium, fontSize: 13, color: colors.risk },
+  preview: { fontFamily: th.font.medium, fontSize: 13, color: th.brandOn },
+  error: { fontFamily: th.font.medium, fontSize: 13, color: th.risk },
   createLink: {
-    fontFamily: font.semibold,
+    fontFamily: th.font.semibold,
     fontSize: 13,
-    color: colors.brand,
+    color: th.brandOn,
     textAlign: 'center',
     paddingVertical: spacing.s,
   },
-  copyText: { fontFamily: font.medium, fontSize: 13, color: colors.textMuted, textAlign: 'center' },
+  copyText: { fontFamily: th.font.medium, fontSize: 13, color: th.textMuted, textAlign: 'center' },
 
   scannerWrap: { gap: spacing.m },
-  scanner: { height: 280, borderRadius: radius.card, overflow: 'hidden' },
-  scannerHint: { fontFamily: font.regular, fontSize: 12, color: colors.textMuted, textAlign: 'center' },
+  scanner: { height: 280, borderRadius: th.radius.card, overflow: 'hidden' },
+  scannerHint: { fontFamily: th.font.regular, fontSize: 12, color: th.textMuted, textAlign: 'center' },
 });

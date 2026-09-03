@@ -7,7 +7,7 @@ import { useTranslation } from 'react-i18next';
 
 import { toLocalISO } from '@/api/dates';
 import { ChevronIcon } from '@/components/Icons';
-import { colors, font, radius, spacing } from '@/theme';
+import { spacing, type Theme, useStyles, useTheme } from '@/theme';
 
 interface Props {
   month: Date; // любой день нужного месяца
@@ -18,6 +18,8 @@ interface Props {
 }
 
 export function MonthCalendar({ month, selected, marks, onSelectDay, onChangeMonth }: Props) {
+  const th = useTheme();
+  const styles = useStyles(makeStyles);
   const { i18n } = useTranslation();
   const todayIso = toLocalISO(new Date());
 
@@ -62,7 +64,7 @@ export function MonthCalendar({ month, selected, marks, onSelectDay, onChangeMon
           style={styles.navButton}
         >
           <View style={{ transform: [{ rotate: '180deg' }] }}>
-            <ChevronIcon color={colors.textMuted} />
+            <ChevronIcon color={th.textMuted} />
           </View>
         </Pressable>
         <Text style={styles.title}>{title}</Text>
@@ -72,7 +74,7 @@ export function MonthCalendar({ month, selected, marks, onSelectDay, onChangeMon
           accessibilityRole="button"
           style={styles.navButton}
         >
-          <ChevronIcon color={colors.textMuted} />
+          <ChevronIcon color={th.textMuted} />
         </Pressable>
       </View>
 
@@ -102,7 +104,7 @@ export function MonthCalendar({ month, selected, marks, onSelectDay, onChangeMon
                 <Text
                   style={[
                     styles.day,
-                    isToday && !isSelected && { color: colors.brand },
+                    isToday && !isSelected && { color: th.brandOn },
                     isSelected && styles.dayTextSelected,
                   ]}
                 >
@@ -122,12 +124,12 @@ export function MonthCalendar({ month, selected, marks, onSelectDay, onChangeMon
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (th: Theme) => StyleSheet.create({
   root: {
-    backgroundColor: colors.surface,
+    backgroundColor: th.surface,
     borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.card,
+    borderColor: th.border,
+    borderRadius: th.radius.card,
     padding: spacing.m,
   },
   header: {
@@ -137,14 +139,14 @@ const styles = StyleSheet.create({
     marginBottom: spacing.m,
   },
   navButton: { padding: spacing.s },
-  title: { fontFamily: font.semibold, fontSize: 13, color: colors.text, letterSpacing: 1.2 },
+  title: { fontFamily: th.font.semibold, fontSize: 13, color: th.text, letterSpacing: 1.2 },
   week: { flexDirection: 'row', marginBottom: spacing.s },
   weekday: {
     flex: 1,
     textAlign: 'center',
-    fontFamily: font.semibold,
+    fontFamily: th.font.semibold,
     fontSize: 10,
-    color: colors.textMuted,
+    color: th.textMuted,
     letterSpacing: 0.8,
   },
   grid: { flexDirection: 'row', flexWrap: 'wrap' },
@@ -152,14 +154,14 @@ const styles = StyleSheet.create({
   dayWrap: {
     width: 40,
     height: 44,
-    borderRadius: radius.control,
+    borderRadius: th.radius.control,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 3,
   },
-  daySelected: { backgroundColor: colors.brand },
-  day: { fontFamily: font.medium, fontSize: 14, color: colors.text },
-  dayTextSelected: { color: '#FFFFFF', fontFamily: font.semibold },
+  daySelected: { backgroundColor: th.brand },
+  day: { fontFamily: th.font.medium, fontSize: 14, color: th.text },
+  dayTextSelected: { color: th.onBrand, fontFamily: th.font.semibold },
   dots: { flexDirection: 'row', gap: 3, height: 4 },
   dot: { width: 4, height: 4, borderRadius: 2 },
 });

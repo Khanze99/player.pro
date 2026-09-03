@@ -9,9 +9,11 @@ import { BackButton } from '@/components/BackButton';
 import { BoltIcon, UserIcon } from '@/components/Icons';
 import { Screen } from '@/components/Screen';
 import { ScreenTitle } from '@/components/Typography';
-import { colors, font, spacing } from '@/theme';
+import { spacing, type Theme, useStyles, useTheme } from '@/theme';
 
 export default function OrgChoice() {
+  const th = useTheme();
+  const styles = useStyles(makeStyles);
   const { t } = useTranslation();
   const router = useRouter();
 
@@ -23,14 +25,14 @@ export default function OrgChoice() {
         <Text style={styles.hint}>{t('onboarding.orgSubtitle')}</Text>
         <View style={styles.cards}>
           <ActionCard
-            icon={<UserIcon color="#FFFFFF" />}
+            icon={<UserIcon color={th.onBrand} />}
             title={t('onboarding.personalMode')}
             hint={t('onboarding.personalModeHint')}
             primary
             onPress={() => router.push('/(auth)/pin-setup')}
           />
           <ActionCard
-            icon={<BoltIcon color={colors.brand} />}
+            icon={<BoltIcon color={th.brandOn} />}
             title={t('onboarding.createOrg')}
             hint={t('onboarding.createOrgHint')}
             onPress={() => router.push('/(auth)/org-create')}
@@ -41,12 +43,12 @@ export default function OrgChoice() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (th: Theme) => StyleSheet.create({
   content: { flex: 1, padding: spacing.screen, justifyContent: 'center', gap: spacing.l },
   hint: {
-    fontFamily: font.regular,
+    fontFamily: th.font.regular,
     fontSize: 15,
-    color: colors.textMuted,
+    color: th.textMuted,
     marginTop: -spacing.s,
   },
   cards: { gap: spacing.m, marginTop: spacing.l },

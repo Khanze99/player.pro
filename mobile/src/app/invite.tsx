@@ -24,7 +24,7 @@ import { OptionChips } from '@/components/OptionChips';
 import { Screen } from '@/components/Screen';
 import { useToast } from '@/components/Toast';
 import { MicroLabel, ScreenTitle } from '@/components/Typography';
-import { colors, font, spacing } from '@/theme';
+import { spacing, type Theme, useStyles, useTheme } from '@/theme';
 
 type InviteRole = 'player' | 'coach' | 'medic' | 'admin';
 
@@ -38,6 +38,8 @@ const ROLE_MAP: Record<InviteRole, { global_role: GlobalRole; team_role: TeamRol
 };
 
 export default function Invite() {
+  const th = useTheme();
+  const styles = useStyles(makeStyles);
   const { t } = useTranslation();
   const router = useRouter();
   const toast = useToast((s) => s.show);
@@ -93,7 +95,7 @@ export default function Invite() {
               accessibilityLabel={t('common.cancel')}
               style={styles.close}
             >
-              <CloseIcon color={colors.textMuted} />
+              <CloseIcon color={th.textMuted} />
             </Pressable>
           </View>
 
@@ -150,7 +152,7 @@ export default function Invite() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (th: Theme) => StyleSheet.create({
   flex: { flex: 1 },
   content: { padding: spacing.screen, gap: spacing.l },
   header: {
@@ -161,6 +163,6 @@ const styles = StyleSheet.create({
   },
   close: { padding: spacing.xs },
   section: { gap: spacing.s },
-  error: { fontFamily: font.medium, fontSize: 13, color: colors.risk },
+  error: { fontFamily: th.font.medium, fontSize: 13, color: th.risk },
   footer: { padding: spacing.screen },
 });

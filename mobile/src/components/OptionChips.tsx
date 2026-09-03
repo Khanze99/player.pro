@@ -2,7 +2,7 @@
 
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { colors, font, radius, spacing } from '../theme';
+import { spacing, type Theme, useStyles } from '../theme';
 
 interface Props<T extends string> {
   options: readonly T[];
@@ -12,6 +12,7 @@ interface Props<T extends string> {
 }
 
 export function OptionChips<T extends string>({ options, value, onSelect, labelFor }: Props<T>) {
+  const styles = useStyles(makeStyles);
   return (
     <View style={styles.row}>
       {options.map((opt) => {
@@ -32,19 +33,19 @@ export function OptionChips<T extends string>({ options, value, onSelect, labelF
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (th: Theme) => StyleSheet.create({
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.s },
   chip: {
     paddingHorizontal: spacing.m,
     paddingVertical: spacing.s,
-    borderRadius: radius.chip,
-    backgroundColor: colors.surface2,
+    borderRadius: th.radius.chip,
+    backgroundColor: th.surface2,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: th.border,
     minHeight: 40,
     justifyContent: 'center',
   },
-  chipActive: { backgroundColor: colors.brand, borderColor: colors.brand },
-  text: { fontFamily: font.medium, fontSize: 14, color: colors.textMuted },
-  textActive: { color: '#FFFFFF' },
+  chipActive: { backgroundColor: th.brand, borderColor: th.brandOn },
+  text: { fontFamily: th.font.medium, fontSize: 14, color: th.textMuted },
+  textActive: { color: th.onBrand },
 });

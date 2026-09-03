@@ -6,7 +6,7 @@ import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { CheckIcon, ChevronIcon } from './Icons';
-import { colors, font, gradients, radius, spacing } from '../theme';
+import { spacing, type Theme, useStyles, useTheme } from '../theme';
 
 interface Props {
   title: string;
@@ -30,11 +30,13 @@ export function ActionCard({
   disabled,
   onPress,
 }: Props) {
+  const th = useTheme();
+  const styles = useStyles(makeStyles);
   if (done) {
     return (
       <View style={[styles.card, styles.doneCard]}>
         <View style={styles.doneIcon}>
-          <CheckIcon color={colors.good} size={16} />
+          <CheckIcon color={th.good} size={16} />
         </View>
         <Text style={styles.doneText}>{doneLabel ?? title}</Text>
       </View>
@@ -45,10 +47,10 @@ export function ActionCard({
     <>
       <View style={[styles.iconBox, primary ? styles.iconBoxPrimary : null]}>{icon}</View>
       <View style={styles.body}>
-        <Text style={[styles.title, primary && { color: '#FFFFFF' }]}>{title}</Text>
-        {hint ? <Text style={[styles.hint, primary && { color: '#CFE4FF' }]}>{hint}</Text> : null}
+        <Text style={[styles.title, primary && { color: th.onBrand }]}>{title}</Text>
+        {hint ? <Text style={[styles.hint, primary && { color: th.onBrand, opacity: 0.75 }]}>{hint}</Text> : null}
       </View>
-      {disabled ? null : <ChevronIcon color={primary ? '#FFFFFF' : colors.textMuted} />}
+      {disabled ? null : <ChevronIcon color={primary ? th.onBrand : th.textMuted} />}
     </>
   );
 
@@ -71,7 +73,7 @@ export function ActionCard({
         style={({ pressed }) => [styles.primaryWrap, pressed && { transform: [{ scale: 0.985 }] }]}
       >
         <LinearGradient
-          colors={gradients.brand}
+          colors={th.gradients.brand}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={[styles.card, { borderWidth: 0 }]}
@@ -92,10 +94,10 @@ export function ActionCard({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (th: Theme) => StyleSheet.create({
   primaryWrap: {
-    borderRadius: radius.card,
-    shadowColor: colors.brand,
+    borderRadius: th.radius.card,
+    shadowColor: th.brand,
     shadowOpacity: 0.35,
     shadowRadius: 14,
     shadowOffset: { width: 0, height: 6 },
@@ -104,29 +106,29 @@ const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: radius.card,
+    borderRadius: th.radius.card,
     padding: spacing.l,
     minHeight: 80,
     gap: spacing.l,
   },
-  secondary: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
+  secondary: { backgroundColor: th.surface, borderWidth: 1, borderColor: th.border },
   disabled: { opacity: 0.5 },
   iconBox: {
     width: 46,
     height: 46,
     borderRadius: 14,
-    backgroundColor: colors.surface2,
+    backgroundColor: th.surface2,
     alignItems: 'center',
     justifyContent: 'center',
   },
   iconBoxPrimary: { backgroundColor: 'rgba(255,255,255,0.18)' },
   body: { flex: 1 },
-  title: { fontFamily: font.semibold, fontSize: 17, color: colors.text },
-  hint: { fontFamily: font.regular, fontSize: 13, color: colors.textMuted, marginTop: 2 },
+  title: { fontFamily: th.font.semibold, fontSize: 17, color: th.text },
+  hint: { fontFamily: th.font.regular, fontSize: 13, color: th.textMuted, marginTop: 2 },
   doneCard: {
-    backgroundColor: colors.surface,
+    backgroundColor: th.surface,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: th.border,
     minHeight: 54,
     paddingVertical: spacing.m,
   },
@@ -138,5 +140,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  doneText: { color: colors.textMuted, fontFamily: font.medium, fontSize: 15 },
+  doneText: { color: th.textMuted, fontFamily: th.font.medium, fontSize: 15 },
 });

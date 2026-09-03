@@ -6,7 +6,7 @@ import { create } from 'zustand';
 
 import { useAnimatedValue } from '../hooks/useAnimatedValue';
 
-import { colors, font, radius, spacing } from '../theme';
+import { spacing, type Theme, useStyles } from '../theme';
 
 interface ToastState {
   message: string | null;
@@ -21,6 +21,7 @@ export const useToast = create<ToastState>((set) => ({
 }));
 
 export function ToastHost() {
+  const styles = useStyles(makeStyles);
   const { message, hide } = useToast();
   const opacity = useAnimatedValue(0);
 
@@ -41,18 +42,18 @@ export function ToastHost() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (th: Theme) => StyleSheet.create({
   toast: {
     position: 'absolute',
     bottom: 100,
     alignSelf: 'center',
-    backgroundColor: colors.surface2,
-    borderColor: colors.border,
+    backgroundColor: th.surface2,
+    borderColor: th.border,
     borderWidth: 1,
-    borderRadius: radius.control,
+    borderRadius: th.radius.control,
     paddingHorizontal: spacing.l,
     paddingVertical: spacing.m,
     maxWidth: '85%',
   },
-  text: { color: colors.text, fontFamily: font.medium, fontSize: 15, textAlign: 'center' },
+  text: { color: th.text, fontFamily: th.font.medium, fontSize: 15, textAlign: 'center' },
 });
