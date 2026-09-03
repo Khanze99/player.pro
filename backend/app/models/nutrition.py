@@ -8,7 +8,7 @@ import uuid
 from datetime import date as date_type
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Index, String
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Index, String, text
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
 
@@ -23,6 +23,17 @@ class FoodItem(Base):
     __table_args__ = (
         Index("ix_food_items_barcode", "barcode"),
         Index("ix_food_items_name", "name"),
+        # Импорт Open Food Facts перезаливается целиком: штрихкод в импортированном
+        # слое уникален, чтобы повторный прогон дампа обновлял карточку, а не плодил
+        # дубли. Индекс частичный — глобальный сломал бы пользовательские продукты:
+        # игрок вправе завести свой продукт с тем же штрихкодом, и upsert импорта
+        # не должен его затирать.
+        Index(
+            "uq_food_items_off_barcode",
+            "barcode",
+            unique=True,
+            postgresql_where=text("source = 'open_food_facts' AND barcode IS NOT NULL"),
+        ),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)

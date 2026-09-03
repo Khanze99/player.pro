@@ -7,7 +7,7 @@
 import uuid
 from datetime import date
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import case, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.enums import FoodSource, MealType
@@ -35,16 +35,30 @@ def _visible_items(user_id: uuid.UUID):
     return or_(FoodItem.created_by.is_(None), FoodItem.created_by == user_id)
 
 
+# Импортированный слой Open Food Facts — краудсорс на десятки тысяч позиций:
+# сорок вариантов «Coca-Cola» и названия вида «Молоко 3,2% 900мл (шт)». Без
+# ранжирования он топит выверенный справочник, и запрос «овсянка» отдаёт брендовые
+# упаковки вместо строки «Овсянка на воде». Порядок: выверенный набор, затем
+# собственные продукты игрока, и только потом импорт.
+_SOURCE_RANK = case(
+    (FoodItem.source == FoodSource.curated, 0),
+    (FoodItem.source == FoodSource.custom, 1),
+    else_=2,
+)
+
+
 async def search_items(db: AsyncSession, user_id: uuid.UUID, query: str) -> list[FoodItem]:
-    pattern = f"%{query.strip().lower()}%"
+    needle = query.strip().lower()
+    pattern = f"%{needle}%"
+    # Совпадение с начала названия — выше совпадения где-то в середине
+    prefix_rank = case((func.lower(FoodItem.name).like(f"{needle}%"), 0), else_=1)
     rows = await db.execute(
         select(FoodItem)
         .where(
             _visible_items(user_id),
             or_(func.lower(FoodItem.name).like(pattern), func.lower(FoodItem.brand).like(pattern)),
         )
-        # Выверенные и общие — выше пользовательских
-        .order_by(FoodItem.verified.desc(), FoodItem.name)
+        .order_by(prefix_rank, _SOURCE_RANK, FoodItem.verified.desc(), FoodItem.name)
         .limit(SEARCH_LIMIT)
     )
     return list(rows.scalars())
@@ -54,7 +68,8 @@ async def find_by_barcode(db: AsyncSession, user_id: uuid.UUID, barcode: str) ->
     rows = await db.execute(
         select(FoodItem)
         .where(FoodItem.barcode == barcode.strip(), _visible_items(user_id))
-        .order_by(FoodItem.verified.desc())
+        # Свой продукт с этим штрихкодом игрок завёл осознанно — он и выигрывает
+        .order_by(FoodItem.created_by.is_(None), FoodItem.verified.desc())
         .limit(1)
     )
     return rows.scalar_one_or_none()

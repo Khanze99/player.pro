@@ -48,9 +48,17 @@ seed-reset: ## Пересоздать демо-данные с нуля
 foods: ## Базовый справочник продуктов (~50 позиций)
 	$(PYTHON) scripts/import_foods.py
 
-foods-off: ## Импорт дампа Open Food Facts: make foods-off f=path/to/dump.csv.gz
+# country= (пустое) — импортировать без фильтра по стране: ~4 млн записей,
+# поиск на таком объёме потребует pg_trgm (docs/plan-food-catalog.md)
+country ?= russia
+limit ?= 0
+# cyrillic=0 — только пометка страны; по умолчанию берём и товары с кириллицей
+# в названии: у трёх четвертей российского ассортимента страна не проставлена
+cyrillic ?= 1
+
+foods-off: ## Импорт дампа Open Food Facts: make foods-off f=dump.csv.gz [country=russia] [limit=0]
 	@test -n "$(f)" || (echo 'Нужен путь: make foods-off f=en.openfoodfacts.org.products.csv.gz'; exit 1)
-	$(PYTHON) scripts/import_foods.py --off $(f)
+	$(PYTHON) scripts/import_foods.py --off $(f) --country "$(country)" --limit $(limit) $(if $(filter 1,$(cyrillic)),--cyrillic,)
 
 infra-up: ## Поднять PostgreSQL + Redis
 	$(COMPOSE) up -d postgres redis

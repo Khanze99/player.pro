@@ -185,6 +185,89 @@ async def test_search_finds_curated_items(db):
     assert any(item.name == "Куриная грудка" for item in found)
 
 
+async def test_search_ranks_curated_above_import(db):
+    """Импортированный слой OFF — десятки тысяч краудсорсных карточек. Без
+    ранжирования запрос «молоко» отдаёт брендовые упаковки вместо строки
+    справочника, и дневник становится бесполезен."""
+    world = await _world(db)
+    db.add_all(
+        [
+            FoodItem(source=FoodSource.curated, name="Молоко 2.5%", kcal_100g=52, verified=True),
+            FoodItem(
+                source=FoodSource.open_food_facts,
+                barcode="4600682015147",
+                name="Молоко Домик в деревне 3,2%",
+                kcal_100g=60,
+            ),
+        ]
+    )
+    await db.commit()
+
+    found = await nutrition_service.search_items(db, world["athlete"].id, "молоко")
+    assert [item.source for item in found] == [FoodSource.curated, FoodSource.open_food_facts]
+
+
+async def test_search_prefers_prefix_match(db):
+    world = await _world(db)
+    db.add_all(
+        [
+            FoodItem(source=FoodSource.curated, name="Кофе с молоком", kcal_100g=37, verified=True),
+            FoodItem(source=FoodSource.curated, name="Молоко 2.5%", kcal_100g=52, verified=True),
+        ]
+    )
+    await db.commit()
+
+    found = await nutrition_service.search_items(db, world["athlete"].id, "молок")
+    assert [item.name for item in found] == ["Молоко 2.5%", "Кофе с молоком"]
+
+
+async def test_search_puts_own_item_between_curated_and_import(db):
+    """Свой продукт игрок завёл осознанно — он выше импорта, но ниже выверенного
+    справочника, где нутриенты проверены."""
+    world = await _world(db)
+    db.add_all(
+        [
+            FoodItem(source=FoodSource.curated, name="Сырники", kcal_100g=220, verified=True),
+            FoodItem(source=FoodSource.open_food_facts, barcode="111", name="Сырники Эко", kcal_100g=210),
+            FoodItem(
+                source=FoodSource.custom,
+                name="Сырники мамины",
+                kcal_100g=240,
+                created_by=world["athlete"].id,
+            ),
+        ]
+    )
+    await db.commit()
+
+    found = await nutrition_service.search_items(db, world["athlete"].id, "сырники")
+    assert [item.source for item in found] == [
+        FoodSource.curated,
+        FoodSource.custom,
+        FoodSource.open_food_facts,
+    ]
+
+
+async def test_barcode_lookup_prefers_own_item(db):
+    """Штрихкод один, карточек две: своя и импортированная. Игрок ждёт свою."""
+    world = await _world(db)
+    db.add_all(
+        [
+            FoodItem(source=FoodSource.open_food_facts, barcode="4600682015147", name="Молоко", kcal_100g=60),
+            FoodItem(
+                source=FoodSource.custom,
+                barcode="4600682015147",
+                name="Моё молоко",
+                kcal_100g=55,
+                created_by=world["athlete"].id,
+            ),
+        ]
+    )
+    await db.commit()
+
+    found = await nutrition_service.find_by_barcode(db, world["athlete"].id, "4600682015147")
+    assert found.name == "Моё молоко"
+
+
 # ------------------------------------------------------------------ цели
 
 
