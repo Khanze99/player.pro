@@ -10,6 +10,7 @@ import { useTranslation } from 'react-i18next';
 
 import { usePolicyConsents, useSetPolicyConsent } from '@/api/hooks';
 import { session } from '@/auth/session';
+import { BackButton } from '@/components/BackButton';
 import { Button } from '@/components/Button';
 import { CheckIcon } from '@/components/Icons';
 import { Screen } from '@/components/Screen';
@@ -61,6 +62,10 @@ export default function Consent() {
 
   return (
     <Screen>
+      {/* Экран открыт через replace (и в онбординге, и по next=active), стека нет —
+          отдаём BackButton явный fallback: у обычного онбординга это старт, у
+          вернувшегося по PIN — обратно на ввод PIN. */}
+      <BackButton fallbackTo={next === 'active' ? '/(auth)/pin' : '/(auth)/welcome'} />
       <View style={styles.content}>
         <ScreenTitle>{t('consent.title')}</ScreenTitle>
         <Text style={styles.intro}>{t('consent.intro')}</Text>
