@@ -21,5 +21,10 @@ web/.next/
 .idea/
 .DS_Store
 
-# Claude Code local
-.claude/
+# Claude Code local (агенты проекта — общие, версионируем)
+.claude/*
+!.claude/agents/
+!.claude/skills/
+!.claude/commands/
+# локальные настройки Claude в подпроектах
+*/.claude/
