@@ -1,7 +1,8 @@
 // Политика конфиденциальности — статический экран, на который ссылается чекбокс 1
 // в гейте согласий (mobile/src/app/(auth)/consent.tsx). НЕ путать с privacy.tsx —
 // тем экраном игрок управляет тем, кому открыты цикл/питание/метрики (audience-согласия);
-// этот экран — просто текст документа. Только ru, см. terms.tsx. ЧЕРНОВИК.
+// этот экран — просто текст документа. Только ru, см. terms.tsx. Текст ждёт
+// проверки юристом (§7 — срок хранения — ещё не заполнен).
 
 import { useRouter } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -132,10 +133,6 @@ export default function PrivacyPolicy() {
           </Pressable>
         </View>
 
-        <View style={styles.banner}>
-          <Text style={styles.bannerText}>{t('legalDocs.draftBanner')}</Text>
-        </View>
-
         {SECTIONS.map((s) => (
           <View key={s.heading} style={styles.section}>
             <Text style={styles.heading}>{s.heading}</Text>
@@ -152,14 +149,6 @@ const makeStyles = (th: Theme) => StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center' },
   title: { flexShrink: 1 },
   close: { padding: spacing.xs, marginLeft: spacing.m },
-  banner: {
-    padding: spacing.m,
-    borderRadius: th.radius.card,
-    borderWidth: 1,
-    borderColor: th.caution,
-    backgroundColor: `${th.caution}1A`,
-  },
-  bannerText: { fontFamily: th.font.medium, fontSize: 12, color: th.caution, lineHeight: 17 },
   section: { gap: spacing.xs },
   heading: { fontFamily: th.font.semibold, fontSize: 15, color: th.text },
   body: { fontFamily: th.font.regular, fontSize: 13, color: th.textMuted, lineHeight: 19 },

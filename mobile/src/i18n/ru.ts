@@ -410,7 +410,6 @@ export default {
   legalDocs: {
     termsTitle: 'Пользовательское соглашение',
     privacyPolicyTitle: 'Политика конфиденциальности',
-    draftBanner: 'Черновик документа. Перед публикацией требует проверки юристом.',
   },
   dashboard: {
     title: 'Дашборд',

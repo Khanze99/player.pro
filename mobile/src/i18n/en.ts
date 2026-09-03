@@ -412,7 +412,6 @@ const en: typeof ru = {
   legalDocs: {
     termsTitle: 'Terms of Use',
     privacyPolicyTitle: 'Privacy Policy',
-    draftBanner: 'Draft document. Requires legal review before publication.',
   },
   dashboard: {
     title: 'Dashboard',

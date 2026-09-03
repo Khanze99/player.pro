@@ -412,7 +412,6 @@ const es: typeof ru = {
   legalDocs: {
     termsTitle: 'Acuerdo de Usuario',
     privacyPolicyTitle: 'Política de Privacidad',
-    draftBanner: 'Documento borrador. Requiere revisión legal antes de publicarse.',
   },
   dashboard: {
     title: 'Panel',
