@@ -37,7 +37,7 @@ export default function OrgCreate() {
   };
 
   return (
-    <Screen>
+    <Screen edges={['top', 'bottom']}>
       <BackButton />
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <View style={styles.content}>

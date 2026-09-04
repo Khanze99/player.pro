@@ -53,7 +53,7 @@ export default function ProfileSetup() {
   };
 
   return (
-    <Screen>
+    <Screen edges={['top', 'bottom']}>
       <BackButton fallbackTo="/(auth)/consent" />
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <View style={styles.content}>

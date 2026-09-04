@@ -61,7 +61,7 @@ export default function Consent() {
   };
 
   return (
-    <Screen>
+    <Screen edges={['top', 'bottom']}>
       {/* Экран открыт через replace (и в онбординге, и по next=active), стека нет —
           отдаём BackButton явный fallback: у обычного онбординга это старт, у
           вернувшегося по PIN — обратно на ввод PIN. */}
