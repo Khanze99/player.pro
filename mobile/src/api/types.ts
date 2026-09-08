@@ -4,6 +4,12 @@ export type GlobalRole = 'admin' | 'staff' | 'player';
 export type TeamRole = 'head_coach' | 'coach' | 'medic' | 'athlete';
 export type AvailabilityStatus = 'full' | 'modified' | 'unavailable';
 
+export interface TeamMembership {
+  team_id: string;
+  team_name: string;
+  team_role: TeamRole;
+}
+
 export interface Me {
   id: string;
   last_name: string;
@@ -15,6 +21,11 @@ export interface Me {
   phone: string | null;
   email: string | null;
   status: string;
+  created_at: string;
+  // Путь (не абсолютный URL) к своему аватару или null. Меняется при каждой
+  // перезагрузке фото — годится как cache-busting-ключ.
+  avatar_url: string | null;
+  teams: TeamMembership[];
   terms_accepted: boolean;
   health_consent_accepted: boolean;
 }
@@ -401,6 +412,10 @@ export interface AthleteProfile {
   baseline_resting_hr: number | null;
   birthdate: string | null;
   sex: Sex;
+  // null может значить «не заполнено» либо «нет согласия body_metrics» — на своём
+  // профиле всегда приходит фактическое значение.
+  height_cm: number | null;
+  weight_kg: number | null;
 }
 
 export interface CycleSettings {

@@ -120,6 +120,37 @@ async def shared_team_staff_role(
     return await _shared_team_staff_role(db, viewer_id, athlete_id)
 
 
+async def _shares_any_team(db: AsyncSession, a_id: uuid.UUID, b_id: uuid.UUID) -> bool:
+    """Есть ли у двух пользователей общая команда — в любых ролях, в любую сторону."""
+    a_tm = TeamMembership.__table__.alias("a_tm")
+    b_tm = TeamMembership.__table__.alias("b_tm")
+    row = await db.execute(
+        select(a_tm.c.team_id)
+        .select_from(a_tm.join(b_tm, a_tm.c.team_id == b_tm.c.team_id))
+        .where(a_tm.c.user_id == a_id, b_tm.c.user_id == b_id)
+        .limit(1)
+    )
+    return row.first() is not None
+
+
+async def ensure_can_view_user_avatar(db: AsyncSession, viewer: User, target_id: uuid.UUID) -> None:
+    """Аватар видят: сам человек, admin своей организации, любой одноклубник.
+
+    Шире, чем ensure_can_view_athlete (тот — только staff над athlete): игроку
+    нормально видеть лицо тренера, а тренеру — лицо коллеги-врача.
+    """
+    if viewer.id == target_id:
+        return
+    target = await db.get(User, target_id)
+    if target is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Пользователь не найден")
+    if is_org_admin(viewer, target.org_id):
+        return
+    if await _shares_any_team(db, viewer.id, target_id):
+        return
+    raise _forbidden()
+
+
 async def ensure_can_view_sensitive(
     db: AsyncSession, viewer: User, athlete_id: uuid.UUID, scope: ConsentScope
 ) -> None:

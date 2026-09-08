@@ -6,8 +6,7 @@ import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, StyleSheet, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
-import { api, patch } from '@/api/client';
-import type { Me } from '@/api/types';
+import { patch } from '@/api/client';
 import { useMe } from '@/api/hooks';
 import { BackButton } from '@/components/BackButton';
 import { Button } from '@/components/Button';
@@ -44,9 +43,8 @@ export default function ProfileSetup() {
         first_name: firstName.trim(),
         middle_name: middleName.trim(),
       });
-      const fresh = await api<Me>('/auth/me');
-      // В организации (по приглашению) — команда настроена, сразу к PIN
-      router.push(fresh.org_id ? '/(auth)/pin-setup' : '/(auth)/org-choice');
+      // Дальше — обязательный шаг выбора пола, потом организация/PIN
+      router.push('/(auth)/sex-select');
     } finally {
       setLoading(false);
     }

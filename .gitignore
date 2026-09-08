@@ -9,6 +9,9 @@ __pycache__/
 .env
 !.env.example
 
+# Загружаемые пользователями файлы (аватары) — только на volume, не в репозиторий
+backend/media/
+
 # Живые креды Postbox — в репозиторий не попадают
 docs/smtp.md
 

@@ -5,6 +5,7 @@ PIN — локальный код устройства, сервер про не
 
 import logging
 import re
+import uuid
 from datetime import UTC, datetime, timedelta
 
 from fastapi import HTTPException, status
@@ -15,9 +16,11 @@ from app.config import settings
 from app.core.otp import OtpStore
 from app.core.security import create_access_token, generate_otp_code, generate_refresh_token, hash_token
 from app.models.enums import PolicyConsentKind, UserStatus
+from app.models.team import Team, TeamMembership
 from app.models.user import RefreshToken, User
 from app.schemas.auth import MeOut
-from app.services import policy_consent_service
+from app.schemas.team import MembershipOut
+from app.services import avatar_service, policy_consent_service
 from app.services.notify_service import NotifyError, get_notifier
 
 logger = logging.getLogger(__name__)
@@ -165,6 +168,18 @@ async def logout(db: AsyncSession, raw_token: str) -> None:
         await db.commit()
 
 
+async def _my_memberships(db: AsyncSession, user_id: uuid.UUID) -> list[MembershipOut]:
+    rows = await db.execute(
+        select(TeamMembership.team_id, Team.name, TeamMembership.team_role)
+        .join(Team, Team.id == TeamMembership.team_id)
+        .where(TeamMembership.user_id == user_id)
+        .order_by(Team.name)
+    )
+    return [
+        MembershipOut(team_id=team_id, team_name=name, team_role=role) for team_id, name, role in rows.all()
+    ]
+
+
 async def build_me_out(db: AsyncSession, user: User) -> MeOut:
     """Профиль + статус юридического гейта — единый ответ для клиентского
     роутинга онбординга (docs/plan-onboarding-consent.md), без похода в
@@ -181,6 +196,9 @@ async def build_me_out(db: AsyncSession, user: User) -> MeOut:
         phone=user.phone,
         email=user.email,
         status=user.status,
+        created_at=user.created_at,
+        avatar_url=avatar_service.avatar_url(user),
+        teams=await _my_memberships(db, user.id),
         terms_accepted=consent_status[PolicyConsentKind.terms].granted,
         health_consent_accepted=consent_status[PolicyConsentKind.health_data].granted,
     )

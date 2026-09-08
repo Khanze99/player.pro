@@ -30,6 +30,14 @@ class MemberOut(BaseModel):
     team_role: TeamRole
 
 
+class MembershipOut(BaseModel):
+    """Членство текущего пользователя: для показа «команда → роль» в профиле."""
+
+    team_id: uuid.UUID
+    team_name: str
+    team_role: TeamRole
+
+
 class LocationIn(BaseModel):
     name: str = Field(min_length=1, max_length=255)
 

@@ -50,7 +50,11 @@ function AuthGate() {
     const routeOnboarding = async () => {
       // Приложение перезапустили посреди онбординга: access-токена в памяти нет
       if (!session.getState().accessToken) await refreshAccessToken();
-      let target: '/(auth)/consent' | '/(auth)/profile-setup' | '/(auth)/pin-setup' = '/(auth)/pin-setup';
+      let target:
+        | '/(auth)/consent'
+        | '/(auth)/profile-setup'
+        | '/(auth)/sex-select'
+        | '/(auth)/pin-setup' = '/(auth)/pin-setup';
       if (await isNewUser()) {
         // Безопасный дефолт для нового пользователя — самый ранний незавершённый шаг:
         // без обоих согласий (152-ФЗ, docs/plan-onboarding-consent.md) дальше пускать нельзя,
@@ -59,8 +63,9 @@ function AuthGate() {
         try {
           const me = await api<Me>('/auth/me');
           if (me.terms_accepted && me.health_consent_accepted) {
-            // Согласия уже даны — приглашённому админ мог задать ФИО, тогда спрашивать нечего
-            target = me.last_name && me.first_name ? '/(auth)/pin-setup' : '/(auth)/profile-setup';
+            // Согласия даны. Приглашённому админ мог задать ФИО — тогда пропускаем
+            // шаг имени, но не шаг пола: он обязателен для всех новых (docs/plan-profile.md).
+            target = me.last_name && me.first_name ? '/(auth)/sex-select' : '/(auth)/profile-setup';
           }
         } catch {
           // сеть недоступна — оставляем самый ранний шаг

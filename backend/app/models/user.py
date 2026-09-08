@@ -1,7 +1,8 @@
 import uuid
 from datetime import date, datetime
+from decimal import Decimal
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, String
+from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, Numeric, SmallInteger, String
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
 
@@ -34,6 +35,10 @@ class User(Base):
     status: Mapped[UserStatus] = mapped_column(String(16), default=UserStatus.pending)
     phone_verified: Mapped[bool] = mapped_column(Boolean, default=False)
     email_verified: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Имя файла аватара в каталоге media/avatars (не URL). Меняется при каждой
+    # перезагрузке фото — служит клиенту cache-busting-сигналом. Раздаётся только
+    # авторизованным GET /users/{id}/avatar, не публичной статикой.
+    avatar_path: Mapped[str | None] = mapped_column(String(256), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
@@ -51,7 +56,13 @@ class RefreshToken(Base):
 
 
 class AthleteProfile(Base):
+    """Профильная карточка любого пользователя (PK = user_id), не только игрока."""
+
     __tablename__ = "athlete_profiles"
+    __table_args__ = (
+        CheckConstraint("height_cm BETWEEN 100 AND 250", name="ck_athlete_height_cm"),
+        CheckConstraint("weight_kg BETWEEN 30 AND 250", name="ck_athlete_weight_kg"),
+    )
 
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), primary_key=True)
     position: Mapped[str | None] = mapped_column(String(64), nullable=True)
@@ -59,3 +70,7 @@ class AthleteProfile(Base):
     birthdate: Mapped[date | None] = mapped_column(nullable=True)
     # Самодекларация. Входной параметр для цикл-трекинга, никогда не навязывается.
     sex: Mapped[Sex] = mapped_column(String(16), default=Sex.not_specified)
+    # Спецкатегория body_metrics: штабу видны только по согласию игрока (см.
+    # authz.ensure_can_view_sensitive), себе — всегда.
+    height_cm: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
+    weight_kg: Mapped[Decimal | None] = mapped_column(Numeric(4, 1), nullable=True)

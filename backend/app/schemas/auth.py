@@ -1,8 +1,10 @@
 import uuid
+from datetime import datetime
 
 from pydantic import BaseModel, Field
 
 from app.models.enums import GlobalRole, UserStatus
+from app.schemas.team import MembershipOut
 
 
 class OtpRequestIn(BaseModel):
@@ -57,6 +59,12 @@ class MeOut(BaseModel):
     phone: str | None
     email: str | None
     status: UserStatus
+    created_at: datetime
+    # Путь к своему аватару, если загружен: /api/v1/users/{id}/avatar. Меняется
+    # при каждой перезагрузке фото — клиенту сгодится как cache-busting-ключ.
+    avatar_url: str | None
+    # Роли в командах — для показа «команда → роль» в профиле
+    teams: list[MembershipOut]
     # Юридический гейт онбординга (152-ФЗ ст. 9/10) — считается независимо по
     # каждому kind, см. policy_consent_service.status_for.
     terms_accepted: bool
