@@ -6,8 +6,7 @@ from fastapi import APIRouter
 from app.api.deps import CurrentUser, DbSession
 from app.core import authz
 from app.schemas.wellness import WellnessCreateIn, WellnessCreateOut, WellnessOut
-from app.services import wellness_service
-from app.services.analytics_service import get_metrics
+from app.services import analytics_service, wellness_service
 
 router = APIRouter(prefix="/wellness", tags=["wellness"])
 
@@ -15,12 +14,13 @@ router = APIRouter(prefix="/wellness", tags=["wellness"])
 @router.post("", response_model=WellnessCreateOut, status_code=201)
 async def create_entry(data: WellnessCreateIn, user: CurrentUser, db: DbSession):
     entry, streak = await wellness_service.create_entry(db, user.id, data)
-    metrics = await get_metrics(db, user.id, entry.date, entry.date)
-    metric = metrics[0] if metrics else None
+    # Полный ряд DailyMetric считает Celery-задача; в ответ отдаём синхронный
+    # расчёт Readiness за этот день, чтобы игрок увидел балл сразу.
+    readiness = await analytics_service.readiness_preview(db, user.id, entry)
     return WellnessCreateOut(
         entry=WellnessOut.model_validate(entry),
-        readiness=metric.readiness if metric and metric.readiness is not None else 0,
-        readiness_zone=metric.readiness_zone or "red" if metric else "red",
+        readiness=readiness.score,
+        readiness_zone=readiness.zone,
         streak=streak,
     )
 

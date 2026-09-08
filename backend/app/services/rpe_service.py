@@ -117,11 +117,10 @@ async def create_entry(db: AsyncSession, athlete_id: uuid.UUID, data: RpeCreateI
     db.add(entry)
     streak = await streaks_service.bump_streak(db, athlete_id, StreakType.rpe, data.date)
     await db.flush()
-    await analytics_service.recalc_athlete(
-        db, athlete_id, end_date=max(data.date, date.today()), commit=False
-    )
     await db.commit()
     await db.refresh(entry)
+    # DailyMetric пересчитывает Celery-задача после коммита (ночной прогон — страховка).
+    analytics_service.enqueue_recalc_athlete(athlete_id, max(data.date, date.today()))
     return entry, streak
 
 

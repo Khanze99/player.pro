@@ -1,7 +1,4 @@
-import asyncio
 import logging
-from contextlib import asynccontextmanager
-from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -10,8 +7,6 @@ from fastapi.staticfiles import StaticFiles
 
 from app.api.v1.router import router
 from app.config import settings
-from app.database import AsyncSessionLocal
-from app.services import analytics_service
 
 logging.basicConfig(
     level=logging.DEBUG if settings.debug else logging.INFO,
@@ -20,35 +15,10 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
-
-async def _nightly_recalc_loop() -> None:
-    """Ночной пересчёт DailyMetric (раздел 10 ТЗ). Полноценный планировщик — пост-MVP."""
-    while True:
-        now = datetime.now(UTC)
-        next_run = now.replace(hour=settings.nightly_recalc_hour_utc, minute=0, second=0, microsecond=0)
-        if next_run <= now:
-            next_run += timedelta(days=1)
-        await asyncio.sleep((next_run - now).total_seconds())
-        try:
-            async with AsyncSessionLocal() as db:
-                days = await analytics_service.recalc_all(db)
-            logger.info("Nightly recalc done: %s athlete-days", days)
-        except Exception:
-            logger.exception("Nightly recalc failed")
-
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    # Схема БД ведётся миграциями Alembic и применяется вручную: make upgrade
-    task: asyncio.Task | None = None
-    if settings.nightly_recalc_enabled:
-        task = asyncio.create_task(_nightly_recalc_loop())
-    yield
-    if task is not None:
-        task.cancel()
-
-
-app = FastAPI(title=settings.app_name, version="0.1.0", docs_url="/docs", lifespan=lifespan)
+# Пересчёт DailyMetric вынесен в Celery (worker + beat, docs/plan-celery-recalc.md):
+# ночной прогон ставит Beat, live-пересчёт при сабмите wellness/RPE ставится в очередь
+# после коммита. Внутри процесса API его больше нет.
+app = FastAPI(title=settings.app_name, version="0.1.0", docs_url="/docs")
 
 app.add_middleware(
     CORSMiddleware,
@@ -63,6 +33,11 @@ app.add_middleware(
 STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 STATIC_DIR.mkdir(exist_ok=True)
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
+# Аватары профиля (docs/plan-profile.md). Сознательно НЕ монтируются как статика:
+# лицо человека — персданные, раздаётся только авторизованным GET /users/{id}/avatar.
+# Каталог так же обязан быть на volume в проде.
+(Path(__file__).resolve().parent.parent / settings.media_dir / "avatars").mkdir(parents=True, exist_ok=True)
 
 app.include_router(router)
 

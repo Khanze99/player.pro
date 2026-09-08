@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { api, patch, post } from './client';
+import { api, apiBlobUri, patch, post, upload } from './client';
 import type {
   AthleteProfile,
   Attendance,
@@ -133,6 +133,45 @@ export function useSetPolicyConsent() {
 
 export const useMyProfile = () =>
   useQuery({ queryKey: ['profile'], queryFn: () => api<AthleteProfile>('/users/me/profile') });
+
+export function useUpsertProfile() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: Partial<Omit<AthleteProfile, 'user_id'>>) =>
+      api<AthleteProfile>('/users/me/profile', { method: 'PUT', body: JSON.stringify(body) }),
+    onSuccess: (data) => {
+      qc.setQueryData(['profile'], data);
+      // sex влияет на видимость раздела «Цикл» в профиле — он читает useMe/useMyProfile
+      void qc.invalidateQueries({ queryKey: ['profile'] });
+    },
+  });
+}
+
+export function useUploadAvatar() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (form: FormData) => upload<Me>('/users/me/avatar', form),
+    onSuccess: (me) => qc.setQueryData(['me'], me),
+  });
+}
+
+// avatar_url приходит с префиксом /api/v1 — rawRequest его добавляет сам.
+// Ключ включает сам url: он меняется при каждой перезагрузке фото → авто-refetch.
+export const useAvatar = (avatarUrl: string | null | undefined) =>
+  useQuery({
+    queryKey: ['avatar', avatarUrl],
+    enabled: !!avatarUrl,
+    staleTime: 5 * 60_000,
+    queryFn: () => apiBlobUri(avatarUrl!.replace(/^\/api\/v1/, '')),
+  });
+
+export function useDeleteAvatar() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api<void>('/users/me/avatar', { method: 'DELETE' }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['me'] }),
+  });
+}
 
 export const useCycleSettings = () =>
   useQuery({ queryKey: ['cycle-settings'], queryFn: () => api<CycleSettings>('/cycle/me/settings') });
@@ -324,7 +363,11 @@ export const useAvailabilitySummary = (athleteId: string | undefined) =>
     queryFn: () => api<AvailabilitySummary>(`/availability/athletes/${athleteId}/summary`),
   });
 
-/** После любой записи данные пересчитываются на сервере — сбрасываем всё связанное. */
+/**
+ * После любой записи данные пересчитываются на сервере — сбрасываем всё связанное.
+ * Пересчёт DailyMetric идёт фоновой очередью (Celery), поэтому «свежие» метрики
+ * приезжают через секунду-две — делаем отложенную повторную инвалидацию.
+ */
 function useInvalidateAthleteData() {
   const qc = useQueryClient();
   return () => {
@@ -333,6 +376,10 @@ function useInvalidateAthleteData() {
     void qc.invalidateQueries({ queryKey: ['wellness'] });
     void qc.invalidateQueries({ queryKey: ['rpe'] });
     void qc.invalidateQueries({ queryKey: ['rpe-sessions'] });
+    setTimeout(() => {
+      void qc.invalidateQueries({ queryKey: ['metrics'] });
+      void qc.invalidateQueries({ queryKey: ['streaks'] });
+    }, 3000);
   };
 }
 

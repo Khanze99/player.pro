@@ -20,6 +20,8 @@ x-backend-env: &backend-env
   REFRESH_TOKEN_EXPIRE_DAYS: ${REFRESH_TOKEN_EXPIRE_DAYS:-90}
   NIGHTLY_RECALC_ENABLED: ${NIGHTLY_RECALC_ENABLED:-true}
   NIGHTLY_RECALC_HOUR_UTC: ${NIGHTLY_RECALC_HOUR_UTC:-2}
+  CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/1}
+  CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://redis:6379/2}
   OTP_EMAIL_CHANNEL: ${OTP_EMAIL_CHANNEL:-log}
   OTP_PHONE_CHANNEL: ${OTP_PHONE_CHANNEL:-log}
   SMTP_HOST: ${SMTP_HOST:-}
@@ -94,6 +96,30 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
+    restart: unless-stopped
+
+  # Пересчёт DailyMetric (docs/plan-celery-recalc.md): worker жуёт очередь,
+  # beat раз в сутки ставит recalc_all. Оба — из того же образа, что api.
+  worker:
+    build: ../backend
+    image: playerpro-backend
+    environment: *backend-env
+    command: ["celery", "-A", "app.celery_app", "worker", "--loglevel=info", "--concurrency=2"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  beat:
+    build: ../backend
+    image: playerpro-backend
+    environment: *backend-env
+    command: ["celery", "-A", "app.celery_app", "beat", "--loglevel=info"]
+    depends_on:
+      redis:
+        condition: service_healthy
     restart: unless-stopped
 
   # Демо-данные (команда 25 игроков + месяц нагрузки). Профиль — чтобы не запускалось

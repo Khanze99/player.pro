@@ -1,5 +1,6 @@
 import uuid
 from datetime import date as date_type
+from typing import Literal
 
 from pydantic import BaseModel
 
@@ -28,3 +29,20 @@ class StreakOut(BaseModel):
     type: StreakType
     count: int
     last_date: date_type | None
+
+
+class RecalcDispatchOut(BaseModel):
+    """Ответ на постановку ручного пересчёта в очередь."""
+
+    task_id: str
+    status: Literal["queued"] = "queued"
+
+
+class RecalcStatusOut(BaseModel):
+    """Статус ранее поставленной задачи пересчёта."""
+
+    task_id: str
+    state: str  # PENDING | STARTED | SUCCESS | FAILURE (как у Celery)
+    recalculated_days: int | None = None
+    skipped: bool = False
+    error: str | None = None

@@ -161,3 +161,62 @@ async def test_recalc_idempotent_no_duplicates(db):
         )
     ).scalar()
     assert count == 1
+
+
+async def test_submit_enqueues_recalc_and_metric_lands(client):
+    """Сабмит ставит пересчёт в Celery; в eager-режиме задача отрабатывает сразу и
+    DailyMetric за день появляется (мост sync→async бьёт в реальную playerpro_test)."""
+    user = await register_user(client, "enqueue@example.com")
+    resp = await client.post(
+        "/api/v1/rpe",
+        json={"date": str(date.today()), "exertion": 7, "performance": 5, "duration_min": 60},
+        headers=user["headers"],
+    )
+    assert resp.status_code == 201
+
+    metrics = await client.get("/api/v1/analytics/me/metrics", headers=user["headers"])
+    assert metrics.status_code == 200
+    assert metrics.json()[-1]["daily_load"] == 420  # 7 × 60, посчитано задачей
+
+
+async def _make_org_admin(client, identifier: str) -> dict:
+    admin = await register_user(client, identifier)
+    resp = await client.post("/api/v1/organizations", json={"name": "FC Recalc"}, headers=admin["headers"])
+    assert resp.status_code in (200, 201), resp.text
+    return admin
+
+
+async def test_manual_recalc_dispatches_and_reports_status(client):
+    admin = await _make_org_admin(client, "recalc-admin@example.com")
+
+    dispatch = await client.post("/api/v1/analytics/recalc", headers=admin["headers"])
+    assert dispatch.status_code == 202
+    body = dispatch.json()
+    assert body["status"] == "queued"
+    task_id = body["task_id"]
+
+    status_resp = await client.get(f"/api/v1/analytics/recalc/{task_id}", headers=admin["headers"])
+    assert status_resp.status_code == 200
+    payload = status_resp.json()
+    assert payload["task_id"] == task_id
+    assert payload["state"] == "SUCCESS"
+    assert payload["recalculated_days"] is not None
+
+
+async def test_manual_recalc_requires_org_admin(client):
+    user = await register_user(client, "recalc-plain@example.com")
+    resp = await client.post("/api/v1/analytics/recalc", headers=user["headers"])
+    assert resp.status_code == 403
+    resp = await client.get("/api/v1/analytics/recalc/whatever", headers=user["headers"])
+    assert resp.status_code == 403
+
+
+def test_beat_schedule_registered_when_enabled():
+    """Периодическая задача ночного пересчёта регистрируется по nightly_recalc_enabled."""
+    from app.celery_app import celery_app
+    from app.config import settings
+
+    if settings.nightly_recalc_enabled:
+        assert "nightly-recalc-all" in celery_app.conf.beat_schedule
+    else:
+        assert not celery_app.conf.beat_schedule

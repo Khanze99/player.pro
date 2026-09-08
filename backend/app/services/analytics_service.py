@@ -4,6 +4,7 @@
 День без событий = 0 AU (не пропуск) — важно для EWMA.
 """
 
+import logging
 import uuid
 from datetime import date, timedelta
 
@@ -15,6 +16,8 @@ from app.models.metric import DailyMetric
 from app.models.rpe import RpeEntry
 from app.models.user import AthleteProfile
 from app.models.wellness import WellnessEntry
+
+logger = logging.getLogger(__name__)
 
 
 async def _first_data_date(db: AsyncSession, athlete_id: uuid.UUID) -> date | None:
@@ -117,6 +120,42 @@ async def recalc_athlete(
     if commit:
         await db.commit()
     return days
+
+
+def enqueue_recalc_athlete(athlete_id: uuid.UUID, end_date: date | None = None) -> None:
+    """Поставить пересчёт ряда игрока в Celery (docs/plan-celery-recalc.md).
+
+    Вызывается из сервисов сабмита wellness/RPE **после коммита** записи. Недоступный
+    брокер не должен ронять сабмит — ошибка логируется, ряд догонит ночной прогон.
+    """
+    from app.tasks.analytics_tasks import recalc_athlete as _recalc_athlete_task
+
+    try:
+        _recalc_athlete_task.delay(str(athlete_id), end_date.isoformat() if end_date else None)
+    except Exception:  # noqa: BLE001 — брокер недоступен, сабмит важнее пересчёта
+        logger.exception("Не удалось поставить пересчёт игрока %s в очередь", athlete_id)
+
+
+async def readiness_preview(
+    db: AsyncSession, athlete_id: uuid.UUID, entry: WellnessEntry
+) -> calc.ReadinessResult:
+    """Синхронный расчёт Readiness за один день — для немедленного ответа на сабмит.
+    Полный ряд DailyMetric пересчитывает Celery-задача.
+    """
+    profile = await db.get(AthleteProfile, athlete_id)
+    return calc.readiness(
+        calc.ReadinessInput(
+            mood=entry.mood,
+            energy=entry.energy,
+            sleep_quality=entry.sleep_quality,
+            stress=entry.stress,
+            soreness=entry.soreness,
+            resting_hr=entry.resting_hr,
+            baseline_resting_hr=profile.baseline_resting_hr if profile else None,
+            injury=entry.injury,
+            symptom=entry.symptom,
+        )
+    )
 
 
 async def recalc_all(db: AsyncSession, end_date: date | None = None) -> int:

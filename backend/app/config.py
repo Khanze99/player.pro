@@ -61,9 +61,17 @@ class Settings(BaseSettings):
     feature_cycle_enabled: bool = False
     feature_nutrition_enabled: bool = False
 
-    # Ночной пересчёт DailyMetric
+    # Ночной пересчёт DailyMetric. Прогон ставит Celery Beat (сервис `beat`);
+    # nightly_recalc_enabled=false — периодическая задача не регистрируется в расписании.
     nightly_recalc_enabled: bool = True
     nightly_recalc_hour_utc: int = 2
+
+    # Celery: пересчёт DailyMetric в отдельном воркере (docs/plan-celery-recalc.md).
+    # Тот же Redis, что и OTP, но другие логические БД (OTP — /0).
+    celery_broker_url: str = "redis://localhost:6379/1"
+    celery_result_backend: str = "redis://localhost:6379/2"
+    # Тесты выставляют true + memory-транспорт: .delay() исполняется синхронно.
+    celery_task_always_eager: bool = False
 
     cors_origins: list[str] = ["http://localhost:3000", "http://localhost:8081"]
 

@@ -1,8 +1,9 @@
 # Деплой: бэкенд на Yandex Cloud + APK для Android
 
 Целевая конфигурация первого стенда (UAT): **одна ВМ в Yandex Cloud**, на ней в Docker
-Compose — `nginx` → `api` (FastAPI) → `postgres` + `redis`. Мобильный клиент собирается
-в APK через EAS Build и ходит на публичный адрес этой ВМ.
+Compose — `nginx` → `api` (FastAPI) → `postgres` + `redis`, плюс `worker` и `beat`
+(Celery: пересчёт `DailyMetric`, `docs/plan-celery-recalc.md`). Мобильный клиент
+собирается в APK через EAS Build и ходит на публичный адрес этой ВМ.
 
 > Статус: `backend/Dockerfile` в репозитории уже есть (его использует тестовый стенд
 > `infra/docker-compose.stand.yml`, см. README) — приведённый ниже вариант совпадает с ним.
@@ -46,7 +47,8 @@ RUN useradd --create-home app && chown -R app /app
 USER app
 
 EXPOSE 8000
-# Один воркер: ночной пересчёт живёт внутри процесса приложения (см. «Эксплуатация»)
+# Тот же образ = api / worker / beat (команда задаётся в compose). Пересчёт вынесен
+# в Celery, требования «один воркер uvicorn» больше нет (см. «Эксплуатация»).
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
 ```
 
@@ -85,6 +87,24 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    restart: unless-stopped
+
+  # Celery: пересчёт DailyMetric (docs/plan-celery-recalc.md). Тот же образ, что api.
+  worker:
+    build: ../backend
+    env_file: ../backend/.env.prod
+    command: ["celery", "-A", "app.celery_app", "worker", "--loglevel=info", "--concurrency=2"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  beat:
+    build: ../backend
+    env_file: ../backend/.env.prod
+    command: ["celery", "-A", "app.celery_app", "beat", "--loglevel=info"]
+    depends_on:
+      - redis
     restart: unless-stopped
 
   nginx:
@@ -150,6 +170,9 @@ ACCESS_TOKEN_EXPIRE_MINUTES=15
 REFRESH_TOKEN_EXPIRE_DAYS=90
 NIGHTLY_RECALC_ENABLED=true
 NIGHTLY_RECALC_HOUR_UTC=2
+# Celery: тот же Redis, отдельные логические БД (OTP — /0)
+CELERY_BROKER_URL=redis://redis:6379/1
+CELERY_RESULT_BACKEND=redis://redis:6379/2
 FEATURE_NUTRITION_ENABLED=false
 FEATURE_CYCLE_ENABLED=false
 # pydantic-settings ждёт JSON-массив
@@ -324,27 +347,31 @@ dev-сервера Expo (`src/api/client.ts`) — в APK это не работ�
 
 ## Эксплуатация
 
-**Ночной пересчёт.** `_nightly_recalc_loop` (`backend/app/main.py:22`) живёт внутри
-процесса API и в `NIGHTLY_RECALC_HOUR_UTC` пересчитывает `DailyMetric` всем атлетам
-(ТЗ разделы 10 и 11). Поэтому у `api` **один воркер uvicorn**: с несколькими воркерами
-или репликами задача поднимется в каждом процессе и они полезут пересчитывать одно и
-то же. Пересчёт идемпотентен, но это лишняя нагрузка на БД. При масштабировании —
-выключить флаг у веб-воркеров и вынести пересчёт в отдельный контейнер/cron.
-Ещё нюанс: расписание держится на `sleep`, поэтому рестарт уже после часа пересчёта
-пропускает сутки — после деплоя в это окно пересчёт стоит дёрнуть руками.
+**Пересчёт `DailyMetric`.** Вынесен в Celery (`docs/plan-celery-recalc.md`):
+- `worker` жуёт очередь: задачи `analytics.recalc_athlete` (ставятся при сабмите
+  wellness/RPE) и `analytics.recalc_all` (ночной прогон, ручной запуск);
+- `beat` раз в сутки в `NIGHTLY_RECALC_HOUR_UTC` ставит `analytics.recalc_all`. Beat
+  переживает рестарт без пропуска суток. Держать **ровно один** контейнер `beat`, иначе
+  задача продублируется; `worker` можно масштабировать свободно.
+- Требования «один воркер uvicorn» у `api` больше нет.
+- `NIGHTLY_RECALC_ENABLED=false` — Beat не регистрирует периодическую задачу; сабмит и
+  ручной `POST /analytics/recalc` продолжают работать.
+- Если `worker`/`beat` не подняты, метрики молча замирают: сабмиты проходят, `DailyMetric`
+  не обновляется. После деплоя стоит дёрнуть `POST /api/v1/analytics/recalc` (админ) и
+  проверить `GET /api/v1/analytics/recalc/{task_id}`.
 
 **Обновление версии.**
 
 ```bash
 cd ~/player.pro && git pull
-docker compose -f infra/docker-compose.prod.yml up -d --build api
+docker compose -f infra/docker-compose.prod.yml up -d --build api worker beat
 docker compose -f infra/docker-compose.prod.yml exec api alembic upgrade head
 ```
 
 **Логи и состояние.**
 
 ```bash
-docker compose -f infra/docker-compose.prod.yml logs -f api
+docker compose -f infra/docker-compose.prod.yml logs -f api worker beat
 docker compose -f infra/docker-compose.prod.yml ps
 ```
 
@@ -367,6 +394,8 @@ docker compose -f infra/docker-compose.prod.yml exec -T postgres \
 - [ ] TLS работает, `http://` редиректится на `https://` (или осознанно принят
       вариант B с cleartext).
 - [ ] Миграции применены: `alembic current` совпадает с `alembic heads`.
+- [ ] `worker` и `beat` подняты и жуют очередь (`docker compose ... ps`, логи без ошибок
+      подключения к Redis). Ровно один `beat`. Иначе пересчёт `DailyMetric` стоит.
 - [ ] Решено, что делать со Swagger: `docs_url="/docs"` открыт всем
       (`app/main.py:49`) — на публичном стенде его обычно закрывают.
 

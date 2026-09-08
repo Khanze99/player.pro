@@ -13,6 +13,12 @@ os.environ["OTP_PHONE_CHANNEL"] = "log"
 # начинали бы зависеть от того, что разработчик включил у себя
 os.environ["FEATURE_CYCLE_ENABLED"] = "false"
 os.environ["FEATURE_NUTRITION_ENABLED"] = "false"
+# Celery через настоящий eager-протокол: .delay() исполняет задачу синхронно, брокер
+# и backend — in-memory (Redis для тестов не поднимается). Пересчёт внутри задачи всё
+# равно бьёт в реальную playerpro_test через мост sync→async (app/tasks/runtime.py).
+os.environ["CELERY_TASK_ALWAYS_EAGER"] = "true"
+os.environ["CELERY_BROKER_URL"] = "memory://"
+os.environ["CELERY_RESULT_BACKEND"] = "cache+memory://"
 os.environ["DATABASE_URL"] = os.environ.get(
     "TEST_DATABASE_URL", "postgresql+asyncpg://playerpro:playerpro@localhost:5433/playerpro_test"
 )
@@ -44,6 +50,15 @@ def pytest_configure(config):
             await conn.close()
 
     asyncio.run(ensure_test_db())
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _celery_async_runtime():
+    """Поток+event loop моста Celery живут всю сессию; гасим их в самом конце."""
+    yield
+    from app.tasks import runtime
+
+    runtime.shutdown()
 
 
 @pytest.fixture(autouse=True)

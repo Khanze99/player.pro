@@ -34,12 +34,10 @@ async def create_entry(
     db.add(entry)
     streak = await streaks_service.bump_streak(db, athlete_id, StreakType.wellness, data.date)
     await db.flush()
-    # Live-обновление DailyMetric (ночной пересчёт — страховка)
-    await analytics_service.recalc_athlete(
-        db, athlete_id, end_date=max(data.date, date.today()), commit=False
-    )
     await db.commit()
     # expire_on_commit=False → объект и загруженная коллекция pain_points остаются доступны
+    # DailyMetric пересчитывает Celery-задача после коммита (ночной прогон — страховка).
+    analytics_service.enqueue_recalc_athlete(athlete_id, max(data.date, date.today()))
     return entry, streak
 
 

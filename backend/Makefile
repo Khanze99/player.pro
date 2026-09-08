@@ -4,7 +4,7 @@ PYTHON := $(VENV)/bin/python
 PIP := $(VENV)/bin/pip
 COMPOSE := docker compose -f ../infra/docker-compose.yml
 
-.PHONY: help install dev test lint format migration upgrade downgrade seed seed-reset branding foods foods-off infra-up infra-down clean
+.PHONY: help install dev worker beat test lint format migration upgrade downgrade seed seed-reset branding foods foods-off infra-up infra-celery infra-down clean
 
 help: ## Список команд
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-12s\033[0m %s\n", $$1, $$2}'
@@ -17,6 +17,14 @@ install: $(VENV)/bin/activate ## Создать venv и поставить за�
 
 dev: ## Запустить dev-сервер (нужны postgres+redis: make infra-up)
 	$(VENV)/bin/uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+
+worker: ## Celery-воркер пересчёта DailyMetric (нужны postgres+redis)
+	# OBJC_DISABLE_INITIALIZE_FORK_SAFETY — иначе prefork-воркер виснет на macOS
+	# (в Docker/Linux не нужно).
+	OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES $(VENV)/bin/celery -A app.celery_app worker --loglevel=info --concurrency=2
+
+beat: ## Celery Beat: ставит ночной пересчёт по расписанию (нужен redis)
+	$(VENV)/bin/celery -A app.celery_app beat --loglevel=info
 
 test: ## Прогнать тесты (реальная PostgreSQL, БД playerpro_test)
 	$(VENV)/bin/pytest -q
@@ -66,6 +74,9 @@ foods-off: ## Импорт дампа Open Food Facts: make foods-off f=dump.csv
 
 infra-up: ## Поднять PostgreSQL + Redis
 	$(COMPOSE) up -d postgres redis
+
+infra-celery: ## Поднять Celery worker + beat в контейнерах (проверка контейнерного пути)
+	$(COMPOSE) up -d --build worker beat
 
 infra-down: ## Остановить инфраструктуру
 	$(COMPOSE) down

@@ -1,3 +1,24 @@
+# Локальная инфраструктура для разработки. Бэкенд обычно поднимается на хосте
+# (cd backend && make dev / make worker / make beat).
+#
+# Сервисы worker и beat здесь — чтобы проверить контейнерный путь пересчёта
+# DailyMetric (Celery, docs/plan-celery-recalc.md) без host-воркера. Код примонтирован
+# с хоста, поэтому правки подхватываются после рестарта контейнера. Не запускайте
+# одновременно контейнерный worker и `make worker` на хосте — очередь одна, задачи
+# распределятся между ними непредсказуемо.
+#
+#   docker compose -f infra/docker-compose.yml up -d postgres redis        # только инфра
+#   docker compose -f infra/docker-compose.yml up -d --build worker beat   # + Celery
+
+x-celery-env: &celery-env
+  DATABASE_URL: postgresql+asyncpg://playerpro:playerpro@postgres:5432/playerpro
+  REDIS_URL: redis://redis:6379/0
+  CELERY_BROKER_URL: redis://redis:6379/1
+  CELERY_RESULT_BACKEND: redis://redis:6379/2
+  NIGHTLY_RECALC_ENABLED: "true"
+  NIGHTLY_RECALC_HOUR_UTC: "2"
+  DEBUG: "false"
+
 services:
   postgres:
     image: postgres:16-alpine
@@ -21,6 +42,39 @@ services:
       - "6379:6379"
     volumes:
       - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # Celery: пересчёт DailyMetric. Тот же образ, что и API (backend/Dockerfile).
+  worker:
+    build: ../backend
+    image: playerpro-backend
+    environment: *celery-env
+    command: ["celery", "-A", "app.celery_app", "worker", "--loglevel=info", "--concurrency=2"]
+    volumes:
+      - ../backend:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  beat:
+    build: ../backend
+    image: playerpro-backend
+    environment: *celery-env
+    command:
+      ["celery", "-A", "app.celery_app", "beat", "--loglevel=info", "--schedule=/tmp/celerybeat-schedule"]
+    volumes:
+      - ../backend:/app
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
 
 volumes:
   postgres_data:

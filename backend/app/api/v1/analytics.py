@@ -1,12 +1,15 @@
 import uuid
 from datetime import date, timedelta
 
-from fastapi import APIRouter
+from celery.result import AsyncResult
+from fastapi import APIRouter, HTTPException, status
 
 from app.api.deps import CurrentUser, DbSession
+from app.celery_app import celery_app
 from app.core import authz
-from app.schemas.metric import DailyMetricOut, StreakOut
+from app.schemas.metric import DailyMetricOut, RecalcDispatchOut, RecalcStatusOut, StreakOut
 from app.services import analytics_service, streaks_service
+from app.tasks.analytics_tasks import recalc_all as recalc_all_task
 
 router = APIRouter(prefix="/analytics", tags=["analytics"])
 
@@ -42,9 +45,31 @@ async def athlete_metrics(
     return await analytics_service.get_metrics(db, athlete_id, date_from, date_to)
 
 
-@router.post("/recalc", status_code=202)
-async def recalc(user: CurrentUser, db: DbSession):
-    """Ручной запуск пересчёта по организации (админ)."""
+@router.post("/recalc", status_code=status.HTTP_202_ACCEPTED, response_model=RecalcDispatchOut)
+async def recalc(user: CurrentUser):
+    """Ручной запуск полного пересчёта (админ). Ставит задачу в Celery, не ждёт её."""
     await authz.require_org_admin(user)
-    days = await analytics_service.recalc_all(db)
-    return {"recalculated_days": days}
+    try:
+        async_result = recalc_all_task.delay()
+    except Exception as exc:  # noqa: BLE001 — брокер недоступен
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Очередь пересчёта недоступна",
+        ) from exc
+    return RecalcDispatchOut(task_id=async_result.id)
+
+
+@router.get("/recalc/{task_id}", response_model=RecalcStatusOut)
+async def recalc_status(task_id: str, user: CurrentUser):
+    """Статус ранее поставленной задачи пересчёта (админ)."""
+    await authz.require_org_admin(user)
+    result = AsyncResult(task_id, app=celery_app)
+    out = RecalcStatusOut(task_id=task_id, state=result.state)
+    if result.successful():
+        payload = result.result if isinstance(result.result, dict) else {}
+        out.recalculated_days = payload.get("recalculated_days")
+        out.skipped = bool(payload.get("skipped", False))
+    elif result.failed():
+        err = result.result
+        out.error = type(err).__name__ if isinstance(err, BaseException) else str(err)
+    return out
