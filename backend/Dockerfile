@@ -10,7 +10,12 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-RUN useradd --create-home app && chown -R app /app
+# Каталоги под тома создаём в образе и отдаём пользователю app: пустой named-volume
+# наследует владельца точки монтирования при первом маунте. Без этого Docker создаёт
+# точку от root, и контейнер (USER app) не может писать — падают загрузки аватаров.
+RUN useradd --create-home app \
+ && mkdir -p /app/media/avatars /app/static/branding \
+ && chown -R app /app
 USER app
 
 EXPOSE 8000
