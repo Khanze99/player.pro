@@ -1,23 +1,31 @@
-# Деплой: бэкенд на Yandex Cloud + APK для Android
+# Деплой: бэкенд + веб-PWA на Yandex Cloud + APK для Android
 
 Целевая конфигурация первого стенда (UAT): **одна ВМ в Yandex Cloud**, на ней в Docker
 Compose — `nginx` → `api` (FastAPI) → `postgres` + `redis`, плюс `worker` и `beat`
-(Celery: пересчёт `DailyMetric`, `docs/plan-celery-recalc.md`). Мобильный клиент
-собирается в APK через EAS Build и ходит на публичный адрес этой ВМ.
+(Celery: пересчёт `DailyMetric`, `docs/plan-celery-recalc.md`).
 
-> Статус: `backend/Dockerfile` в репозитории уже есть (его использует тестовый стенд
-> `infra/docker-compose.stand.yml`, см. README) — приведённый ниже вариант совпадает с ним.
-> `infra/docker-compose.prod.yml` и `infra/nginx/` пока не заведены, их создаёт шаг 1.
->
-> Разница стенда и прода: в стенде нет nginx и TLS, API слушает 8000 напрямую. `DEBUG`
-> выключен в обоих: коды входа уходят почтой через Postbox (`OTP_EMAIL_CHANNEL=email`,
-> параметры — в `docs/smtp.md`). Прод-конфиг ниже добавляет nginx и TLS.
+Один поддомен `app.player-pro.ru`, **same-origin**: nginx отдаёт статику веб-PWA
+(Expo `output: single`, `docs/plan-web-pwa.md`) и проксирует `/api/`, `/ws`, `/health`,
+`/static/` на `api:8000`. Браузер не ходит cross-origin → CORS не нужен, mixed content
+невозможен. Мобильный APK собирается через EAS Build и ходит на тот же адрес.
+
+Апекс `player-pro.ru` — под сайт-визитку, разворачивается отдельно, этой конфигурации
+не касается.
+
+> Один compose-файл на стенд и на прод: `infra/docker-compose.stand.yml`. Разница —
+> профиль: без него (`make stand-up`) поднимается только бэкенд, API на `:8000`
+> напрямую; с `COMPOSE_PROFILES=web` в `infra/.env` добавляется `nginx` (`:80`/`:443`)
+> и раздача статики веб-PWA. Порт `api:8000` остаётся открытым и с nginx — прямой
+> адрес нужен текущему Android-APK, пока он не перевыпущен на `https://app.player-pro.ru`.
+> Окружение — `infra/.env`, `DEBUG=false`, коды входа — почтой через Postbox
+> (`OTP_EMAIL_CHANNEL=email`, `docs/smtp.md`).
 
 ## Открытые решения
 
 | Решение | Варианты | По умолчанию в этом документе |
 |---|---|---|
-| Домен и TLS | свой домен + Let's Encrypt · без домена (HTTP по IP) | домен + Let's Encrypt; путь без домена описан в шаге 5 |
+| Домен и TLS | поддомен `app.player-pro.ru` + Let's Encrypt · sslip.io по IP · HTTP по IP (демо) | поддомен + Let's Encrypt; sslip.io и HTTP-only — в шаге 5 |
+| `api.player-pro.ru` | нет (браузер и APK ходят на `app.player-pro.ru`) · отдельный поддомен чистого прокси | нет; поднимать только если нужен «красивый» адрес API для не-браузерных клиентов |
 | Postgres | контейнер на той же ВМ · Managed Service for PostgreSQL | контейнер (для UAT); managed — когда появятся реальные данные |
 | Redis | контейнер · Managed Service for Redis | контейнер |
 
@@ -26,161 +34,48 @@ Managed-сервисы дают бэкапы и отказоустойчивос
 
 ---
 
-## Шаг 1. Файлы деплоя
+## Шаг 1. Файлы деплоя и окружение
 
-### `backend/Dockerfile`
+Всё уже в репозитории:
 
-```dockerfile
-FROM python:3.12-slim
+| Файл | Что |
+|---|---|
+| `backend/Dockerfile` | один образ для `api` / `worker` / `beat` / `migrate` (команда задаётся в compose) |
+| `infra/docker-compose.stand.yml` | postgres · redis · migrate (Alembic → head, одноразовый) · api (healthcheck, `:8000` наружу) · worker · beat; `nginx` — под профилем `web` |
+| `infra/nginx/playerpro.conf` | `server_name app.player-pro.ru`, :80. Проксирует `/api/`, `/ws`, `/health`, `/static/`, `/docs`; всё остальное — статика `/srv/web` с SPA-фолбэком `try_files $uri /index.html`. TLS добавляется в шаге 5 |
+| `infra/web/` | каталог со статикой веб-PWA; nginx монтирует `:ro`, содержимое кладётся шагом 4b (в git не коммитится) |
 
-ENV PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1
+### `infra/.env` (не коммитить)
 
-WORKDIR /app
+Копия `infra/.env.example`, заполненная прод-значениями:
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-COPY . .
-
-RUN useradd --create-home app && chown -R app /app
-USER app
-
-EXPOSE 8000
-# Тот же образ = api / worker / beat (команда задаётся в compose). Пересчёт вынесен
-# в Celery, требования «один воркер uvicorn» больше нет (см. «Эксплуатация»).
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+```bash
+cp infra/.env.example infra/.env
+# затем отредактировать:
 ```
-
-### `infra/docker-compose.prod.yml`
-
-```yaml
-services:
-  postgres:
-    image: postgres:16-alpine
-    environment:
-      POSTGRES_DB: playerpro
-      POSTGRES_USER: playerpro
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U playerpro"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-    restart: unless-stopped
-    # Портов наружу нет: БД доступна только внутри compose-сети
-
-  redis:
-    image: redis:7-alpine
-    volumes:
-      - redis_data:/data
-    restart: unless-stopped
-
-  api:
-    build: ../backend
-    env_file: ../backend/.env.prod
-    volumes:
-      # Гербы организаций переживают пересборку образа только в томе
-      - branding_data:/app/static/branding
-    depends_on:
-      postgres:
-        condition: service_healthy
-    restart: unless-stopped
-
-  # Celery: пересчёт DailyMetric (docs/plan-celery-recalc.md). Тот же образ, что api.
-  worker:
-    build: ../backend
-    env_file: ../backend/.env.prod
-    command: ["celery", "-A", "app.celery_app", "worker", "--loglevel=info", "--concurrency=2"]
-    depends_on:
-      postgres:
-        condition: service_healthy
-    restart: unless-stopped
-
-  beat:
-    build: ../backend
-    env_file: ../backend/.env.prod
-    command: ["celery", "-A", "app.celery_app", "beat", "--loglevel=info"]
-    depends_on:
-      - redis
-    restart: unless-stopped
-
-  nginx:
-    image: nginx:1.27-alpine
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./nginx/playerpro.conf:/etc/nginx/conf.d/default.conf:ro
-      - certbot_webroot:/var/www/certbot
-      - certbot_conf:/etc/letsencrypt
-    depends_on:
-      - api
-    restart: unless-stopped
-
-volumes:
-  postgres_data:
-  redis_data:
-  branding_data:
-  certbot_webroot:
-  certbot_conf:
-```
-
-### `infra/nginx/playerpro.conf`
-
-```nginx
-server {
-    listen 80;
-    server_name _;
-
-    # ACME-челлендж для выпуска и продления сертификата
-    location /.well-known/acme-challenge/ {
-        root /var/www/certbot;
-    }
-
-    location / {
-        proxy_pass http://api:8000;
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        # WebSocket дашборда (раздел 10 ТЗ)
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-        proxy_read_timeout 60s;
-        client_max_body_size 2m;
-    }
-}
-```
-
-После выпуска сертификата (шаг 5) в этот файл добавляется `server` на 443 и редирект с 80.
-
-### `backend/.env.prod` (не коммитить)
 
 ```dotenv
-DATABASE_URL=postgresql+asyncpg://playerpro:СГЕНЕРИРОВАННЫЙ_ПАРОЛЬ@postgres:5432/playerpro
-REDIS_URL=redis://redis:6379/0
-OTP_STORE=redis
-SECRET_KEY=СГЕНЕРИРОВАННЫЙ_КЛЮЧ
+POSTGRES_PASSWORD=<openssl rand -hex 32>
+SECRET_KEY=<openssl rand -hex 32>
 DEBUG=false
-ACCESS_TOKEN_EXPIRE_MINUTES=15
-REFRESH_TOKEN_EXPIRE_DAYS=90
-NIGHTLY_RECALC_ENABLED=true
-NIGHTLY_RECALC_HOUR_UTC=2
-# Celery: тот же Redis, отдельные логические БД (OTP — /0)
-CELERY_BROKER_URL=redis://redis:6379/1
-CELERY_RESULT_BACKEND=redis://redis:6379/2
-FEATURE_NUTRITION_ENABLED=false
-FEATURE_CYCLE_ENABLED=false
-# pydantic-settings ждёт JSON-массив
-CORS_ORIGINS=["https://api.example.ru"]
+
+# Включает nginx + раздачу веб-PWA. Без него поднимается только бэкенд (локальный стенд).
+COMPOSE_PROFILES=web
+
+# OTP почтой через Postbox (docs/smtp.md). log — код только в логах, для пользователей не годится.
+OTP_EMAIL_CHANNEL=email
+SMTP_HOST=postbox.cloud.yandex.net
+SMTP_PORT=587
+SMTP_USER=<id API-ключа сервисного аккаунта>
+SMTP_PASSWORD=<секрет API-ключа>
+SMTP_FROM=PlayerPro <noreply@player-pro.ru>
+
+# same-origin: браузер не ходит cross-origin, значение справочное
+CORS_ORIGINS=["https://app.player-pro.ru"]
 ```
 
-Секреты: `openssl rand -hex 32` для `SECRET_KEY` и пароля Postgres. Тот же пароль
-кладётся в `POSTGRES_PASSWORD` окружения compose (например, в `infra/.env`).
+Порты Postgres (5434) и Redis наружу не выводятся; `api:8000` открыт (нужен текущему
+APK). На публичной ВМ security group всё равно пускает только 22/80/443 — см. шаг 2.
 
 ---
 
@@ -203,17 +98,22 @@ yc compute instance create \
   --ssh-key ~/.ssh/id_ed25519.pub
 ```
 
-Если в фолдере используются security groups — открыть 22/80/443:
+Если в фолдере используются security groups — открыть 22/80/443 и временно 8000:
 
 ```bash
 yc vpc security-group create --name playerpro-api --network-name default \
   --rule "direction=ingress,port=22,protocol=tcp,v4-cidrs=[ВАШ_IP/32]" \
   --rule "direction=ingress,port=80,protocol=tcp,v4-cidrs=[0.0.0.0/0]" \
   --rule "direction=ingress,port=443,protocol=tcp,v4-cidrs=[0.0.0.0/0]" \
+  --rule "direction=ingress,port=8000,protocol=tcp,v4-cidrs=[0.0.0.0/0]" \
   --rule "direction=egress,protocol=any,v4-cidrs=[0.0.0.0/0]"
 ```
 
-Порты 5432 и 6379 наружу не открываются никогда — БД и Redis доступны только из
+Порт **8000** открыт временно: на нём висит `api` напрямую, туда ходит текущий
+Android-APK (`http://81.26.191.107:8000`, `mobile/eas.json`). Закрыть, когда APK
+перевыпущен на `https://app.player-pro.ru` и старые сборки выведены из обращения.
+
+Порты 5432/5434 и 6379 наружу не открываются никогда — БД и Redis доступны только из
 compose-сети.
 
 ## Шаг 3. Подготовка ВМ
@@ -230,20 +130,23 @@ sudo usermod -aG docker $USER   # перелогиниться
 
 ```bash
 git clone <repo> ~/player.pro && cd ~/player.pro
-# положить backend/.env.prod и infra/.env (POSTGRES_PASSWORD=...)
+cp infra/.env.example infra/.env   # заполнить (шаг 1), в т.ч. COMPOSE_PROFILES=web
 
-docker compose -f infra/docker-compose.prod.yml up -d --build
+docker compose -f infra/docker-compose.stand.yml --env-file infra/.env up -d --build
+# COMPOSE_PROFILES=web из .env → поднимется и nginx. migrate накатывает Alembic сам.
 
-# Миграции применяются вручную — приложение само не мигрирует (CLAUDE.md)
-docker compose -f infra/docker-compose.prod.yml exec api alembic upgrade head
-
-curl -s http://localhost/health   # {"status":"ok"}
+curl -s  http://localhost:8000/health    # {"status":"ok"}  — api напрямую (адрес для APK)
+curl -s  http://localhost/health         # то же через nginx
+curl -sI http://localhost/ | head -1     # 200, если бандл выложен (шаг 4b); иначе 404
 ```
+
+Дальше все команды — с тем же `-f … --env-file infra/.env` (профиль подхватывается
+из `.env`). Или `make stand-up` / `stand-logs` / `stand-ps` — они это уже включают.
 
 Демо-данные (по желанию, для показа дашборда):
 
 ```bash
-docker compose -f infra/docker-compose.prod.yml exec api python scripts/seed_demo.py
+docker compose -f infra/docker-compose.stand.yml --profile seed run --rm seed
 ```
 
 ### Брендинг организации
@@ -252,7 +155,7 @@ docker compose -f infra/docker-compose.prod.yml exec api python scripts/seed_dem
 внутрь контейнера — том `branding_data` с хоста напрямую не виден:
 
 ```bash
-CO="docker compose -f infra/docker-compose.prod.yml"
+CO="docker compose -f infra/docker-compose.stand.yml"
 
 # 1. Тема: JSON с цветами (только отличия от продуктовой палитры)
 $CO cp themes/rubin.json api:/tmp/theme.json
@@ -271,38 +174,106 @@ $CO exec api python scripts/seed_branding.py \
 Герб лежит в томе `branding_data` и переживает пересборку образа. Если тома нет,
 все гербы исчезнут при первом же релизе.
 
+## Шаг 4b. Веб-PWA (`app.player-pro.ru`)
+
+Бандл собирается локально/в CI и выкладывается на ВМ как статика — nginx его раздаёт,
+никакой сборки на ВМ. `output: single` → одна `index.html`, клиентская маршрутизация,
+SPA-фолбэк уже в `playerpro.conf`.
+
+**Сборка (локально):**
+
+```bash
+cd mobile
+EXPO_PUBLIC_API_URL=https://app.player-pro.ru npx expo export --platform web
+# результат — mobile/dist/ : index.html, manifest.json, icons/, _expo/static/…, assets/
+```
+
+`EXPO_PUBLIC_API_URL` вшивается в бандл **на этапе экспорта**. Для same-origin можно и
+без него (клиент возьмёт текущий origin), но явно — надёжнее.
+
+**Выкладка на ВМ:**
+
+```bash
+rsync -a --delete mobile/dist/ yc-user@ВЫДАННЫЙ_IP:~/player.pro/infra/web/
+# nginx монтирует ./web:/srv/web:ro — новые файлы видны сразу, reload не нужен
+# (reload нужен только при правке playerpro.conf)
+```
+
+**Проверка:**
+
+```bash
+curl -sI  https://app.player-pro.ru/                 # 200, text/html
+curl -sI  https://app.player-pro.ru/wellness         # 200 — SPA-фолбэк отдал index.html
+curl -s   https://app.player-pro.ru/manifest.json    # JSON манифеста
+curl -sI  https://app.player-pro.ru/api/v1/branding  # доходит до FastAPI (401/200, не 404 от nginx)
+```
+
+Обновление версии веб-PWA = повторить сборку и `rsync`. Хэшированные имена в `_expo/`
+дают безопасный кэш; `index.html` и `manifest.json` отдаются с `Cache-Control: no-cache`.
+
 ## Шаг 5. Домен и TLS
 
-### Вариант A — есть домен (рекомендуемый)
+Установочный PWA и standalone на iOS **требуют HTTPS**; HTTPS-страница не может ходить
+на HTTP-API (mixed content). Поэтому TLS обязателен, вариант «HTTP по IP» — только для
+черновой проверки бэкенда без веб-версии.
 
-A-запись домена → публичный IP ВМ, затем выпуск сертификата webroot-методом:
+### Вариант A — поддомен `app.player-pro.ru` (рекомендуемый)
+
+A-запись `app.player-pro.ru` → публичный IP ВМ. Стек уже поднят на :80 (шаг 4), поэтому
+ACME-челлендж проходит. Выпуск сертификата webroot-методом:
 
 ```bash
 docker run --rm \
   -v playerpro_certbot_conf:/etc/letsencrypt \
   -v playerpro_certbot_webroot:/var/www/certbot \
   certbot/certbot certonly --webroot -w /var/www/certbot \
-  -d api.example.ru --email you@example.ru --agree-tos --no-eff-email
+  -d app.player-pro.ru --email you@player-pro.ru --agree-tos --no-eff-email
 ```
 
-Затем в `infra/nginx/playerpro.conf` добавить 443-сервер с
-`ssl_certificate /etc/letsencrypt/live/api.example.ru/fullchain.pem` (и `privkey.pem`),
-на 80 оставить только ACME-локацию и `return 301 https://$host$request_uri`.
-Продление — cron/systemd-таймер с `certbot renew` и `docker compose exec nginx nginx -s reload`.
+Затем в `infra/nginx/playerpro.conf`: тело текущего `server {}` (всё от `resolver` и
+`location`-ов до заголовков безопасности) переносится в новый `server` на 443, а :80
+оставляем только под ACME + редирект:
 
-### Вариант B — без домена (только для теста)
+```nginx
+server {
+    listen 80;
+    server_name app.player-pro.ru;
+    location /.well-known/acme-challenge/ { root /var/www/certbot; }
+    location / { return 301 https://$host$request_uri; }
+}
 
-Бэкенд отвечает по `http://IP`. Android с API 28 блокирует cleartext-HTTP, поэтому в
-`mobile/app.json` придётся включить:
+server {
+    listen 443 ssl;
+    http2 on;
+    server_name app.player-pro.ru;
 
-```json
-"android": { "usesCleartextTraffic": true }
+    ssl_certificate     /etc/letsencrypt/live/app.player-pro.ru/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/app.player-pro.ru/privkey.pem;
+
+    # … сюда: resolver + set $api + proxy_set_header + все location /api/ … /,
+    #    заголовки безопасности — без изменений из версии на :80 …
+}
 ```
 
-Это ослабляет транспорт: трафик, включая OTP-коды и токены, идёт открытым текстом.
-Годится для демо на пару дней, не для пользователей. Промежуточный вариант без покупки
-домена — `sslip.io` (`api.<IP>.sslip.io`), под который Let's Encrypt выдаёт настоящий
-сертификат, и вариант A работает как есть.
+Применить: `docker compose -f infra/docker-compose.stand.yml exec nginx nginx -s reload`.
+
+Продление — cron/systemd-таймер на ВМ: `certbot renew` (тем же `docker run`) и следом
+`docker compose -f infra/docker-compose.stand.yml exec nginx nginx -s reload`.
+
+Если поднимаем ещё и `api.player-pro.ru` (чистый прокси для APK / внешних клиентов):
+добавить `-d api.player-pro.ru` в certbot и отдельный `server` на 443 с теми же
+`location /api/` и `/ws`, без `location /`.
+
+### Вариант B — без своего домена
+
+`sslip.io`: `app.<IP>.sslip.io` резолвится в IP, Let's Encrypt выдаёт настоящий
+сертификат — вариант A работает как есть, только домен другой. `EXPO_PUBLIC_API_URL`
+веб-сборки и `eas.json` — тот же адрес.
+
+Совсем без TLS (`http://IP`) веб-PWA неполноценна (нет service worker, «На экран Домой»
+открывает во вкладке) и Android с API 28 требует `"android": { "usesCleartextTraffic": true }`
+в `mobile/app.json` — трафик, включая OTP и токены, идёт открытым текстом. Только демо
+на пару дней.
 
 ---
 
@@ -320,11 +291,11 @@ macOS 14.4.1 / Xcode 15.3 против Expo SDK 57) — собираем в об
     "preview": {
       "distribution": "internal",
       "android": { "buildType": "apk" },
-      "env": { "EXPO_PUBLIC_API_URL": "https://api.example.ru" }
+      "env": { "EXPO_PUBLIC_API_URL": "https://app.player-pro.ru" }
     },
     "production": {
       "android": { "buildType": "app-bundle" },
-      "env": { "EXPO_PUBLIC_API_URL": "https://api.example.ru" }
+      "env": { "EXPO_PUBLIC_API_URL": "https://app.player-pro.ru" }
     }
   }
 }
@@ -364,44 +335,57 @@ dev-сервера Expo (`src/api/client.ts`) — в APK это не работ�
 
 ```bash
 cd ~/player.pro && git pull
-docker compose -f infra/docker-compose.prod.yml up -d --build api worker beat
-docker compose -f infra/docker-compose.prod.yml exec api alembic upgrade head
+docker compose -f infra/docker-compose.stand.yml up -d --build   # migrate накатит новые ревизии сам
 ```
+
+Веб-PWA обновляется отдельно (шаг 4b): пересобрать `mobile/dist/` и `rsync` в
+`~/player.pro/infra/web/`. reload nginx не нужен, если `playerpro.conf` не менялся.
 
 **Логи и состояние.**
 
 ```bash
-docker compose -f infra/docker-compose.prod.yml logs -f api worker beat
-docker compose -f infra/docker-compose.prod.yml ps
+docker compose -f infra/docker-compose.stand.yml logs -f api worker beat
+docker compose -f infra/docker-compose.stand.yml ps
 ```
 
 **Бэкап БД** (cron на ВМ, пока Postgres в контейнере):
 
 ```bash
-docker compose -f infra/docker-compose.prod.yml exec -T postgres \
+docker compose -f infra/docker-compose.stand.yml exec -T postgres \
   pg_dump -U playerpro playerpro | gzip > ~/backups/playerpro-$(date +%F).sql.gz
 ```
 
-## Чек-лист перед выдачей APK
+## Чек-лист перед выдачей
 
 - [ ] `DEBUG=false`. В debug-режиме `/auth/otp/request` возвращает код прямо в ответе
       (`app/api/v1/auth.py:23`, `app/services/auth_service.py:68`) — вход становится
       открытым для любого, кто знает телефон/почту.
 - [ ] `SECRET_KEY` сгенерирован, а не значение по умолчанию из `.env.example`.
 - [ ] Пароль Postgres не `playerpro` (дефолт dev-компоуза).
-- [ ] Порты 5432/6379 не проброшены наружу, security group разрешает только 22/80/443.
-- [ ] `CORS_ORIGINS` — реальные адреса, без `localhost`.
+- [ ] Порты 5432/5434/6379 наружу не проброшены. Порт 8000 (`api` напрямую) открыт
+      **временно** для текущего Android-APK — план: перевыпустить APK на
+      `https://app.player-pro.ru`, затем закрыть 8000 в SG и убрать `ports` у `api`.
+- [ ] `COMPOSE_PROFILES=web` в `infra/.env` — иначе nginx не поднимется, будет только `:8000`.
 - [ ] TLS работает, `http://` редиректится на `https://` (или осознанно принят
-      вариант B с cleartext).
-- [ ] Миграции применены: `alembic current` совпадает с `alembic heads`.
+      вариант B с cleartext — но тогда веб-PWA неполноценна).
+- [ ] Миграции применены: `alembic current` совпадает с `alembic heads`
+      (сервис `migrate` завершился успешно — `docker compose ... ps -a`).
 - [ ] `worker` и `beat` подняты и жуют очередь (`docker compose ... ps`, логи без ошибок
       подключения к Redis). Ровно один `beat`. Иначе пересчёт `DailyMetric` стоит.
 - [ ] Решено, что делать со Swagger: `docs_url="/docs"` открыт всем
-      (`app/main.py:49`) — на публичном стенде его обычно закрывают.
+      (`app/main.py:21`) — на публичном стенде его обычно закрывают.
+- [ ] **Веб-PWA:** бандл выложен (`curl -sI https://app.player-pro.ru/` → 200);
+      под-маршрут отдаёт `index.html` (`.../wellness` → 200); `/manifest.json` доступен;
+      `/api/v1/...` доходит до FastAPI, а не до SPA-фолбэка (не 404 от nginx).
+- [ ] **iOS:** на реальном iPhone — «Поделиться → На экран Домой» даёт standalone, свою
+      иконку и сплеш; полный флоу (вход по OTP → PIN → wellness/RPE), 3 локали.
 
 ## Что ещё не сделано
 
 - SMS/email-шлюз для OTP: кода в проде никто не получит, пока шлюз не подключён —
   сейчас код только пишется в лог сервера (`app/services/auth_service.py:66`).
-- Push-уведомления (раздел 9 ТЗ) — требуют FCM-ключей в EAS.
+- Push-уведомления (раздел 9 ТЗ) — требуют FCM-ключей в EAS; на iOS-вебе push нет вовсе.
+- CSP-заголовок в `playerpro.conf` (подобрать под inline-бутстрап Expo) — этап 7
+  `docs/plan-web-pwa.md`, аудит security-auditor.
+- Service worker для веб-PWA (быстрый перезапуск, app-shell кэш) — отложено, см. план.
 - Мониторинг и алерты, ротация логов Docker, автопродление сертификата таймером.

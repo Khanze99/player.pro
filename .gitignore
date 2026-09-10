@@ -20,6 +20,10 @@ node_modules/
 .expo/
 web/.next/
 
+# Веб-бандл PWA: выкладывается на ВМ (docs/deploy.md, шаг 4b), не в репозиторий
+infra/web/*
+!infra/web/.gitkeep
+
 # IDE / OS
 .idea/
 .DS_Store

@@ -1,12 +1,17 @@
-# Тестовый стенд PlayerPro: весь бэкенд одной командой.
+# PlayerPro на одной ВМ: весь бэкенд одной командой. Один файл на стенд и на прод —
+# отличается только профилем.
 #
 #   cp infra/.env.example infra/.env   # или: make stand-env (сгенерирует секреты)
-#   make stand-up
-#   curl http://localhost:8000/health
+#   make stand-up                                        # стенд: API на :8000 напрямую
+#   docker compose -f infra/docker-compose.stand.yml --env-file infra/.env \
+#     --profile web up -d --build                        # прод: + nginx (:80/:443) и статика веб-PWA
 #
 # Отличия от infra/docker-compose.yml (dev): здесь поднимается и сам API, миграции
 # накатываются одноразовым сервисом migrate, порты БД и Redis наружу не выведены.
-# Отличия от прод-конфигурации (docs/deploy.md): нет nginx/TLS, API слушает напрямую.
+# Профиль web добавляет nginx: раздаёт статику веб-PWA из ./web и проксирует /api/,
+# /ws, /health на api. Порт api :8000 остаётся открытым и с nginx — прямой адрес
+# нужен текущему Android-APK, пока он не перевыпущен на https://app.player-pro.ru.
+# TLS-сертификат выпускается отдельно (docs/deploy.md, шаг 5).
 # DEBUG выключен: коды входа уходят почтой через Postbox (OTP_EMAIL_CHANNEL=email).
 name: playerpro-stand
 
@@ -83,6 +88,8 @@ services:
       # Гербы организаций: пересобираются вместе с образом, поэтому живут в томе,
       # иначе исчезают при первом же релизе (docs/plan-org-branding.md)
       - branding_data:/app/static/branding
+      # Аватары профиля (docs/plan-profile.md) — тоже персистентные, не в образе
+      - avatar_data:/app/media/avatars
     ports:
       - "${API_PORT:-8000}:8000"
     depends_on:
@@ -122,6 +129,24 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  # Прод-край: раздача статики веб-PWA + reverse-proxy на api. Профиль web — на стенде
+  # не нужен, на ВМ: --profile web. Конфиг — infra/nginx/playerpro.conf.
+  # Статика кладётся в ./web выкладкой (docs/deploy.md, шаг 4b). TLS — шаг 5.
+  nginx:
+    image: nginx:1.27-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/playerpro.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./web:/srv/web:ro
+      - certbot_conf:/etc/letsencrypt:ro
+      - certbot_webroot:/var/www/certbot
+    depends_on:
+      - api
+    profiles: ["web"]
+    restart: unless-stopped
+
   # Демо-данные (команда 25 игроков + месяц нагрузки). Профиль — чтобы не запускалось
   # само: docker compose -f infra/docker-compose.stand.yml --profile seed run --rm seed
   seed:
@@ -139,3 +164,6 @@ volumes:
   postgres_data:
   redis_data:
   branding_data:
+  avatar_data:
+  certbot_conf:
+  certbot_webroot:
