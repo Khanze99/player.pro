@@ -3,7 +3,6 @@
 // Скорость ввода здесь решает всё: если это дольше 40 секунд, дневник никто вести
 // не будет. Отсюда «недавние» первым экраном и порция, подставленная по умолчанию.
 
-import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
@@ -17,10 +16,11 @@ import {
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
-import { useAddFoodEntry, useFoodSearch, useLookupBarcode, useRecentFoods } from '@/api/hooks';
+import { useAddFoodEntry, useFoodSearch, useRecentFoods } from '@/api/hooks';
 import type { FoodItem, MealType } from '@/api/types';
 import { Button } from '@/components/Button';
 import { Field } from '@/components/Field';
+import { FoodScanner } from '@/components/FoodScanner';
 import { CloseIcon } from '@/components/Icons';
 import { Screen } from '@/components/Screen';
 import { Segmented } from '@/components/Segmented';
@@ -45,48 +45,6 @@ function FoodRow({ item, onPick }: { item: FoodItem; onPick: (item: FoodItem) =>
       </View>
       {item.verified ? <Text style={styles.verified}>✓</Text> : null}
     </Pressable>
-  );
-}
-
-function Scanner({ onFound }: { onFound: (item: FoodItem) => void }) {
-  const styles = useStyles(makeStyles);
-  const { t } = useTranslation();
-  const [permission, requestPermission] = useCameraPermissions();
-  const lookup = useLookupBarcode();
-  const toast = useToast((s) => s.show);
-  const [scanned, setScanned] = useState<string | null>(null);
-
-  if (!permission) return <Text style={styles.cardHint}>{t('common.loading')}</Text>;
-
-  if (!permission.granted) {
-    return (
-      <View style={styles.card}>
-        <Text style={styles.cardHint}>{t('nutrition.cameraNeeded')}</Text>
-        <Button title={t('nutrition.allowCamera')} onPress={() => void requestPermission()} />
-      </View>
-    );
-  }
-
-  return (
-    <View style={styles.scannerWrap}>
-      <CameraView
-        style={styles.scanner}
-        barcodeScannerSettings={{ barcodeTypes: ['ean13', 'ean8', 'upc_a', 'upc_e'] }}
-        onBarcodeScanned={({ data }) => {
-          // Камера шлёт кадры непрерывно — повторный запрос по тому же коду не нужен
-          if (data === scanned || lookup.isPending) return;
-          setScanned(data);
-          lookup.mutate(data, {
-            onSuccess: onFound,
-            onError: () => {
-              toast(t('nutrition.barcodeNotFound'));
-              setScanned(null);
-            },
-          });
-        }}
-      />
-      <Text style={styles.scannerHint}>{t('nutrition.scanHint')}</Text>
-    </View>
   );
 }
 
@@ -232,7 +190,7 @@ export default function FoodAdd() {
                 </Pressable>
               ) : null}
 
-              {mode === 'scan' ? <Scanner onFound={pick} /> : null}
+              {mode === 'scan' ? <FoodScanner onFound={pick} /> : null}
             </>
           )}
         </ScrollView>
@@ -279,8 +237,4 @@ const makeStyles = (th: Theme) => StyleSheet.create({
     paddingVertical: spacing.s,
   },
   copyText: { fontFamily: th.font.medium, fontSize: 13, color: th.textMuted, textAlign: 'center' },
-
-  scannerWrap: { gap: spacing.m },
-  scanner: { height: 280, borderRadius: th.radius.card, overflow: 'hidden' },
-  scannerHint: { fontFamily: th.font.regular, fontSize: 12, color: th.textMuted, textAlign: 'center' },
 });

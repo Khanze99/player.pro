@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="%LANG_ISO_CODE%">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, shrink-to-fit=no"
+    />
+    <title>%WEB_TITLE%</title>
+
+    <!-- PWA / установка на домашний экран -->
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#0A0D13" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="application-name" content="PlayerPro" />
+
+    <!-- iOS: standalone-режим, своя иконка и заголовок -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="PlayerPro" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+
+    <!-- Рекомендованный сброс стилей react-native-web + тёмный фон,
+         чтобы первый кадр не был белым до загрузки JS -->
+    <style id="expo-reset">
+      html,
+      body {
+        height: 100%;
+        background-color: #0a0d13;
+      }
+      body {
+        overflow: hidden;
+      }
+      #root {
+        display: flex;
+        height: 100%;
+        flex: 1;
+      }
+    </style>
+  </head>
+
+  <body>
+    <noscript>Для работы приложения нужно включить JavaScript.</noscript>
+    <div id="root"></div>
+  </body>
+</html>

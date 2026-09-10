@@ -1,26 +1,31 @@
-// Сессия и локальный PIN. PIN хранится только на устройстве хэшом (раздел 5 ТЗ),
-// refresh-токен — в secure-store; access-JWT живёт в памяти.
+// Сессия: статус, access-JWT в памяти, флаг «новый пользователь».
+// Секреты (refresh-токен, PIN) — в ./vault (нативный secure-store / веб-шифрование
+// ключом от PIN). Идентификатор устройства — в ./device.
 
-import * as Crypto from 'expo-crypto';
 import { create } from 'zustand';
 
 import { secureStorage } from './storage';
+import { clearVault, hasPin, hasStoredSession } from './vault';
+
+export { getDeviceId } from './device';
+export {
+  MAX_PIN_ATTEMPTS,
+  getRefreshToken,
+  hasPin,
+  savePin,
+  saveRefreshToken,
+  verifyPin,
+} from './vault';
 
 const KEYS = {
-  refresh: 'pp_refresh_token',
-  pinHash: 'pp_pin_hash',
-  deviceId: 'pp_device_id',
-  pinAttempts: 'pp_pin_attempts',
   newUser: 'pp_new_user',
 } as const;
 
-export const MAX_PIN_ATTEMPTS = 5;
-
 export type SessionStatus =
-  | 'loading' // читаем secure-store при старте
-  | 'signedOut' // нет refresh-токена → OTP-флоу
+  | 'loading' // читаем хранилище при старте
+  | 'signedOut' // нечего разблокировать → OTP-флоу
   | 'onboarding' // вошли по OTP: имя/организация/PIN ещё не настроены
-  | 'locked' // есть refresh + PIN → экран PIN
+  | 'locked' // есть сохранённая сессия + PIN → экран PIN
   | 'active'; // access-JWT получен
 
 interface SessionState {
@@ -42,18 +47,6 @@ export const session = create<SessionState>((set) => ({
   },
 }));
 
-export async function getDeviceId(): Promise<string> {
-  let id = await secureStorage.get(KEYS.deviceId);
-  if (!id) {
-    id = Crypto.randomUUID();
-    await secureStorage.set(KEYS.deviceId, id);
-  }
-  return id;
-}
-
-export const getRefreshToken = () => secureStorage.get(KEYS.refresh);
-export const saveRefreshToken = (token: string) => secureStorage.set(KEYS.refresh, token);
-
 /**
  * Регистрация это или вход в существующий аккаунт — решает сервер (`is_new_user`
  * в ответе на верификацию OTP). Флаг переживает перезапуск: онбординг могут
@@ -68,42 +61,15 @@ export const isNewUser = async () => (await secureStorage.get(KEYS.newUser)) ===
 
 export const clearNewUser = () => secureStorage.delete(KEYS.newUser);
 
-async function hashPin(pin: string): Promise<string> {
-  const deviceId = await getDeviceId(); // соль — чтобы хэш не переносился между устройствами
-  return Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, `${deviceId}:${pin}`);
-}
-
-export async function savePin(pin: string): Promise<void> {
-  await secureStorage.set(KEYS.pinHash, await hashPin(pin));
-  await secureStorage.set(KEYS.pinAttempts, '0');
-}
-
-export const hasPin = async () => (await secureStorage.get(KEYS.pinHash)) !== null;
-
-/** null — верный PIN; число — осталось попыток; 0 — попытки кончились (откат на OTP). */
-export async function verifyPin(pin: string): Promise<number | null> {
-  const stored = await secureStorage.get(KEYS.pinHash);
-  if (stored !== null && (await hashPin(pin)) === stored) {
-    await secureStorage.set(KEYS.pinAttempts, '0');
-    return null;
-  }
-  const attempts = Number((await secureStorage.get(KEYS.pinAttempts)) ?? '0') + 1;
-  await secureStorage.set(KEYS.pinAttempts, String(attempts));
-  return Math.max(0, MAX_PIN_ATTEMPTS - attempts);
-}
-
 export async function clearSession(): Promise<void> {
-  await secureStorage.delete(KEYS.refresh);
-  await secureStorage.delete(KEYS.pinHash);
-  await secureStorage.delete(KEYS.pinAttempts);
+  await clearVault();
   await secureStorage.delete(KEYS.newUser);
 }
 
 /** Определяет стартовое состояние при запуске приложения. */
 export async function bootstrapSession(): Promise<void> {
   try {
-    const refresh = await getRefreshToken();
-    if (!refresh) {
+    if (!(await hasStoredSession())) {
       session.getState().setStatus('signedOut');
       return;
     }

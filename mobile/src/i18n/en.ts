@@ -380,6 +380,9 @@ const en: typeof ru = {
     allowCamera: 'Allow camera',
     scanHint: 'Point the camera at the product barcode',
     barcodeNotFound: 'Barcode not in the database — find the product by search',
+    barcodeManualHint: 'The scanner is unavailable in the browser — type the barcode digits manually.',
+    barcodeLabel: 'Barcode',
+    barcodeLookup: 'Look up by code',
   },
   foodCreate: {
     title: 'Your product',

@@ -24,8 +24,11 @@
       ]
     },
     "web": {
-      "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "output": "single",
+      "favicon": "./assets/images/favicon.png",
+      "name": "PlayerPro",
+      "lang": "ru",
+      "description": "Мониторинг самочувствия и нагрузки спортсменов"
     },
     "plugins": [
       "expo-router",

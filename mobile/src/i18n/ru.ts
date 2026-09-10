@@ -378,6 +378,9 @@ export default {
     allowCamera: 'Разрешить камеру',
     scanHint: 'Наведи камеру на штрихкод продукта',
     barcodeNotFound: 'Такого штрихкода нет в базе — найди продукт поиском',
+    barcodeManualHint: 'В браузере сканер недоступен — введи цифры штрихкода вручную.',
+    barcodeLabel: 'Штрихкод',
+    barcodeLookup: 'Найти по коду',
   },
   foodCreate: {
     title: 'Свой продукт',

@@ -4,7 +4,7 @@ import { type ReactNode, createContext, useContext, useEffect, useMemo, useState
 import { type BrandingResponse, toTheme, useBranding } from '@/api/branding';
 import { session } from '@/auth/session';
 
-import { type Theme, defaultTheme } from './index';
+import { type Theme, defaultTheme } from './tokens';
 
 const ThemeContext = createContext<Theme>(defaultTheme);
 

@@ -4,7 +4,9 @@
 import { useQuery } from '@tanstack/react-query';
 
 import { session } from '@/auth/session';
-import { type Theme, defaultTheme } from '@/theme';
+// Из @/theme/tokens, а не бочки: branding импортится провайдером темы, а бочка
+// @/theme реэкспортит провайдер — импорт через неё вернул бы цикл.
+import { type Theme, defaultTheme } from '@/theme/tokens';
 
 import { API_URL, api } from './client';
 

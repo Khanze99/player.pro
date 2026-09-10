@@ -11,6 +11,7 @@ import { Stack, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
+import { Platform } from 'react-native';
 import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
 
 import { ThemeProvider, useTheme } from '@/theme';
@@ -98,7 +99,9 @@ export default function RootLayout() {
     Unbounded_600SemiBold,
   });
 
-  if (!fontsLoaded) return null;
+  // На вебе не держим весь экран пустым до загрузки шрифтов: системный фолбэк в
+  // теме уже покрывает первый кадр, а Google-шрифты подтягиваются следом.
+  if (!fontsLoaded && Platform.OS !== 'web') return null;
 
   return (
     <SafeAreaProvider initialMetrics={initialWindowMetrics}>

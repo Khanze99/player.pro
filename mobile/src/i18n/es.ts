@@ -380,6 +380,9 @@ const es: typeof ru = {
     allowCamera: 'Permitir cámara',
     scanHint: 'Apunta la cámara al código de barras',
     barcodeNotFound: 'Ese código no está en la base — busca el producto',
+    barcodeManualHint: 'El escáner no está disponible en el navegador: introduce los dígitos del código manualmente.',
+    barcodeLabel: 'Código de barras',
+    barcodeLookup: 'Buscar por código',
   },
   foodCreate: {
     title: 'Tu producto',
