@@ -8,14 +8,23 @@ const API_PORT = 8000;
 const REQUEST_TIMEOUT_MS = 10_000;
 
 /**
- * В разработке адрес бэкенда выводим из хоста dev-сервера Expo: и симулятор, и
- * телефон в Expo Go ходят на ту же машину, что раздаёт бандл. Прибитый в .env IP
- * протухает при каждой смене сети (Wi-Fi → хотспот), и запросы молча висят.
- * Явный EXPO_PUBLIC_API_URL приоритетнее — для стенда и прода.
+ * Порядок разрешения адреса бэкенда:
+ *  1. Явный EXPO_PUBLIC_API_URL — стенд, прод, нативные сборки (вшивается при сборке).
+ *  2. Веб вне localhost — тот же origin, что раздал бандл: деплой веб-PWA — same-origin
+ *     (nginx проксирует /api/ на бэкенд, docs/plan-web-pwa.md). Так адрес не надо
+ *     вшивать в веб-бандл вообще.
+ *  3. Разработка — хост dev-сервера Expo: и симулятор, и телефон в Expo Go ходят на
+ *     ту же машину, что раздаёт бандл (прибитый в .env IP протухает при смене сети).
  */
 function resolveApiUrl(): string {
   const explicit = process.env.EXPO_PUBLIC_API_URL;
   if (explicit) return explicit;
+
+  if (typeof window !== 'undefined' && window.location) {
+    const host = window.location.hostname;
+    if (host !== 'localhost' && host !== '127.0.0.1') return window.location.origin;
+  }
+
   const devHost = Constants.expoConfig?.hostUri?.split(':')[0];
   return `http://${devHost ?? 'localhost'}:${API_PORT}`;
 }
