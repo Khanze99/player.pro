@@ -231,6 +231,16 @@ curl -sI  https://app.player-pro.ru/api/v1/branding  # доходит до FastA
 A-запись `app.player-pro.ru` → публичный IP ВМ. Стек уже поднят на :80 (шаг 4), поэтому
 ACME-челлендж проходит. Выпуск сертификата webroot-методом:
 
+> **Имя volume зависит от имени compose-проекта** (по умолчанию — от имени каталога, в
+> котором лежит `docker-compose.stand.yml`, но его легко переопределить: другой каталог
+> клонирования, явный `COMPOSE_PROJECT_NAME`, `-p` у `docker compose`). Ниже — только
+> пример `playerpro_certbot_conf`/`playerpro_certbot_webroot`; **сверь настоящее имя**,
+> иначе `docker run certbot` запишет challenge-файл не в тот volume, который реально
+> смонтирован в `nginx`, и получишь `403`/`404` от Let's Encrypt на ровном месте:
+> ```bash
+> docker volume ls | grep certbot
+> ```
+
 ```bash
 docker run --rm \
   -v playerpro_certbot_conf:/etc/letsencrypt \
@@ -288,7 +298,9 @@ server {
    пользователь всегда свой (email OTP → опционально пароль, `docs/plan-web-admin-
    password-auth.md`), сервер ничего своего не хранит.
 3. **Сертификат** — тем же `docker run certbot/certbot`, что и для `app.player-pro.ru`
-   (шаг выше), но с `-d admin.player-pro.ru`. Можно добавить в ту же команду
+   (шаг выше, включая сверку имён volume через `docker volume ls | grep certbot` —
+   это тот самый шаг, который проще всего пропустить, а без него будет молчаливый
+   `404` на ACME-challenge), но с `-d admin.player-pro.ru`. Можно добавить в ту же команду
    (`-d app.player-pro.ru -d admin.player-pro.ru` — один SAN-сертификат на оба
    домена) или выпустить отдельным вызовом с тем же `-w /var/www/certbot` — оба
    варианта равноценны, отдельный проще мысленно развести по доменам при продлении.
@@ -379,6 +391,20 @@ dev-сервера Expo (`src/api/client.ts`) — в APK это не работ�
 cd ~/player.pro && git pull
 docker compose -f infra/docker-compose.stand.yml up -d --build   # migrate накатит новые ревизии сам
 ```
+
+> Если после этого сервис **без своего `build:`** (в первую очередь `nginx`) ведёт себя
+> так, будто не видит изменений в своих файлах/томах (новый `.conf` в `infra/nginx/`,
+> изменённый `volumes:` в самом compose) — на практике встречалось, что обычный `up`
+> его не пересоздаёт. Диагностика:
+> ```bash
+> docker inspect <контейнер> --format '{{range .Mounts}}{{.Source}} -> {{.Destination}}{{"\n"}}{{end}}'
+> ```
+> Если `Source` не совпадает с ожидаемым (например, указывает на путь другого/старого
+> чекаута репозитория) — контейнер создан ещё до последнего изменения `volumes:` и
+> просто не был пересоздан. Лечится принудительно:
+> ```bash
+> docker compose -f infra/docker-compose.stand.yml --env-file infra/.env up -d --force-recreate nginx
+> ```
 
 Веб-PWA обновляется отдельно (шаг 4b): пересобрать `mobile/dist/` и `rsync` в
 `~/player.pro/infra/web/`. reload nginx не нужен, если `playerpro.conf` не менялся.
