@@ -1,44 +1,25 @@
-"use client";
-
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { clearAuth, getUser } from "@/lib/auth";
 
-export function Navbar() {
-  const router = useRouter();
-  const user = getUser();
+import { LogoutButton } from "@/components/LogoutButton";
+import type { GlobalRole } from "@/types";
 
-  const roleLabel: Record<string, string> = {
-    doctor: "Врач",
-    coach: "Тренер",
-    masseur: "Массажист",
-    admin: "Администратор",
-  };
+const roleLabel: Record<GlobalRole, string> = {
+  admin: "Администратор",
+  staff: "Тренер/врач",
+  player: "Игрок",
+};
 
-  function logout() {
-    clearAuth();
-    router.push("/login");
-  }
-
-  const homeLink = user?.role === "doctor" ? "/doctor/dashboard" : "/coach/dashboard";
-
+export function Navbar({ name, role }: { name: string; role: GlobalRole }) {
   return (
-    <nav className="border-b border-[var(--border)] bg-[var(--bg-card)] px-6 py-3 flex items-center justify-between">
-      <Link href={homeLink} className="text-lg font-semibold tracking-tight text-[var(--accent)]">
-        player.pro
+    <nav className="border-b border-[var(--border)] bg-[var(--surface)] px-6 py-3 flex items-center justify-between">
+      <Link href="/teams" className="text-base font-semibold tracking-tight text-[var(--text)]">
+        player.pro <span className="text-[var(--text-faint)] font-normal">· штаб</span>
       </Link>
       <div className="flex items-center gap-4">
-        {user && (
-          <span className="text-sm text-[var(--text-muted)]">
-            {user.full_name} · {roleLabel[user.role] ?? user.role}
-          </span>
-        )}
-        <button
-          onClick={logout}
-          className="text-sm text-[var(--text-muted)] hover:text-[var(--text)] transition-colors"
-        >
-          Выйти
-        </button>
+        <span className="text-sm text-[var(--text-muted)]">
+          {name} · {roleLabel[role]}
+        </span>
+        <LogoutButton />
       </div>
     </nav>
   );

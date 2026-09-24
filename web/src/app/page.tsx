@@ -1,5 +1,7 @@
 import { redirect } from "next/navigation";
 
 export default function Home() {
-  redirect("/login");
+  // Неавторизованных сюда пускает только proxy.ts после гейта — редиректит
+  // на /login раньше, чем этот рендер вообще случится.
+  redirect("/teams");
 }

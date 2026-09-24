@@ -9,6 +9,12 @@ Compose — `nginx` → `api` (FastAPI) → `postgres` + `redis`, плюс `work
 `/static/` на `api:8000`. Браузер не ходит cross-origin → CORS не нужен, mixed content
 невозможен. Мобильный APK собирается через EAS Build и ходит на тот же адрес.
 
+Второй поддомен `admin.player-pro.ru` — кабинет тренера/врача (`docs/plan-web-admin.md`,
+`web/`), отдельный Next.js-сервер (не статика), сервис `admin` в том же compose. Это
+**BFF**: браузер ходит только на `admin.player-pro.ru`, сам `admin` обращается к `api`
+по внутренней docker-сети (`API_URL=http://api:8000`) — CORS тут тоже не нужен, браузер
+никогда не видит `api` напрямую.
+
 Апекс `player-pro.ru` — под сайт-визитку, разворачивается отдельно, этой конфигурации
 не касается.
 
@@ -41,8 +47,11 @@ Managed-сервисы дают бэкапы и отказоустойчивос
 | Файл | Что |
 |---|---|
 | `backend/Dockerfile` | один образ для `api` / `worker` / `beat` / `migrate` (команда задаётся в compose) |
-| `infra/docker-compose.stand.yml` | postgres · redis · migrate (Alembic → head, одноразовый) · api (healthcheck, `:8000` наружу) · worker · beat; `nginx` — под профилем `web` |
+| `web/Dockerfile` | образ кабинета тренера/врача — многоступенчатая сборка, `output: "standalone"` (`web/next.config.ts`), в финальном слое только минимальный сервер, не весь `node_modules` |
+| `infra/docker-compose.stand.yml` | postgres · redis · migrate (Alembic → head, одноразовый) · api (healthcheck, `:8000` наружу) · worker · beat · admin (кабинет, свой образ); `nginx` — под профилем `web` |
 | `infra/nginx/playerpro.conf` | `server_name app.player-pro.ru`, :80. Проксирует `/api/`, `/ws`, `/health`, `/static/`, `/docs`; всё остальное — статика `/srv/web` с SPA-фолбэком `try_files $uri /index.html`. TLS добавляется в шаге 5 |
+| `infra/nginx/admin.conf` | `server_name admin.player-pro.ru`, :80. Всё проксируется на `admin:3000` — статики тут нет, кабинет полностью динамический. TLS — шаг 5 |
+| `infra/nginx/templates/` | `*-tls.conf`-варианты обоих доменов — не загружаются nginx'ом (только `infra/nginx/*.conf` без подпапок монтируется в `conf.d`), копируются поверх активного файла вручную **после** выпуска сертификата (шаг 5) |
 | `infra/web/` | каталог со статикой веб-PWA; nginx монтирует `:ro`, содержимое кладётся шагом 4b (в git не коммитится) |
 
 ### `infra/.env` (не коммитить)
@@ -263,6 +272,39 @@ server {
 Если поднимаем ещё и `api.player-pro.ru` (чистый прокси для APK / внешних клиентов):
 добавить `-d api.player-pro.ru` в certbot и отдельный `server` на 443 с теми же
 `location /api/` и `/ws`, без `location /`.
+
+### Кабинет тренера/врача — `admin.player-pro.ru`
+
+Тот же приём, отдельным доменом. **TLS тут не опционален так же, как для
+`app.player-pro.ru`**: сессия — httpOnly-куки с `Secure=true` при
+`NODE_ENV=production` (`web/src/lib/cookies.ts`), без HTTPS браузер их не примет
+вообще — кабинет не заработает даже по HTTP-заглушке.
+
+1. **DNS** — A-запись `admin.player-pro.ru` → тот же публичный IP ВМ.
+2. **Собрать и поднять сервис `admin`** (если ещё не поднят — он под тем же
+   профилем `web`, что nginx): `docker compose -f infra/docker-compose.stand.yml
+   --env-file infra/.env --profile web up -d --build`. Отдельного `.env`-значения
+   ему не нужно — `API_URL=http://api:8000` уже в compose, секретов у кабинета нет:
+   пользователь всегда свой (email OTP → опционально пароль, `docs/plan-web-admin-
+   password-auth.md`), сервер ничего своего не хранит.
+3. **Сертификат** — тем же `docker run certbot/certbot`, что и для `app.player-pro.ru`
+   (шаг выше), но с `-d admin.player-pro.ru`. Можно добавить в ту же команду
+   (`-d app.player-pro.ru -d admin.player-pro.ru` — один SAN-сертификат на оба
+   домена) или выпустить отдельным вызовом с тем же `-w /var/www/certbot` — оба
+   варианта равноценны, отдельный проще мысленно развести по доменам при продлении.
+4. **Активировать TLS-конфиг**:
+   ```bash
+   cp infra/nginx/templates/admin-tls.conf infra/nginx/admin.conf
+   docker compose -f infra/docker-compose.stand.yml --env-file infra/.env exec nginx nginx -s reload
+   ```
+5. **Проверка**:
+   ```bash
+   curl -sI https://admin.player-pro.ru/login   # 200, text/html
+   curl -sI https://admin.player-pro.ru/teams   # редирект на /login (нет сессии)
+   ```
+
+Продление сертификата — тот же cron/systemd-таймер, что у `app.player-pro.ru`
+(шаг выше), `certbot renew` продлевает все домены сертификата разом.
 
 ### Вариант B — без своего домена
 

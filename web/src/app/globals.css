@@ -1,17 +1,33 @@
 @import "tailwindcss";
 
+/* Белый клинический стиль — намеренный контраст с тёмным sport-tech мобилки
+   (mobile/src/theme/tokens.ts): это рабочий инструмент врача/тренера за столом,
+   не приложение игрока. Светофор состояний (--good/--caution/--risk) — тот же
+   смысл и порядок, что status.good/caution/risk в мобилке, но пересчитан под
+   белую поверхность: яркие мобильные hex (для тёмного фона) на белом дают
+   недостаточный контраст как текст/иконка, не только как точка-индикатор. */
 :root {
-  --bg: #0F0F0F;
-  --bg-card: #1A1A1A;
-  --bg-input: #222222;
-  --border: #2A2A2A;
-  --accent: #2B6FED;
-  --accent-hover: #2260d4;
-  --text: #F0F0F0;
-  --text-muted: #888888;
-  --green: #22c55e;
-  --yellow: #eab308;
-  --red: #ef4444;
+  --bg: #F7F8FA;
+  --surface: #FFFFFF;
+  --surface-muted: #F1F3F6;
+  --border: #E2E6EC;
+  --border-strong: #CBD2DC;
+  --text: #16202B;
+  --text-muted: #667085;
+  --text-faint: #98A2B3;
+
+  --accent: #2D6FE0;
+  --accent-hover: #2559B8;
+  --accent-soft: #EAF1FE;
+
+  --good: #1AA160;
+  --good-soft: #E6F7EE;
+  --caution: #BD8000;
+  --caution-soft: #FBF3DE;
+  --risk: #D6403A;
+  --risk-soft: #FCEAE9;
+  --no-data: #98A2B3;
+  --no-data-soft: #F1F3F6;
 }
 
 body {
@@ -26,12 +42,13 @@ body {
 }
 
 ::-webkit-scrollbar {
-  width: 6px;
+  width: 8px;
+  height: 8px;
 }
 ::-webkit-scrollbar-track {
   background: var(--bg);
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--border);
-  border-radius: 3px;
+  background: var(--border-strong);
+  border-radius: 4px;
 }

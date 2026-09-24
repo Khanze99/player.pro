@@ -1,38 +1,50 @@
-import type { StatusColor } from "@/types";
+import type { Zone } from "@/types";
 
-const colorMap: Record<StatusColor, string> = {
-  green: "bg-[var(--green)]",
-  yellow: "bg-[var(--yellow)]",
-  red: "bg-[var(--red)]",
+// Цвет — вторичный канал. showLabel по умолчанию true: --caution (жёлтый) даёт
+// CVD-разделение в «floor band» (см. плату validate_palette.js в dataviz-скилле)
+// — легально только вместе с текстовой подписью, поэтому не полагаемся на точку
+// в одиночку нигде, где это не оговорено явно (numericAdjacent).
+const colorVar: Record<Zone | "no_data", string> = {
+  green: "var(--good)",
+  yellow: "var(--caution)",
+  red: "var(--risk)",
+  no_data: "var(--no-data)",
 };
 
-const labelMap: Record<StatusColor, string> = {
+const labelText: Record<Zone | "no_data", string> = {
   green: "Норма",
   yellow: "Внимание",
   red: "Критично",
+  no_data: "Нет данных",
 };
 
+const sizePx: Record<"sm" | "md" | "lg", number> = { sm: 8, md: 10, lg: 14 };
+
 interface Props {
-  status: StatusColor | null;
+  zone: Zone | null | undefined;
   size?: "sm" | "md" | "lg";
   showLabel?: boolean;
+  /** true — рядом уже стоит число/текст, объясняющий зону (напр. балл Readiness);
+   * тогда точку можно оставить без showLabel и без второго нарушения "цвет-соло". */
+  numericAdjacent?: boolean;
 }
 
-const sizeMap = { sm: "w-2.5 h-2.5", md: "w-3.5 h-3.5", lg: "w-5 h-5" };
+export function StatusDot({ zone, size = "md", showLabel = true, numericAdjacent = false }: Props) {
+  const key = zone ?? "no_data";
+  const px = sizePx[size];
 
-export function StatusDot({ status, size = "md", showLabel = false }: Props) {
-  if (!status) {
-    return (
-      <div className="flex items-center gap-2">
-        <div className={`${sizeMap[size]} rounded-full bg-[var(--border)]`} />
-        {showLabel && <span className="text-[var(--text-muted)] text-sm">Нет данных</span>}
-      </div>
-    );
+  if (!showLabel && !numericAdjacent) {
+    // Явной подписи нет и рядом нет числа — не даём молча уйти в цвет-соло.
+    showLabel = true;
   }
+
   return (
-    <div className="flex items-center gap-2">
-      <div className={`${sizeMap[size]} rounded-full ${colorMap[status]} shadow-[0_0_6px_1px] shadow-current`} />
-      {showLabel && <span className="text-sm text-[var(--text-muted)]">{labelMap[status]}</span>}
-    </div>
+    <span className="inline-flex items-center gap-1.5">
+      <span
+        className="inline-block rounded-full shrink-0"
+        style={{ width: px, height: px, backgroundColor: colorVar[key] }}
+      />
+      {showLabel && <span className="text-sm text-[var(--text-muted)]">{labelText[key]}</span>}
+    </span>
   );
 }

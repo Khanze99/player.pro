@@ -2,7 +2,7 @@
 COMPOSE := docker compose -f infra/docker-compose.yml
 STAND := docker compose -f infra/docker-compose.stand.yml --env-file infra/.env
 
-.PHONY: help infra-up infra-down backend-dev backend-test mobile-start \
+.PHONY: help infra-up infra-down backend-dev backend-test mobile-start web-dev \
         stand-env stand-up stand-down stand-logs stand-ps stand-seed stand-migrate stand-test stand-reset
 
 help:
@@ -22,6 +22,9 @@ backend-test: ## Тесты бэкенда
 
 mobile-start: ## Expo dev-сервер
 	$(MAKE) -C mobile start
+
+web-dev: ## Веб-кабинет тренера/врача (Next.js, нужен backend-dev), порт 3000
+	$(MAKE) -C web dev
 
 # --- Тестовый стенд: postgres + redis + миграции + API в контейнерах ---
 

@@ -5,8 +5,8 @@ import "./globals.css";
 const geist = Geist({ subsets: ["latin"], variable: "--font-geist-sans" });
 
 export const metadata: Metadata = {
-  title: "player.pro",
-  description: "Система мониторинга состояния спортсменов",
+  title: "player.pro · Кабинет штаба",
+  description: "Ежедневные отчёты игроков для тренера и врача",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
