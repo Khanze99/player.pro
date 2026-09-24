@@ -21,7 +21,7 @@
 git clone https://github.com/Khanze99/player.pro.git && cd player.pro
 
 make stand-env    # создаст infra/.env со сгенерированными секретами
-make stand-up     # сборка образа + postgres + redis + alembic upgrade head + API
+make stand-up     # сборка образа + postgres + redis + alembic upgrade head + API + celery worker/beat
 curl http://localhost:8000/health      # {"status":"ok"}
 open http://localhost:8000/docs        # Swagger
 ```
@@ -64,7 +64,9 @@ cd backend && make install     # venv + зависимости (нужен Pytho
 cp .env.example .env
 make upgrade                   # миграции применяются вручную
 make dev                       # uvicorn на :8000
-make test                      # pytest по реальной БД playerpro_test
+make worker                    # celery-воркер: пересчёт DailyMetric (в отдельном терминале)
+make beat                      # celery beat: ночной пересчёт по расписанию (опционально)
+make test                      # pytest по реальной БД playerpro_test (celery — eager, Redis не нужен)
 
 cd ../mobile && make install && make start   # Expo, нужен Node 20+
 ```
@@ -100,3 +102,7 @@ cd ../mobile && make install && make start   # Expo, нужен Node 20+
 yc compute ssh \
   --id fv4442ilvle2o2t5nifc \
   --identity-file /Users/akhamidov/.ssh/ssh-key-1786553459277 --login khanze
+
+
+нормально создавать брендинг, скрипт подготовки
+статику переделать нормально, имхо в другом месте должно это все хранится
