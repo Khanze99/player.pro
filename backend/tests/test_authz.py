@@ -88,6 +88,43 @@ async def test_readiness_breakdown_access_matches_view_athlete(client):
     assert resp.status_code == 403
 
 
+async def test_medical_exam_write_requires_medic(client):
+    """УМО/ТМО (docs/plan-medical-exams.md) — пишет только врач; admin НЕ
+    проходит (тот же принцип, что у ensure_can_view_sensitive: админ —
+    менеджер клуба, не медработник)."""
+    org = await build_org(client)
+    a1_id = org["athlete1"]["user_id"]
+    payload = {"kind": "umo", "passed_date": str(date.today()), "valid_until": str(date.today())}
+    url = f"/api/v1/medical-exams/athletes/{a1_id}"
+
+    resp = await client.post(url, json=payload, headers=org["medic"]["headers"])
+    assert resp.status_code == 201
+
+    for who in ("coach", "admin", "athlete1", "outsider"):
+        resp = await client.post(url, json=payload, headers=org[who]["headers"])
+        assert resp.status_code == 403, f"{who}: {resp.text}"
+
+
+async def test_medical_exam_read_matches_view_athlete(client):
+    org = await build_org(client)
+    a1_id = org["athlete1"]["user_id"]
+    payload = {"kind": "tmo", "passed_date": str(date.today()), "valid_until": str(date.today())}
+    await client.post(
+        f"/api/v1/medical-exams/athletes/{a1_id}", json=payload, headers=org["medic"]["headers"]
+    )
+
+    url = f"/api/v1/medical-exams/athletes/{a1_id}"
+    resp = await client.get(url, headers=org["athlete1"]["headers"])
+    assert resp.status_code == 200
+    for who in ("coach", "medic", "admin"):
+        resp = await client.get(url, headers=org[who]["headers"])
+        assert resp.status_code == 200, f"{who}: {resp.text}"
+    resp = await client.get(url, headers=org["athlete2"]["headers"])
+    assert resp.status_code == 403
+    resp = await client.get(url, headers=org["outsider"]["headers"])
+    assert resp.status_code == 403
+
+
 async def test_dashboard_access(client):
     org = await build_org(client)
     url = f"/api/v1/dashboard/teams/{org['team_id']}/squad-status"

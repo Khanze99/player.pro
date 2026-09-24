@@ -188,6 +188,21 @@ def _sensitive_forbidden() -> HTTPException:
     return HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Данные недоступны")
 
 
+async def ensure_can_manage_medical_exams(db: AsyncSession, viewer: User, athlete_id: uuid.UUID) -> None:
+    """УМО/ТМО (docs/plan-medical-exams.md) — пишет только врач (medic).
+
+    Admin НЕ проходит — тот же принцип, что в ensure_can_view_sensitive: админ
+    организации это менеджер клуба, а не медработник. Coach/head_coach тоже не
+    пишет, хотя видит (ensure_can_view_athlete на чтение).
+    """
+    athlete = await db.get(User, athlete_id)
+    if athlete is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Игрок не найден")
+    role = await _shared_team_staff_role(db, viewer.id, athlete_id)
+    if role != TeamRole.medic:
+        raise _forbidden()
+
+
 async def ensure_can_manage_athlete_status(db: AsyncSession, viewer: User, athlete_id: uuid.UUID) -> None:
     """Статусы доступности/травмы: medic — CRUD, coach/head_coach — запись статуса, admin — да."""
     athlete = await db.get(User, athlete_id)

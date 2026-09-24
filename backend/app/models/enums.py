@@ -200,6 +200,14 @@ class StreakType(str, enum.Enum):
     rpe = "rpe"
 
 
+class MedicalExamKind(str, enum.Enum):
+    """УМО (Углублённое медицинское обследование) / ТМО (Текущий медицинский
+    осмотр) — docs/plan-medical-exams.md. Один тип на оба вида, не две таблицы."""
+
+    umo = "umo"
+    tmo = "tmo"
+
+
 class InvitationStatus(str, enum.Enum):
     pending = "pending"
     accepted = "accepted"

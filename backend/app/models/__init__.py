@@ -24,6 +24,7 @@ from app.models.enums import (
     InjuryType,
     InvitationStatus,
     MealType,
+    MedicalExamKind,
     PolicyConsentKind,
     Sex,
     StreakType,
@@ -34,6 +35,7 @@ from app.models.enums import (
 from app.models.event import Attendance, Event
 from app.models.injury import InjuryRecord
 from app.models.invitation import Invitation
+from app.models.medical_exam import MedicalExam
 from app.models.metric import DailyMetric, Streak
 from app.models.notification import Notification
 from app.models.nutrition import FoodItem, FoodLogEntry, NutritionTarget
@@ -72,6 +74,8 @@ __all__ = [
     "InjuryType",
     "InvitationStatus",
     "MealType",
+    "MedicalExam",
+    "MedicalExamKind",
     "PolicyConsent",
     "PolicyConsentKind",
     "StreakType",
