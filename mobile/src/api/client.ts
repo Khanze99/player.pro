@@ -1,6 +1,7 @@
 // REST-клиент: Bearer access-JWT, авто-refresh по 401 (раздел 5 ТЗ)
 
 import Constants from 'expo-constants';
+import { Platform } from 'react-native';
 
 import { getDeviceId, getRefreshToken, session } from '../auth/session';
 
@@ -20,7 +21,11 @@ function resolveApiUrl(): string {
   const explicit = process.env.EXPO_PUBLIC_API_URL;
   if (explicit) return explicit;
 
-  if (typeof window !== 'undefined' && window.location) {
+  // `window` в React Native — алиас на global и существует всегда; `window.location`
+  // тоже может внезапно появиться (инспектор/remote-debugger подставляет браузерный
+  // контекст) — тогда origin указывает на Metro, а не на устройство. Поэтому ветка
+  // только для настоящего веба.
+  if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location) {
     const host = window.location.hostname;
     if (host !== 'localhost' && host !== '127.0.0.1') return window.location.origin;
   }
