@@ -217,8 +217,10 @@ async def test_alerts_flag_risk_players(db):
     today = date.today()
     team_id, athletes = await _team_with_athletes(db, 1)
     db.add(
+        # sleep_quality=1 — самый большой deficit среди критериев (25 против 22.22 у
+        # energy), однозначно определяет reason-код без завязки на тай-брейк сортировки.
         WellnessEntry(
-            athlete_id=athletes[0], date=today, mood=2, energy=2, sleep_quality=2, stress=9, soreness=9
+            athlete_id=athletes[0], date=today, mood=2, energy=2, sleep_quality=1, stress=9, soreness=9
         )
     )
     db.add(
@@ -242,7 +244,9 @@ async def test_alerts_flag_risk_players(db):
     assert len(summary.alerts) == 1
     alert = summary.alerts[0]
     assert alert.severity == "risk"
-    assert "low_readiness" in alert.reasons
+    # Конкретный критерий вместо общего low_readiness — sleep_quality тут самый плохой.
+    assert "low_sleep" in alert.reasons
+    assert "low_readiness" not in alert.reasons
     assert "injury" in alert.reasons
 
 

@@ -68,6 +68,26 @@ async def test_staff_and_admin_see_team_athlete(client):
         assert resp.status_code == 200, f"{who}: {resp.text}"
 
 
+async def test_readiness_breakdown_access_matches_view_athlete(client):
+    """Разбивка Readiness — та же матрица доступа, что у wellness/metrics: свои данные,
+    общая команда для штаба, admin организации; посторонний и чужой игрок — нет."""
+    org = await build_org(client)
+    resp = await client.post("/api/v1/wellness", json=WELLNESS, headers=org["athlete1"]["headers"])
+    assert resp.status_code == 201
+    a1_id = org["athlete1"]["user_id"]
+    url = f"/api/v1/analytics/athletes/{a1_id}/readiness-breakdown?day={WELLNESS['date']}"
+
+    resp = await client.get(url, headers=org["athlete1"]["headers"])
+    assert resp.status_code == 200
+    for who in ("coach", "medic", "admin"):
+        resp = await client.get(url, headers=org[who]["headers"])
+        assert resp.status_code == 200, f"{who}: {resp.text}"
+    resp = await client.get(url, headers=org["athlete2"]["headers"])
+    assert resp.status_code == 403
+    resp = await client.get(url, headers=org["outsider"]["headers"])
+    assert resp.status_code == 403
+
+
 async def test_dashboard_access(client):
     org = await build_org(client)
     url = f"/api/v1/dashboard/teams/{org['team_id']}/squad-status"

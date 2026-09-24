@@ -179,6 +179,72 @@ async def test_submit_enqueues_recalc_and_metric_lands(client):
     assert metrics.json()[-1]["daily_load"] == 420  # 7 × 60, посчитано задачей
 
 
+async def test_readiness_breakdown_sorted_by_deficit(client):
+    user = await register_user(client, "breakdown@example.com")
+    today = date.today()
+    resp = await client.post(
+        "/api/v1/wellness",
+        json={
+            "date": str(today),
+            "mood": 8,
+            "energy": 8,
+            "sleep_quality": 1,  # худший критерий — ожидаем его первым
+            "stress": 2,
+            "soreness": 2,
+        },
+        headers=user["headers"],
+    )
+    assert resp.status_code == 201
+    expected_score = resp.json()["readiness"]
+
+    resp = await client.get(f"/api/v1/analytics/me/readiness-breakdown?day={today}", headers=user["headers"])
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["score"] == expected_score
+    assert {c["key"] for c in body["components"]} == set(calc.READINESS_WEIGHTS)
+    assert body["components"][0]["key"] == "sleep_quality"
+    deficits = [c["deficit"] for c in body["components"]]
+    assert deficits == sorted(deficits, reverse=True)
+    assert body["hr_modifier"] == 0
+    assert not body["hr_flag"]
+    assert not body["injury"] and not body["symptom"]
+
+
+async def test_readiness_breakdown_404_without_entry(client):
+    user = await register_user(client, "breakdown-empty@example.com")
+    resp = await client.get(
+        f"/api/v1/analytics/me/readiness-breakdown?day={date.today()}", headers=user["headers"]
+    )
+    assert resp.status_code == 404
+
+
+async def test_readiness_breakdown_average_skips_missing_days(client):
+    """Опрос заполнен только за 2 из 7 дней окна — days_with_data == 2, а не 7."""
+    user = await register_user(client, "breakdown-avg@example.com")
+    today = date.today()
+    for offset in (0, 3):
+        resp = await client.post(
+            "/api/v1/wellness",
+            json={
+                "date": str(today - timedelta(days=offset)),
+                "mood": 6,
+                "energy": 6,
+                "sleep_quality": 6,
+                "stress": 4,
+                "soreness": 4,
+            },
+            headers=user["headers"],
+        )
+        assert resp.status_code == 201
+
+    resp = await client.get("/api/v1/analytics/me/readiness-breakdown/average", headers=user["headers"])
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["days_with_data"] == 2
+    assert body["avg_score"] is not None
+    assert len(body["components"]) == 5
+
+
 async def _make_org_admin(client, identifier: str) -> dict:
     admin = await register_user(client, identifier)
     resp = await client.post("/api/v1/organizations", json={"name": "FC Recalc"}, headers=admin["headers"])

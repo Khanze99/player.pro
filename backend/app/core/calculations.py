@@ -101,23 +101,81 @@ class ReadinessResult:
     unavailable_flag: bool  # травма/болезнь — жёсткий флаг независимо от балла
 
 
-def readiness(data: ReadinessInput) -> ReadinessResult:
-    norms = {
-        "sleep_quality": normalize_positive(data.sleep_quality),
-        "energy": normalize_positive(data.energy),
-        "mood": normalize_positive(data.mood),
-        "soreness": normalize_negative(data.soreness),
-        "stress": normalize_negative(data.stress),
+@dataclass
+class ComponentBreakdown:
+    """Один критерий Readiness, разложенный на составляющие.
+
+    `contribution` — сколько очков из 100 критерий принёс; `deficit` — сколько очков
+    он стоил относительно максимума (`вес × 100`). Веса суммируются в 1.0, поэтому
+    Σ deficit по всем критериям всегда равна `100 − base_score` — это и есть ответ на
+    «по каким критериям идёт просадка», без прочих объяснений.
+    """
+
+    key: str  # sleep_quality | energy | mood | soreness | stress
+    value: float  # сырое 1–10 (на дне) или среднее (за период)
+    normalized: float  # 0–100
+    weight: float
+    contribution: float
+    deficit: float
+
+
+@dataclass
+class ReadinessBreakdown:
+    """Полная раскладка одного дня — то же, что считает readiness(), но с деталями."""
+
+    components: list[ComponentBreakdown]  # отсортированы по deficit убыв.
+    base_score: float  # Σ contribution, до модификатора пульса и клампа
+    hr_modifier: float  # 0 или RESTING_HR_PENALTY
+    hr_flag: bool
+    injury: bool
+    symptom: bool
+    unavailable_flag: bool  # injury or symptom — жёсткий флаг независимо от балла
+    score: int
+    zone: str
+
+
+def readiness_breakdown(data: ReadinessInput) -> ReadinessBreakdown:
+    normalizers = {
+        "sleep_quality": normalize_positive,
+        "energy": normalize_positive,
+        "mood": normalize_positive,
+        "soreness": normalize_negative,
+        "stress": normalize_negative,
     }
-    base = sum(norms[k] * w for k, w in READINESS_WEIGHTS.items())
+    raw_values = {
+        "sleep_quality": data.sleep_quality,
+        "energy": data.energy,
+        "mood": data.mood,
+        "soreness": data.soreness,
+        "stress": data.stress,
+    }
+
+    components: list[ComponentBreakdown] = []
+    base = 0.0
+    for key, weight in READINESS_WEIGHTS.items():
+        value = raw_values[key]
+        normalized = normalizers[key](value)
+        contribution = normalized * weight
+        base += contribution
+        components.append(
+            ComponentBreakdown(
+                key=key,
+                value=value,
+                normalized=normalized,
+                weight=weight,
+                contribution=contribution,
+                deficit=weight * 100 - contribution,
+            )
+        )
+    components.sort(key=lambda c: c.deficit, reverse=True)
 
     hr_flag = (
         data.resting_hr is not None
         and data.baseline_resting_hr is not None
         and data.resting_hr >= data.baseline_resting_hr + RESTING_HR_THRESHOLD_BPM
     )
-    score = base + (RESTING_HR_PENALTY if hr_flag else 0)
-    score = max(0, min(100, round(score)))
+    hr_modifier = float(RESTING_HR_PENALTY) if hr_flag else 0.0
+    score = max(0, min(100, round(base + hr_modifier)))
 
     if score >= READINESS_GREEN:
         zone = "green"
@@ -126,11 +184,72 @@ def readiness(data: ReadinessInput) -> ReadinessResult:
     else:
         zone = "red"
 
-    return ReadinessResult(
+    return ReadinessBreakdown(
+        components=components,
+        base_score=base,
+        hr_modifier=hr_modifier,
+        hr_flag=hr_flag,
+        injury=data.injury,
+        symptom=data.symptom,
+        unavailable_flag=data.injury or data.symptom,
         score=score,
         zone=zone,
-        hr_flag=hr_flag,
-        unavailable_flag=data.injury or data.symptom,
+    )
+
+
+def readiness(data: ReadinessInput) -> ReadinessResult:
+    breakdown = readiness_breakdown(data)
+    return ReadinessResult(
+        score=breakdown.score,
+        zone=breakdown.zone,
+        hr_flag=breakdown.hr_flag,
+        unavailable_flag=breakdown.unavailable_flag,
+    )
+
+
+@dataclass
+class ReadinessBreakdownAverage:
+    """Средняя раскладка за период — по дням, где был опрос (пропуск — не ноль)."""
+
+    components: list[ComponentBreakdown]  # value/normalized/contribution/deficit — средние
+    avg_score: float | None
+    days_with_data: int
+
+
+def readiness_breakdown_average(breakdowns: list[ReadinessBreakdown]) -> ReadinessBreakdownAverage:
+    days = len(breakdowns)
+    if days == 0:
+        return ReadinessBreakdownAverage(components=[], avg_score=None, days_with_data=0)
+
+    totals: dict[str, dict[str, float]] = {
+        key: {"value": 0.0, "normalized": 0.0, "contribution": 0.0, "deficit": 0.0}
+        for key in READINESS_WEIGHTS
+    }
+    for bd in breakdowns:
+        for comp in bd.components:
+            acc = totals[comp.key]
+            acc["value"] += comp.value
+            acc["normalized"] += comp.normalized
+            acc["contribution"] += comp.contribution
+            acc["deficit"] += comp.deficit
+
+    components = [
+        ComponentBreakdown(
+            key=key,
+            value=acc["value"] / days,
+            normalized=acc["normalized"] / days,
+            weight=READINESS_WEIGHTS[key],
+            contribution=acc["contribution"] / days,
+            deficit=acc["deficit"] / days,
+        )
+        for key, acc in totals.items()
+    ]
+    components.sort(key=lambda c: c.deficit, reverse=True)
+
+    return ReadinessBreakdownAverage(
+        components=components,
+        avg_score=mean([bd.score for bd in breakdowns]),
+        days_with_data=days,
     )
 
 

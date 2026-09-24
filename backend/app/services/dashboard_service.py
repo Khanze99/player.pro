@@ -228,13 +228,26 @@ async def _event_stats(
     return result
 
 
-def _alerts(players: list[SquadPlayerOut]) -> list[TeamAlertOut]:
+# Самый «дорогой» критерий дня (наибольший deficit в readiness_breakdown) даёт
+# конкретную причину вместо общего low_readiness — то же самое тренер увидит в
+# детальной разбивке по игроку, просто на уровне сводки команды.
+_LOW_READINESS_REASON: dict[str, str] = {
+    "sleep_quality": "low_sleep",
+    "energy": "low_energy",
+    "mood": "low_mood",
+    "stress": "high_stress",
+    "soreness": "high_soreness",
+}
+
+
+def _alerts(players: list[SquadPlayerOut], weakest_by_athlete: dict[uuid.UUID, str]) -> list[TeamAlertOut]:
     """Командный отчёт: у кого что не так. Коды причин — текст подставляет клиент."""
     alerts: list[TeamAlertOut] = []
     for player in players:
         reasons: list[str] = []
         if player.readiness_zone == "red":
-            reasons.append("low_readiness")
+            weakest = weakest_by_athlete.get(player.athlete_id)
+            reasons.append(_LOW_READINESS_REASON.get(weakest, "low_readiness"))
         if player.load_zone == "high_risk":
             reasons.append("high_load")
         elif player.load_zone == "overreaching":
@@ -314,6 +327,26 @@ async def team_summary(db: AsyncSession, team_id: uuid.UUID, day: date) -> TeamS
     )
     entries = list(wellness_rows.scalars())
     filled_ids = {entry.athlete_id for entry in entries}
+
+    # Самый «дорогой» критерий дня — для конкретных reason-кодов в _alerts (вместо
+    # общего low_readiness). Без baseline_resting_hr: HR — отдельный модификатор,
+    # 5 взвешенных критериев от него не зависят.
+    weakest_by_athlete: dict[uuid.UUID, str] = {
+        entry.athlete_id: calc.readiness_breakdown(
+            calc.ReadinessInput(
+                mood=entry.mood,
+                energy=entry.energy,
+                sleep_quality=entry.sleep_quality,
+                stress=entry.stress,
+                soreness=entry.soreness,
+                injury=entry.injury,
+                symptom=entry.symptom,
+            )
+        )
+        .components[0]
+        .key
+        for entry in entries
+    }
     wellness = WellnessReportOut(
         filled=len(entries),
         total=total,
@@ -358,7 +391,7 @@ async def team_summary(db: AsyncSession, team_id: uuid.UUID, day: date) -> TeamS
         wellness=wellness,
         past_events=await _event_stats(db, past, athlete_ids),
         upcoming_events=await _event_stats(db, upcoming, athlete_ids),
-        alerts=_alerts(players),
+        alerts=_alerts(players, weakest_by_athlete),
     )
 
 

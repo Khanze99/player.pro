@@ -72,6 +72,60 @@ def test_readiness_injury_sets_unavailable_flag():
     assert result.score == 100  # флаг жёсткий, но балл не обнуляется
 
 
+def test_readiness_breakdown_matches_readiness():
+    """readiness() — тонкая обёртка над readiness_breakdown(), поведение идентично."""
+    data = calc.ReadinessInput(
+        mood=4, energy=6, sleep_quality=3, stress=7, soreness=8, resting_hr=60, baseline_resting_hr=50
+    )
+    result = calc.readiness(data)
+    breakdown = calc.readiness_breakdown(data)
+    assert breakdown.score == result.score
+    assert breakdown.zone == result.zone
+    assert breakdown.hr_flag == result.hr_flag
+    assert breakdown.unavailable_flag == result.unavailable_flag
+
+
+def test_readiness_breakdown_deficits_sum_to_gap_from_perfect():
+    """Веса суммируются в 1.0 → Σ deficit_i == 100 - base_score. Это и есть разложение
+    просадки по критериям: сумма «недостающих» очков равна тому, чего балл недобрал."""
+    data = calc.ReadinessInput(mood=3, energy=7, sleep_quality=2, stress=6, soreness=9)
+    breakdown = calc.readiness_breakdown(data)
+    assert sum(c.deficit for c in breakdown.components) == pytest.approx(100 - breakdown.base_score)
+    assert {c.key for c in breakdown.components} == set(calc.READINESS_WEIGHTS)
+
+
+def test_readiness_breakdown_sorted_by_deficit_desc():
+    # sleep_quality=1 — худший критерий по вкладу веса (.25) и нормализации → largest deficit
+    data = calc.ReadinessInput(mood=8, energy=8, sleep_quality=1, stress=2, soreness=2)
+    breakdown = calc.readiness_breakdown(data)
+    assert breakdown.components[0].key == "sleep_quality"
+    deficits = [c.deficit for c in breakdown.components]
+    assert deficits == sorted(deficits, reverse=True)
+
+
+def test_readiness_breakdown_average_ignores_missing_days():
+    """Пропущенный день — отсутствие данных, а не ноль (раздел 4.2): среднее считается
+    только по дням, где был опрос."""
+    good = calc.readiness_breakdown(
+        calc.ReadinessInput(mood=10, energy=10, sleep_quality=10, stress=1, soreness=1)
+    )
+    bad = calc.readiness_breakdown(
+        calc.ReadinessInput(mood=1, energy=1, sleep_quality=1, stress=10, soreness=10)
+    )
+    average = calc.readiness_breakdown_average([good, bad])
+    assert average.days_with_data == 2
+    assert average.avg_score == pytest.approx((good.score + bad.score) / 2)
+    sleep_component = next(c for c in average.components if c.key == "sleep_quality")
+    assert sleep_component.value == pytest.approx((10 + 1) / 2)
+
+
+def test_readiness_breakdown_average_empty_is_no_data():
+    average = calc.readiness_breakdown_average([])
+    assert average.days_with_data == 0
+    assert average.avg_score is None
+    assert average.components == []
+
+
 def test_availability_percent():
     assert calc.availability_percent(45, 90) == pytest.approx(50.0)
     assert calc.availability_percent(0, 0) is None

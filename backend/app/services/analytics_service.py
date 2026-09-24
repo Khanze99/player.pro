@@ -31,6 +31,20 @@ async def _first_data_date(db: AsyncSession, athlete_id: uuid.UUID) -> date | No
     return min(dates) if dates else None
 
 
+def _breakdown_input(entry: WellnessEntry, baseline_hr: int | None) -> calc.ReadinessInput:
+    return calc.ReadinessInput(
+        mood=entry.mood,
+        energy=entry.energy,
+        sleep_quality=entry.sleep_quality,
+        stress=entry.stress,
+        soreness=entry.soreness,
+        resting_hr=entry.resting_hr,
+        baseline_resting_hr=baseline_hr,
+        injury=entry.injury,
+        symptom=entry.symptom,
+    )
+
+
 async def recalc_athlete(
     db: AsyncSession, athlete_id: uuid.UUID, end_date: date | None = None, commit: bool = True
 ) -> int:
@@ -81,19 +95,7 @@ async def recalc_athlete(
         unavailable_flag = False
         entry = wellness.get(day)
         if entry is not None:
-            result = calc.readiness(
-                calc.ReadinessInput(
-                    mood=entry.mood,
-                    energy=entry.energy,
-                    sleep_quality=entry.sleep_quality,
-                    stress=entry.stress,
-                    soreness=entry.soreness,
-                    resting_hr=entry.resting_hr,
-                    baseline_resting_hr=baseline_hr,
-                    injury=entry.injury,
-                    symptom=entry.symptom,
-                )
-            )
+            result = calc.readiness(_breakdown_input(entry, baseline_hr))
             readiness_score = result.score
             readiness_zone = result.zone
             hr_flag = result.hr_flag
@@ -143,19 +145,45 @@ async def readiness_preview(
     Полный ряд DailyMetric пересчитывает Celery-задача.
     """
     profile = await db.get(AthleteProfile, athlete_id)
-    return calc.readiness(
-        calc.ReadinessInput(
-            mood=entry.mood,
-            energy=entry.energy,
-            sleep_quality=entry.sleep_quality,
-            stress=entry.stress,
-            soreness=entry.soreness,
-            resting_hr=entry.resting_hr,
-            baseline_resting_hr=profile.baseline_resting_hr if profile else None,
-            injury=entry.injury,
-            symptom=entry.symptom,
+    return calc.readiness(_breakdown_input(entry, profile.baseline_resting_hr if profile else None))
+
+
+async def get_readiness_breakdown_day(
+    db: AsyncSession, athlete_id: uuid.UUID, day: date
+) -> calc.ReadinessBreakdown | None:
+    """Разбивка Readiness за один день. None — опроса в этот день не было (не ноль).
+
+    Не хранится в DailyMetric и не требует Celery: в отличие от EWMA/ACWR, Readiness
+    дня не рекуррентен — раскладка выводится напрямую из одной строки WellnessEntry.
+    """
+    entry = (
+        await db.execute(
+            select(WellnessEntry).where(WellnessEntry.athlete_id == athlete_id, WellnessEntry.date == day)
         )
-    )
+    ).scalar_one_or_none()
+    if entry is None:
+        return None
+    profile = await db.get(AthleteProfile, athlete_id)
+    return calc.readiness_breakdown(_breakdown_input(entry, profile.baseline_resting_hr if profile else None))
+
+
+async def get_readiness_breakdown_average(
+    db: AsyncSession, athlete_id: uuid.UUID, date_from: date, date_to: date
+) -> calc.ReadinessBreakdownAverage:
+    """Средняя разбивка за период — только по дням, где был опрос."""
+    entries = (
+        await db.execute(
+            select(WellnessEntry).where(
+                WellnessEntry.athlete_id == athlete_id,
+                WellnessEntry.date >= date_from,
+                WellnessEntry.date <= date_to,
+            )
+        )
+    ).scalars()
+    profile = await db.get(AthleteProfile, athlete_id)
+    baseline_hr = profile.baseline_resting_hr if profile else None
+    breakdowns = [calc.readiness_breakdown(_breakdown_input(entry, baseline_hr)) for entry in entries]
+    return calc.readiness_breakdown_average(breakdowns)
 
 
 async def recalc_all(db: AsyncSession, end_date: date | None = None) -> int:

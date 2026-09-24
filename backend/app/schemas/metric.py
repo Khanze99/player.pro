@@ -31,6 +31,42 @@ class StreakOut(BaseModel):
     last_date: date_type | None
 
 
+class ReadinessComponentOut(BaseModel):
+    """Один критерий разбивки Readiness — раздел 6.4 ТЗ, разложенный на составляющие."""
+
+    key: str  # sleep_quality | energy | mood | soreness | stress
+    value: float  # сырое 1–10 (дневной эндпоинт) или среднее за период
+    normalized: float  # 0–100
+    weight: float
+    contribution: float  # очков из 100 принёс этот критерий
+    deficit: float  # очков из возможного максимума (weight*100) критерий стоил
+
+
+class ReadinessBreakdownOut(BaseModel):
+    """Разбивка Readiness за один день. components отсортированы по deficit убыв. —
+    первый в списке объясняет просадку сильнее всего."""
+
+    date: date_type
+    components: list[ReadinessComponentOut]
+    hr_modifier: float
+    hr_flag: bool
+    injury: bool
+    symptom: bool
+    unavailable_flag: bool
+    score: int
+    zone: str
+
+
+class ReadinessBreakdownAverageOut(BaseModel):
+    """Средняя разбивка за период — по дням, где был опрос."""
+
+    date_from: date_type
+    date_to: date_type
+    days_with_data: int
+    components: list[ReadinessComponentOut]
+    avg_score: float | None
+
+
 class RecalcDispatchOut(BaseModel):
     """Ответ на постановку ручного пересчёта в очередь."""
 
