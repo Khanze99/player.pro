@@ -348,36 +348,40 @@ export default function Profile() {
             onChangeText={(v) => setDraft((d) => ({ ...d, birthdate: v }))}
             onBlur={saveBirthdate}
           />
-          <Field
-            label={t('profile.position')}
-            value={draft.position}
-            onChangeText={(v) => setDraft((d) => ({ ...d, position: v }))}
-            onBlur={savePosition}
-          />
-          <View style={styles.metricRow}>
-            <View style={styles.metricCol}>
-              <Field
-                label={t('profile.height')}
-                value={draft.height}
-                keyboardType="number-pad"
-                onChangeText={(v) => setDraft((d) => ({ ...d, height: v }))}
-                onBlur={saveNumber('height', 100, 250)}
-              />
-            </View>
-            <View style={styles.metricCol}>
-              <Field
-                label={t('profile.weight')}
-                value={draft.weight}
-                keyboardType="decimal-pad"
-                onChangeText={(v) => setDraft((d) => ({ ...d, weight: v }))}
-                onBlur={saveNumber('weight', 30, 250)}
-              />
-            </View>
-          </View>
+          {/* Амплуа и антропометрия — поля профиля атлета (см. комментарий у isPlayer
+              выше): у штаба (админ/тренер/врач) их в анкете нет смысла спрашивать. */}
           {isPlayer ? (
-            <Pressable onPress={() => router.push('/privacy')} accessibilityRole="button">
-              <Text style={styles.metricsHint}>{t('profile.bodyMetricsHint')}</Text>
-            </Pressable>
+            <>
+              <Field
+                label={t('profile.position')}
+                value={draft.position}
+                onChangeText={(v) => setDraft((d) => ({ ...d, position: v }))}
+                onBlur={savePosition}
+              />
+              <View style={styles.metricRow}>
+                <View style={styles.metricCol}>
+                  <Field
+                    label={t('profile.height')}
+                    value={draft.height}
+                    keyboardType="number-pad"
+                    onChangeText={(v) => setDraft((d) => ({ ...d, height: v }))}
+                    onBlur={saveNumber('height', 100, 250)}
+                  />
+                </View>
+                <View style={styles.metricCol}>
+                  <Field
+                    label={t('profile.weight')}
+                    value={draft.weight}
+                    keyboardType="decimal-pad"
+                    onChangeText={(v) => setDraft((d) => ({ ...d, weight: v }))}
+                    onBlur={saveNumber('weight', 30, 250)}
+                  />
+                </View>
+              </View>
+              <Pressable onPress={() => router.push('/privacy')} accessibilityRole="button">
+                <Text style={styles.metricsHint}>{t('profile.bodyMetricsHint')}</Text>
+              </Pressable>
+            </>
           ) : null}
         </View>
 
