@@ -3,6 +3,7 @@
 // это админское действие, а не часть ежедневной картины состава.
 
 import { useQueryClient } from '@tanstack/react-query';
+import { useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
@@ -32,6 +33,7 @@ function PlayerRow({ player, last }: { player: SquadPlayer; last: boolean }) {
   const th = useTheme();
   const rowStyles = useStyles(makeRowStyles);
   const { t } = useTranslation();
+  const router = useRouter();
   const zoneColor = readinessColor(player.readiness_zone);
 
   const flags: { label: string; color: string }[] = [];
@@ -40,7 +42,13 @@ function PlayerRow({ player, last }: { player: SquadPlayer; last: boolean }) {
   if (player.hr_flag) flags.push({ label: t('coach.hrFlag'), color: th.caution });
 
   return (
-    <View style={[rowStyles.row, last && { borderBottomWidth: 0 }]}>
+    <Pressable
+      onPress={() =>
+        router.push({ pathname: '/athlete/[id]', params: { id: player.athlete_id, name: player.name } })
+      }
+      accessibilityRole="button"
+      style={[rowStyles.row, last && { borderBottomWidth: 0 }]}
+    >
       <View style={[rowStyles.badge, { borderColor: zoneColor }]}>
         <Text style={[rowStyles.badgeText, { color: player.readiness != null ? th.text : th.textMuted }]}>
           {player.readiness ?? '—'}
@@ -70,7 +78,7 @@ function PlayerRow({ player, last }: { player: SquadPlayer; last: boolean }) {
         </Text>
         <View style={[rowStyles.availDot, { backgroundColor: availabilityColor(player.availability, th) }]} />
       </View>
-    </View>
+    </Pressable>
   );
 }
 

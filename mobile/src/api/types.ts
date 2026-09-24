@@ -50,6 +50,37 @@ export interface Streak {
   last_date: string | null;
 }
 
+// Один критерий разбивки Readiness (раздел 6.4 ТЗ), отсортированы по deficit убыв. —
+// первый в списке объясняет просадку сильнее всего.
+export interface ReadinessComponent {
+  key: 'sleep_quality' | 'energy' | 'mood' | 'soreness' | 'stress';
+  value: number; // сырое 1–10 (день) или среднее (период)
+  normalized: number; // 0–100
+  weight: number;
+  contribution: number; // очков из 100 принёс этот критерий
+  deficit: number; // очков из возможного максимума критерий стоил
+}
+
+export interface ReadinessBreakdown {
+  date: string;
+  components: ReadinessComponent[];
+  hr_modifier: number;
+  hr_flag: boolean;
+  injury: boolean;
+  symptom: boolean;
+  unavailable_flag: boolean;
+  score: number;
+  zone: 'green' | 'yellow' | 'red';
+}
+
+export interface ReadinessBreakdownAverage {
+  date_from: string;
+  date_to: string;
+  days_with_data: number;
+  components: ReadinessComponent[];
+  avg_score: number | null;
+}
+
 // Зоны тела для карты боли и структурной травмы (зеркалит backend enums)
 export type BodyRegion =
   | 'head'
@@ -265,6 +296,11 @@ export interface DashboardEvent {
 
 export type AlertReason =
   | 'low_readiness'
+  | 'low_sleep'
+  | 'low_energy'
+  | 'low_mood'
+  | 'high_stress'
+  | 'high_soreness'
   | 'high_load'
   | 'rising_load'
   | 'undertraining'

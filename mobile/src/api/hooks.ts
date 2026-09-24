@@ -29,6 +29,8 @@ import type {
   Invitation,
   InvitePayload,
   Me,
+  ReadinessBreakdown,
+  ReadinessBreakdownAverage,
   RpeEntry,
   RpeSession,
   RpePayload,
@@ -62,6 +64,60 @@ export const useMetrics = (days = 28) =>
 
 export const useStreaks = () =>
   useQuery({ queryKey: ['streaks'], queryFn: () => api<Streak[]>('/analytics/me/streaks') });
+
+/** Ряд метрик другого игрока — для отчёта тренера/врача (ensure_can_view_athlete). */
+export const useAthleteMetrics = (athleteId: string | undefined, days = 28) =>
+  useQuery({
+    queryKey: ['athlete-metrics', athleteId, days],
+    enabled: !!athleteId,
+    queryFn: () =>
+      api<DailyMetric[]>(
+        `/analytics/athletes/${athleteId}/metrics?date_from=${daysAgoISO(days - 1)}&date_to=${todayISO()}`,
+      ),
+  });
+
+/** История RPE другого игрока — для детальной карточки за день в отчёте тренера/
+ * врача (ensure_can_view_athlete). Не мед. деталь — только exertion/duration/load/
+ * performance, тех же полей, что уже видны через LoadBars/ReadinessBreakdownSection. */
+export const useAthleteRpeHistory = (athleteId: string | undefined, days = 28) =>
+  useQuery({
+    queryKey: ['athlete-rpe', athleteId, days],
+    enabled: !!athleteId,
+    queryFn: () =>
+      api<RpeEntry[]>(
+        `/rpe/athletes/${athleteId}?date_from=${daysAgoISO(days - 1)}&date_to=${todayISO()}`,
+      ),
+  });
+
+/** Разбивка Readiness за день — почему именно такой балл (раздел 6.4 ТЗ).
+ * athleteId=undefined — свои данные (/me); задан — чужие, по правилам ensure_can_view_athlete.
+ * retry:false — 404 «опроса в этот день не было» ожидаемое состояние, не сбой сети. */
+export const useReadinessBreakdown = (athleteId: string | undefined, day: string | undefined) =>
+  useQuery({
+    queryKey: ['readiness-breakdown', athleteId ?? 'me', day],
+    enabled: !!day,
+    retry: false,
+    queryFn: () =>
+      api<ReadinessBreakdown>(
+        `${athleteId ? `/analytics/athletes/${athleteId}` : '/analytics/me'}/readiness-breakdown?day=${day}`,
+      ),
+  });
+
+/** Средняя разбивка за период — какой критерий в среднем тянет вниз (7/28 дней). */
+export const useReadinessBreakdownAverage = (
+  athleteId: string | undefined,
+  days: number,
+  enabled = true,
+) =>
+  useQuery({
+    queryKey: ['readiness-breakdown-average', athleteId ?? 'me', days],
+    enabled,
+    queryFn: () =>
+      api<ReadinessBreakdownAverage>(
+        `${athleteId ? `/analytics/athletes/${athleteId}` : '/analytics/me'}/readiness-breakdown/average` +
+          `?date_from=${daysAgoISO(days - 1)}&date_to=${todayISO()}`,
+      ),
+  });
 
 export const useWellnessHistory = (days = 30) =>
   useQuery({
