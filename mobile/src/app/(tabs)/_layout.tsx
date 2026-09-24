@@ -5,15 +5,27 @@
 import { Redirect, Tabs } from 'expo-router';
 import { View } from 'react-native';
 import { useTranslation } from 'react-i18next';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useTheme } from '@/theme';
 import { useFeatures, useMe } from '@/api/hooks';
 import { session } from '@/auth/session';
 import { AppleIcon, CalendarIcon, ChartIcon, GridIcon, HomeIcon, UserIcon } from '@/components/Icons';
 
+// Базовая высота содержимого бара (иконка + подпись + внутренние отступы),
+// без учёта нижнего safe-area. На нативе react-navigation сам добавляет
+// insets.bottom к паддингу контента, но только если высота бара не задана
+// числом жёстко — а нам это нужно, чтобы контролировать дизайн. Поэтому
+// insets.bottom прибавляем к базовой высоте сами, иначе на вебе (Safari
+// на iPhone без Home-кнопки, где safe-area-inset-bottom может включать ещё
+// и панель браузера) подпись выталкивается за пределы фиксированной высоты
+// и остаётся видна только иконка.
+const TAB_BAR_BASE_HEIGHT = 60;
+
 export default function TabsLayout() {
   const th = useTheme();
   const { t } = useTranslation();
+  const insets = useSafeAreaInsets();
   const status = session((s) => s.status);
   const me = useMe(status === 'active');
   const features = useFeatures(status === 'active');
@@ -31,7 +43,7 @@ export default function TabsLayout() {
         tabBarStyle: {
           backgroundColor: th.surface,
           borderTopColor: th.border,
-          height: 84,
+          height: TAB_BAR_BASE_HEIGHT + insets.bottom,
           paddingTop: 8,
         },
         tabBarActiveTintColor: th.brandOn,
