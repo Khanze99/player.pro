@@ -8,10 +8,11 @@
 
 ```
 player.pro/
-├── mobile/          # React Native + Expo (iOS + Android) — единственный клиент (игрок, тренер, врач, админ)
-├── web/             # Next.js — зарезервировано (пост-MVP)
+├── mobile/          # React Native + Expo (iOS + Android) — клиент игрока; тренер/врач/админ тоже им пользуются
+├── web/             # Next.js — кабинет тренера/врача (docs/plan-web-admin.md), admin.player-pro.ru
+├── landing/         # Статический сайт-визитка (один index.html, без сборки), player-pro.ru
 ├── backend/         # FastAPI (Python) — REST API + WebSocket, вся бизнес-логика
-├── infra/           # Docker Compose (PostgreSQL, Redis)
+├── infra/           # Docker Compose (PostgreSQL, Redis, nginx), конфиги деплоя
 └── docs/            # Документация
 ```
 

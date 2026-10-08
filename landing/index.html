@@ -1,0 +1,680 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PlayerPro — платформа мониторинга состояния спортсменов</title>
+<meta name="description" content="PlayerPro переводит ежедневный wellness-опрос и RPE в Readiness Score, Load Ratio (ACWR) и Availability каждого игрока. Российская альтернатива зарубежным AMS-платформам, данные в РФ-контуре (152-ФЗ).">
+<meta property="og:title" content="PlayerPro">
+<meta property="og:description" content="Нагружать — когда игрок готов. Беречь — когда ещё нет.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://player-pro.ru/">
+<meta name="theme-color" content="#0A0D13">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 38 38'%3E%3Crect width='38' height='38' rx='11' fill='%230A0D13'/%3E%3Cpath d='M6 21H12L15 12L19 27L23 17L25 21H32' stroke='%232D8CFF' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    color-scheme: dark;
+    --bg:#0A0D13;
+    --bg-top:#10161F;
+    --surface:#131A26;
+    --surface2:#1B2432;
+    --border:#26303F;
+    --border-bright:rgba(51,64,82,.5);
+    --text:#EDF2F9;
+    --text-muted:#8A99AD;
+    --text-faint:#5E6B7A; /* производный тон - в tokens.ts нет третьего уровня, страница просит */
+    --brand:#2D8CFF;
+    --brand-dark:#1B6FE8;
+    --brand-dim:rgba(45,140,255,.14);
+    --grad-brand-a:#3D96FF;
+    --grad-brand-b:#1B6FE8;
+    /* светофор состояний - не тематизируется, используется только для статусов данных */
+    --good:#2FD27A;
+    --caution:#FFB02E;
+    --risk:#FF5C5C;
+    --low:#6B7A8D;
+    --r-card:20px;
+    --r-control:14px;
+    --r-chip:8px;
+    --font-display:"Unbounded",system-ui,sans-serif;
+    --font-body:"Inter",system-ui,-apple-system,"Segoe UI",sans-serif;
+    --font-mono:ui-monospace,SFMono-Regular,Menlo,monospace; /* только для formula-блоков, не бренд-шрифт */
+  }
+
+  *{box-sizing:border-box;}
+  html{background:var(--bg);}
+  body{
+    margin:0;
+    background:linear-gradient(180deg,var(--bg-top),var(--bg) 420px);
+    color:var(--text);
+    font-family:var(--font-body);
+    font-size:16px;
+    line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+  }
+  ::selection{background:var(--brand-dim);color:var(--brand);}
+  a{color:inherit;}
+  h1,h2,h3{font-family:var(--font-display);text-wrap:balance;margin:0;letter-spacing:-.01em;font-weight:600;}
+  p{margin:0;}
+  button{font-family:inherit;}
+  .mono{font-family:var(--font-mono);font-variant-numeric:tabular-nums;}
+  @media (prefers-reduced-motion: reduce){*{animation-duration:0.01ms !important;animation-iteration-count:1 !important;transition-duration:0.01ms !important;}}
+
+  .wrap{max-width:1160px;margin:0 auto;padding:0 32px;}
+  section{padding:104px 0;}
+  @media (max-width:720px){section{padding:72px 0;} .wrap{padding:0 20px;}}
+
+  .eyebrow{
+    font-family:var(--font-body);font-weight:600;
+    font-size:12.5px;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    color:var(--brand);
+    display:flex;align-items:center;gap:10px;
+    margin-bottom:18px;
+  }
+  .eyebrow::before{content:"";width:7px;height:7px;border-radius:2px;background:var(--brand);box-shadow:0 0 10px var(--brand);flex:none;}
+
+  /* ============ Nav ============ */
+  header.nav{
+    position:sticky;top:0;z-index:50;
+    background:rgba(10,13,19,.78);
+    backdrop-filter:blur(14px) saturate(140%);
+    border-bottom:1px solid var(--border);
+  }
+  .nav-row{display:flex;align-items:center;justify-content:space-between;height:72px;}
+  .brand{display:flex;align-items:center;gap:12px;text-decoration:none;}
+  .brand-mark{width:38px;height:38px;flex:none;}
+  .brand-text{display:flex;flex-direction:column;line-height:1.05;}
+  .brand-text b{font-family:var(--font-display);font-weight:600;font-size:18px;letter-spacing:-.01em;}
+  .brand-text span{font-family:var(--font-body);font-weight:600;font-size:10px;letter-spacing:.16em;color:var(--text-faint);text-transform:uppercase;margin-top:3px;}
+  nav.links{display:flex;gap:34px;}
+  nav.links a{font-size:14.5px;font-weight:500;color:var(--text-muted);text-decoration:none;transition:color .15s;}
+  nav.links a:hover{color:var(--text);}
+  .btn{
+    display:inline-flex;align-items:center;justify-content:center;gap:8px;
+    font-weight:600;font-size:14.5px;border-radius:var(--r-control);
+    padding:11px 20px;border:1px solid transparent;cursor:pointer;
+    text-decoration:none;white-space:nowrap;transition:transform .15s, box-shadow .15s, background .15s, border-color .15s;
+  }
+  .btn-primary{background:linear-gradient(135deg,var(--grad-brand-a),var(--grad-brand-b));color:#fff;}
+  .btn-primary:hover{box-shadow:0 0 0 4px var(--brand-dim);transform:translateY(-1px);}
+  .btn-ghost{background:transparent;border-color:var(--border);color:var(--text);}
+  .btn-ghost:hover{border-color:var(--text-muted);}
+  .nav-cta{display:flex;align-items:center;gap:12px;}
+  @media (max-width:860px){
+    nav.links{display:none;}
+    .nav-cta .btn-ghost{display:none;}
+  }
+
+  /* ============ Hero ============ */
+  .hero{padding-top:84px;padding-bottom:70px;position:relative;overflow:hidden;}
+  .hero-trace{position:absolute;left:0;right:0;bottom:-10px;height:220px;opacity:.45;pointer-events:none;}
+  .hero-grid{display:grid;grid-template-columns:1.05fr .95fr;gap:56px;align-items:center;position:relative;}
+  @media (max-width:980px){.hero-grid{grid-template-columns:1fr;}}
+  .hero h1{font-size:clamp(34px,4.6vw,52px);font-weight:600;line-height:1.1;}
+  .hero h1 em{font-style:normal;color:var(--brand);}
+  .hero-sub{margin-top:22px;font-size:17.5px;color:var(--text-muted);max-width:46ch;}
+  .hero-ctas{display:flex;gap:14px;margin-top:34px;flex-wrap:wrap;}
+  .hero-foot{display:flex;gap:30px;margin-top:40px;flex-wrap:wrap;}
+  .hero-foot div{display:flex;flex-direction:column;gap:3px;}
+  .hero-foot b{font-family:var(--font-display);font-weight:600;font-size:21px;color:var(--text);}
+  .hero-foot span{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text-faint);}
+
+  /* ---- squad status mock card ---- */
+  .mock-card{
+    background:var(--surface);
+    border:1px solid var(--border);border-radius:var(--r-card);
+    padding:22px 22px 10px;
+    box-shadow:0 30px 60px -28px rgba(0,0,0,.65);
+  }
+  .mock-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:16px;}
+  .mock-head b{font-size:14px;font-weight:600;}
+  .mock-head span{font-size:10.5px;font-weight:600;color:var(--text-faint);text-transform:uppercase;letter-spacing:.08em;}
+  .mock-row{
+    display:grid;grid-template-columns:26px 1.3fr .9fr .9fr auto;gap:12px;align-items:center;
+    padding:12px 4px;border-top:1px solid var(--border);
+  }
+  .mock-row.head{color:var(--text-faint);font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;border-top:none;padding-bottom:6px;}
+  .num{font-size:12px;color:var(--text-faint);font-variant-numeric:tabular-nums;}
+  .player{display:flex;align-items:center;gap:10px;font-size:13.5px;font-weight:600;}
+  .avatar{width:26px;height:26px;border-radius:50%;background:var(--surface2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;color:var(--text-muted);flex:none;}
+  .metric{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;font-variant-numeric:tabular-nums;}
+  .dot{width:8px;height:8px;border-radius:50%;flex:none;}
+  .dot.g{background:var(--good);box-shadow:0 0 8px var(--good);}
+  .dot.y{background:var(--caution);box-shadow:0 0 8px var(--caution);}
+  .dot.r{background:var(--risk);box-shadow:0 0 8px var(--risk);}
+  .tag{font-size:11px;font-weight:600;padding:4px 9px;border-radius:var(--r-chip);white-space:nowrap;}
+  .tag.g{background:rgba(47,210,122,.14);color:var(--good);}
+  .tag.y{background:rgba(255,176,46,.14);color:var(--caution);}
+  .tag.r{background:rgba(255,92,92,.14);color:var(--risk);}
+  .mock-note{font-size:11px;color:var(--text-faint);padding:12px 4px 4px;border-top:1px dashed var(--border);margin-top:4px;}
+
+  /* ============ Trust strip ============ */
+  .strip{border-top:1px solid var(--border);border-bottom:1px solid var(--border);background:var(--surface);}
+  .strip .wrap{padding:30px 32px;display:flex;flex-wrap:wrap;gap:16px 42px;align-items:center;justify-content:space-between;}
+  .strip-item{display:flex;align-items:center;gap:10px;font-size:13.5px;font-weight:500;color:var(--text-muted);}
+  .strip-item svg{flex:none;color:var(--brand);}
+
+  /* ============ Section heads ============ */
+  .section-head{max-width:640px;margin-bottom:56px;}
+  .section-head h2{font-size:clamp(26px,3.2vw,34px);font-weight:600;}
+  .section-head p{margin-top:14px;font-size:16px;color:var(--text-muted);}
+
+  /* ============ Features bento ============ */
+  .bento{display:grid;grid-template-columns:1.2fr .8fr;grid-template-rows:auto auto;gap:18px;}
+  @media (max-width:860px){.bento{grid-template-columns:1fr;}}
+  .feat-card{
+    background:var(--surface);border:1px solid var(--border);border-radius:var(--r-card);padding:30px;
+    display:flex;flex-direction:column;gap:14px;
+  }
+  .feat-card.lead{grid-row:span 2;}
+  .feat-icon{width:40px;height:40px;border-radius:var(--r-control);display:flex;align-items:center;justify-content:center;flex:none;background:var(--brand-dim);color:var(--brand);}
+  .feat-card h3{font-size:18px;font-weight:600;font-family:var(--font-body);}
+  .feat-card p{color:var(--text-muted);font-size:14.5px;}
+  .feat-formula{
+    margin-top:auto;font-family:var(--font-mono);font-size:12.5px;color:var(--text-faint);
+    background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-chip);padding:10px 12px;
+  }
+
+  /* likert dots row (wellness) */
+  .likert-row{display:flex;flex-direction:column;gap:10px;margin-top:4px;}
+  .likert{display:flex;align-items:center;gap:12px;font-size:12.5px;color:var(--text-muted);}
+  .likert span.lbl{width:72px;flex:none;font-weight:500;}
+  .likert .pips{display:flex;gap:5px;}
+  .likert .pip{width:16px;height:7px;border-radius:3px;background:var(--surface2);}
+  .likert .pip.on{background:var(--brand);}
+
+  /* ACWR zone bar */
+  .zonebar{position:relative;height:28px;border-radius:var(--r-chip);overflow:hidden;display:flex;margin-top:6px;}
+  .zonebar > div{height:100%;}
+  .zonebar .z1{background:var(--low);width:36%;}
+  .zonebar .z2{background:var(--good);width:27%;}
+  .zonebar .z3{background:var(--caution);width:11%;}
+  .zonebar .z4{background:var(--risk);width:26%;}
+  .zonebar .marker{position:absolute;top:-5px;width:2px;height:38px;background:var(--text);left:48%;}
+  .zonebar .marker::after{content:"1.18";position:absolute;top:-20px;left:50%;transform:translateX(-50%);font-size:11px;font-weight:600;color:var(--text);white-space:nowrap;font-variant-numeric:tabular-nums;}
+  .zone-ticks{display:flex;justify-content:space-between;margin-top:8px;font-size:10.5px;font-weight:500;color:var(--text-faint);font-variant-numeric:tabular-nums;}
+
+  /* readiness gauge - статичный SVG (порт ReadinessRing.tsx), координаты зафиксированы в разметке */
+  .ring-row{display:flex;align-items:center;gap:20px;}
+  .gauge{position:relative;display:inline-flex;flex:none;width:112px;height:112px;}
+  .gauge-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+  .gauge-center b{font-family:var(--font-display);font-weight:600;font-size:32px;color:var(--text);line-height:1;}
+  .ring-note{font-size:13px;color:var(--text-muted);}
+  .ring-note b{color:var(--text);font-weight:600;}
+
+  /* ============ Process timeline ============ */
+  .timeline{position:relative;display:grid;grid-template-columns:repeat(4,1fr);gap:22px;}
+  @media (max-width:860px){.timeline{grid-template-columns:1fr;}}
+  .timeline::before{content:"";position:absolute;top:19px;left:4%;right:4%;height:1px;background:repeating-linear-gradient(90deg,var(--border) 0 8px,transparent 8px 14px);}
+  @media (max-width:860px){.timeline::before{display:none;}}
+  .step{position:relative;}
+  .step-n{
+    width:38px;height:38px;border-radius:50%;background:var(--surface2);border:1px solid var(--border);
+    display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-weight:600;font-size:13px;color:var(--brand);
+    margin-bottom:18px;position:relative;z-index:1;
+  }
+  .step h3{font-size:15.5px;font-weight:600;font-family:var(--font-body);margin-bottom:8px;}
+  .step p{font-size:13.5px;color:var(--text-muted);}
+
+  /* ============ Roadmap ============ */
+  .roadmap{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;}
+  @media (max-width:860px){.roadmap{grid-template-columns:1fr 1fr;}}
+  @media (max-width:560px){.roadmap{grid-template-columns:1fr;}}
+  .road-card{
+    border:1px dashed var(--border);border-radius:var(--r-card);padding:22px;
+    background:var(--surface);
+    display:flex;flex-direction:column;gap:10px;
+  }
+  .road-card .phase{font-size:10.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--brand);}
+  .road-card h3{font-size:15px;font-weight:600;font-family:var(--font-body);}
+  .road-card p{font-size:13px;color:var(--text-muted);}
+  .road-lead{grid-column:1/-1;border-style:solid;background:linear-gradient(135deg,var(--brand-dim),transparent 60%),var(--surface);display:grid;grid-template-columns:auto 1fr;gap:20px;align-items:center;}
+  @media (max-width:640px){.road-lead{grid-template-columns:1fr;}}
+
+  /* ============ Security ============ */
+  .sec-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:1px;background:var(--border);border:1px solid var(--border);border-radius:var(--r-card);overflow:hidden;}
+  @media (max-width:720px){.sec-grid{grid-template-columns:1fr;}}
+  .sec-item{background:var(--surface);padding:26px 28px;display:flex;gap:16px;}
+  .sec-item svg{flex:none;color:var(--brand);margin-top:2px;}
+  .sec-item h3{font-size:15px;font-weight:600;font-family:var(--font-body);margin-bottom:6px;}
+  .sec-item p{font-size:13.5px;color:var(--text-muted);}
+
+  /* ============ CTA / form ============ */
+  .cta-panel{
+    background:var(--surface);
+    border:1px solid var(--border);border-radius:24px;padding:52px;
+    display:grid;grid-template-columns:1fr 1fr;gap:48px;
+  }
+  @media (max-width:860px){.cta-panel{grid-template-columns:1fr;padding:32px;}}
+  .cta-copy h2{font-size:30px;font-weight:600;}
+  .cta-copy p{margin-top:14px;color:var(--text-muted);font-size:15.5px;max-width:40ch;}
+  .cta-contact{margin-top:28px;display:flex;flex-direction:column;gap:10px;}
+  .cta-contact a{font-size:14px;font-weight:600;color:var(--brand);text-decoration:none;}
+  form.lead{display:flex;flex-direction:column;gap:12px;}
+  .field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  @media (max-width:480px){.field-row{grid-template-columns:1fr;}}
+  label{font-size:12px;font-weight:600;color:var(--text-faint);margin-bottom:6px;display:block;}
+  input,select,textarea{
+    width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-control);
+    padding:11px 13px;color:var(--text);font-family:var(--font-body);font-size:14px;
+  }
+  input:focus,select:focus,textarea:focus{outline:2px solid var(--brand);outline-offset:1px;border-color:transparent;}
+  textarea{resize:vertical;min-height:80px;}
+  .lead .btn-primary{margin-top:6px;width:100%;padding:13px;font-size:15px;}
+  .form-note{font-size:11.5px;color:var(--text-faint);margin-top:2px;}
+
+  /* ============ Footer ============ */
+  footer{border-top:1px solid var(--border);padding:56px 0 34px;}
+  .foot-grid{display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:40px;}
+  @media (max-width:720px){.foot-grid{grid-template-columns:1fr;gap:32px;}}
+  .foot-brand p{margin-top:14px;color:var(--text-muted);font-size:13.5px;max-width:36ch;}
+  .foot-col h4{font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--text-faint);margin-bottom:14px;}
+  .foot-col a{display:block;font-size:13.5px;color:var(--text-muted);text-decoration:none;margin-bottom:10px;}
+  .foot-col a:hover{color:var(--text);}
+  .foot-bottom{display:flex;justify-content:space-between;align-items:center;margin-top:48px;padding-top:24px;border-top:1px solid var(--border);flex-wrap:wrap;gap:12px;}
+  .foot-bottom span{font-size:12.5px;color:var(--text-faint);}
+</style>
+</head>
+<body>
+
+<!-- ============================================================ NAV -->
+<header class="nav">
+  <div class="wrap nav-row">
+    <a class="brand" href="#top">
+      <svg class="brand-mark" viewBox="0 0 38 38" fill="none">
+        <rect width="38" height="38" rx="11" fill="#1B2432"/>
+        <path d="M6 21H12L15 12L19 27L23 17L25 21H32" stroke="url(#g1)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+        <defs><linearGradient id="g1" x1="6" y1="21" x2="32" y2="21"><stop stop-color="#3D96FF"/><stop offset="1" stop-color="#1B6FE8"/></linearGradient></defs>
+      </svg>
+      <span class="brand-text"><b>PlayerPro</b><span>ИгрокПро</span></span>
+    </a>
+    <nav class="links">
+      <a href="#product">Продукт</a>
+      <a href="#how">Как устроено</a>
+      <a href="#roadmap">Дорожная карта</a>
+      <a href="#security">Безопасность</a>
+      <a href="#contact">Контакты</a>
+    </nav>
+    <div class="nav-cta">
+      <a class="btn btn-ghost" href="#contact">Войти в демо</a>
+      <a class="btn btn-primary" href="#contact">Оставить заявку</a>
+    </div>
+  </div>
+</header>
+
+<!-- ============================================================ HERO -->
+<div id="top"></div>
+<section class="hero">
+  <svg class="hero-trace" viewBox="0 0 1160 220" preserveAspectRatio="none">
+    <defs>
+      <linearGradient id="traceFade" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#2D8CFF" stop-opacity="0"/>
+        <stop offset=".5" stop-color="#2D8CFF" stop-opacity=".55"/>
+        <stop offset="1" stop-color="#2D8CFF" stop-opacity="0"/>
+      </linearGradient>
+    </defs>
+    <path d="M-20,140 L160,140 L185,70 L212,195 L238,110 L262,140 L420,140 L445,95 L470,165 L495,140 L1180,140"
+          fill="none" stroke="url(#traceFade)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <animate attributeName="stroke-dasharray" values="0 2000;2000 0" dur="3.2s" begin="0.2s" fill="freeze"/>
+    </path>
+  </svg>
+  <div class="wrap hero-grid">
+    <div>
+      <div class="eyebrow">Российская AMS-платформа · 152-ФЗ</div>
+      <h1>Нагружать - когда игрок готов.<br>Беречь - когда ещё нет.</h1>
+      <p class="hero-sub">PlayerPro превращает ежедневный wellness-опрос и RPE после тренировки в Readiness Score, Load Ratio (ACWR) и Availability каждого игрока - в реальном времени, в российском контуре.</p>
+      <div class="hero-ctas">
+        <a class="btn btn-primary" href="#contact">Оставить заявку</a>
+        <a class="btn btn-ghost" href="#how">Как это работает →</a>
+      </div>
+      <div class="hero-foot">
+        <div><b>30 сек</b><span>на опрос в день</span></div>
+        <div><b>0-100</b><span>шкала Readiness</span></div>
+        <div><b>RU</b><span>данные в РФ-контуре</span></div>
+      </div>
+    </div>
+
+    <div class="mock-card">
+      <div class="mock-head"><b>Squad Status - «Вымпел»</b><span>сегодня</span></div>
+      <div class="mock-row head"><span></span><span>Игрок</span><span>Readiness</span><span>ACWR</span><span>Статус</span></div>
+      <div class="mock-row">
+        <span class="num">07</span>
+        <span class="player"><span class="avatar">СК</span>Соколов</span>
+        <span class="metric"><span class="dot g"></span>88</span>
+        <span class="metric"><span class="dot g"></span>1.12</span>
+        <span class="tag g">Готов</span>
+      </div>
+      <div class="mock-row">
+        <span class="num">10</span>
+        <span class="player"><span class="avatar">ВЛ</span>Волков</span>
+        <span class="metric"><span class="dot y"></span>61</span>
+        <span class="metric"><span class="dot y"></span>1.42</span>
+        <span class="tag y">Наблюдение</span>
+      </div>
+      <div class="mock-row">
+        <span class="num">04</span>
+        <span class="player"><span class="avatar">ОР</span>Орлов</span>
+        <span class="metric"><span class="dot r"></span>47</span>
+        <span class="metric"><span class="dot r"></span>1.68</span>
+        <span class="tag r">Риск травмы</span>
+      </div>
+      <div class="mock-row">
+        <span class="num">23</span>
+        <span class="player"><span class="avatar">КР</span>Крылов</span>
+        <span class="metric"><span class="dot g"></span>79</span>
+        <span class="metric"><span class="dot g"></span>0.95</span>
+        <span class="tag g">Готов</span>
+      </div>
+      <div class="mock-note">Демо-данные - иллюстрация экрана тренера, не реальная команда</div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ TRUST STRIP -->
+<div class="strip">
+  <div class="wrap">
+    <div class="strip-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 2L4 6V11C4 16 7.5 20.5 12 22C16.5 20.5 20 16 20 11V6L12 2Z" stroke="currentColor" stroke-width="1.8"/></svg>152-ФЗ, данные в РФ</div>
+    <div class="strip-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M3 12H7L10 21L14 3L17 12H21" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>EWMA/ACWR по методике спортивной науки</div>
+    <div class="strip-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="4" y="4" width="16" height="16" rx="3" stroke="currentColor" stroke-width="1.8"/><path d="M8 12H16M12 8V16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>Роли: тренер · врач · администратор</div>
+    <div class="strip-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 19V5M5 12L12 5L19 12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>Офлайн-ввод, синхронизация позже</div>
+  </div>
+</div>
+
+<!-- ============================================================ PRODUCT / FEATURES -->
+<section id="product">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="eyebrow">Продукт</div>
+      <h2>Четыре числа, которые заменяют догадки</h2>
+      <p>Каждый метод опирается на формулы из раздела 6 методики - не на интуицию тренера после разминки.</p>
+    </div>
+
+    <div class="bento">
+      <!-- lead: wellness -->
+      <div class="feat-card lead">
+        <div class="feat-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 21C12 21 4 15.5 4 9.5C4 6.5 6.4 4.5 9 4.5C10.5 4.5 11.5 5.2 12 6C12.5 5.2 13.5 4.5 15 4.5C17.6 4.5 20 6.5 20 9.5C20 15.5 12 21 12 21Z" stroke="currentColor" stroke-width="1.8"/></svg></div>
+        <h3>Ежедневный wellness-опрос</h3>
+        <p>Пять параметров по шкале Ликерта 1-5, занимает около 30 секунд. Именно эти ответы ложатся в основу Readiness Score.</p>
+        <div class="likert-row">
+          <div class="likert"><span class="lbl">Сон</span><span class="pips"><span class="pip on"></span><span class="pip on"></span><span class="pip on"></span><span class="pip on"></span><span class="pip"></span></span>вес 25%</div>
+          <div class="likert"><span class="lbl">Энергия</span><span class="pips"><span class="pip on"></span><span class="pip on"></span><span class="pip on"></span><span class="pip"></span><span class="pip"></span></span>вес 25%</div>
+          <div class="likert"><span class="lbl">Боль</span><span class="pips"><span class="pip on"></span><span class="pip on"></span><span class="pip on"></span><span class="pip on"></span><span class="pip"></span></span>вес 20%</div>
+          <div class="likert"><span class="lbl">Стресс</span><span class="pips"><span class="pip on"></span><span class="pip on"></span><span class="pip"></span><span class="pip"></span><span class="pip"></span></span>вес 15%</div>
+          <div class="likert"><span class="lbl">Настроение</span><span class="pips"><span class="pip on"></span><span class="pip on"></span><span class="pip on"></span><span class="pip on"></span><span class="pip"></span></span>вес 15%</div>
+        </div>
+        <div class="feat-formula">Readiness = Σ(ответ × вес) + модификаторы (пульс покоя, травма)</div>
+      </div>
+
+      <!-- readiness gauge - статичный SVG, координаты посчитаны (36 рисок, r=40, дуга 82%),
+           порт ReadinessRing.tsx без JS-генерации, чтобы круг был геометрически точным -->
+      <div class="feat-card">
+        <div class="feat-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.8"/><path d="M12 7V12L15 14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></div>
+        <h3>Readiness Score 0-100</h3>
+        <p>Один понятный индикатор готовности вместо пяти разрозненных ответов. Цвет говорит сам за себя.</p>
+        <div class="ring-row">
+          <div class="gauge">
+            <svg width="112" height="112" viewBox="0 0 112 112">
+              <line x1="56.00" y1="8.00" x2="56.00" y2="2.00" stroke="#2FD27A" stroke-width="1.6" stroke-linecap="round"/>
+              <line x1="64.34" y1="8.73" x2="65.38" y2="2.82" stroke="#2FD27A" stroke-width="1.6" stroke-linecap="round"/>
+              <line x1="72.42" y1="10.89" x2="74.47" y2="5.26" stroke="#2FD27A" stroke-width="1.6" stroke-linecap="round"/>
+              <line x1="80.00" y1="14.43" x2="83.00" y2="9.23" stroke="#2FD27A" stroke-width="1.6" stroke-linecap="round"/>
+              <line x1="86.85" y1="19.23" x2="90.71" y2="14.63" stroke="#2FD27A" stroke-width="1.6" stroke-linecap="round"/>
+              <line x1="92.77" y1="25.15" x2="97.37" y2="21.29" stroke="#2FD27A" stroke-width="1.6" stroke-linecap="round"/>
+              <line x1="97.57" y1="32.00" x2="102.77" y2="29.00" stroke="#2FD27A" stroke-width="1.6" stroke-linecap="round"/>
+              <line x1="101.11" y1="39.58" x2="106.74" y2="37.53" stroke="#2FD27A" stroke-width="1.6" stroke-linecap="round"/>
+              <line x1="103.27" y1="47.66" x2="109.18" y2="46.62" stroke="#2FD27A" stroke-width="1.6" stroke-linecap="round"/>
+              <line x1="104.00" y1="56.00" x2="110.00" y2="56.00" stroke="#2FD27A" stroke-width="1.6" stroke-linecap="round"/>
+              <line x1="103.27" y1="64.34" x2="109.18" y2="65.38" stroke="#2FD27A" stroke-width="1.6" stroke-linecap="round"/>
+              <line x1="101.11" y1="72.42" x2="106.74" y2="74.47" stroke="#2FD27A" stroke-width="1.6" stroke-linecap="round"/>
+              <line x1="97.57" y1="80.00" x2="102.77" y2="83.00" stroke="#2FD27A" stroke-width="1.6" stroke-linecap="round"/>
+              <line x1="92.77" y1="86.85" x2="97.37" y2="90.71" stroke="#2FD27A" stroke-width="1.6" stroke-linecap="round"/>
+              <line x1="86.85" y1="92.77" x2="90.71" y2="97.37" stroke="#2FD27A" stroke-width="1.6" stroke-linecap="round"/>
+              <line x1="80.00" y1="97.57" x2="83.00" y2="102.77" stroke="#2FD27A" stroke-width="1.6" stroke-linecap="round"/>
+              <line x1="72.42" y1="101.11" x2="74.47" y2="106.74" stroke="#2FD27A" stroke-width="1.6" stroke-linecap="round"/>
+              <line x1="64.34" y1="103.27" x2="65.38" y2="109.18" stroke="#2FD27A" stroke-width="1.6" stroke-linecap="round"/>
+              <line x1="56.00" y1="104.00" x2="56.00" y2="110.00" stroke="#2FD27A" stroke-width="1.6" stroke-linecap="round"/>
+              <line x1="47.66" y1="103.27" x2="46.62" y2="109.18" stroke="#2FD27A" stroke-width="1.6" stroke-linecap="round"/>
+              <line x1="39.58" y1="101.11" x2="37.53" y2="106.74" stroke="#2FD27A" stroke-width="1.6" stroke-linecap="round"/>
+              <line x1="32.00" y1="97.57" x2="29.00" y2="102.77" stroke="#2FD27A" stroke-width="1.6" stroke-linecap="round"/>
+              <line x1="25.15" y1="92.77" x2="21.29" y2="97.37" stroke="#2FD27A" stroke-width="1.6" stroke-linecap="round"/>
+              <line x1="19.23" y1="86.85" x2="14.63" y2="90.71" stroke="#2FD27A" stroke-width="1.6" stroke-linecap="round"/>
+              <line x1="14.43" y1="80.00" x2="9.23" y2="83.00" stroke="#2FD27A" stroke-width="1.6" stroke-linecap="round"/>
+              <line x1="10.89" y1="72.42" x2="5.26" y2="74.47" stroke="#2FD27A" stroke-width="1.6" stroke-linecap="round"/>
+              <line x1="8.73" y1="64.34" x2="2.82" y2="65.38" stroke="#2FD27A" stroke-width="1.6" stroke-linecap="round"/>
+              <line x1="8.00" y1="56.00" x2="2.00" y2="56.00" stroke="#2FD27A" stroke-width="1.6" stroke-linecap="round"/>
+              <line x1="8.73" y1="47.66" x2="2.82" y2="46.62" stroke="#2FD27A" stroke-width="1.6" stroke-linecap="round"/>
+              <line x1="10.89" y1="39.58" x2="5.26" y2="37.53" stroke="#2FD27A" stroke-width="1.6" stroke-linecap="round"/>
+              <line x1="14.43" y1="32.00" x2="9.23" y2="29.00" stroke="#1B2432" stroke-width="1.6" stroke-linecap="round"/>
+              <line x1="19.23" y1="25.15" x2="14.63" y2="21.29" stroke="#1B2432" stroke-width="1.6" stroke-linecap="round"/>
+              <line x1="25.15" y1="19.23" x2="21.29" y2="14.63" stroke="#1B2432" stroke-width="1.6" stroke-linecap="round"/>
+              <line x1="32.00" y1="14.43" x2="29.00" y2="9.23" stroke="#1B2432" stroke-width="1.6" stroke-linecap="round"/>
+              <line x1="39.58" y1="10.89" x2="37.53" y2="5.26" stroke="#1B2432" stroke-width="1.6" stroke-linecap="round"/>
+              <line x1="47.66" y1="8.73" x2="46.62" y2="2.82" stroke="#1B2432" stroke-width="1.6" stroke-linecap="round"/>
+              <circle cx="56" cy="56" r="40" stroke="#1B2432" stroke-width="9" fill="none"/>
+              <defs><linearGradient id="gaugeArc" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#2FD27A" stop-opacity="1"/><stop offset="100%" stop-color="#2FD27A" stop-opacity="0.55"/></linearGradient></defs>
+              <circle cx="56" cy="56" r="40" stroke="#2FD27A" stroke-opacity="0.22" stroke-width="17" stroke-linecap="round" fill="none" stroke-dasharray="206.09 251.33" transform="rotate(-90 56 56)"/>
+              <circle cx="56" cy="56" r="40" stroke="url(#gaugeArc)" stroke-width="9" stroke-linecap="round" fill="none" stroke-dasharray="206.09 251.33" transform="rotate(-90 56 56)"/>
+            </svg>
+            <div class="gauge-center"><b>82</b></div>
+          </div>
+          <div class="ring-note"><b>82 - готов к нагрузке</b><br>≥75 зелёная зона, 55-74 жёлтая, &lt;55 красная</div>
+        </div>
+      </div>
+
+      <!-- RPE / load -->
+      <div class="feat-card">
+        <div class="feat-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M4 18L9 10L13 14L20 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        <h3>RPE и нагрузка</h3>
+        <p>session load = RPE (1-10) × минуты. День без тренировки - это 0, а не пропуск в данных.</p>
+        <div class="feat-formula">EWMA: острая 7 дней (λ=0.25) / хроническая 28 дней (λ≈0.069)</div>
+      </div>
+
+      <!-- ACWR zonebar, full width -->
+      <div class="feat-card" style="grid-column:1/-1;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:24px;flex-wrap:wrap;">
+          <div style="flex:1;min-width:240px;">
+            <div class="feat-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M3 17L9 11L13 15L21 7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M15 7H21V13" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+            <h3 style="margin-top:14px;">Load Ratio (ACWR)</h3>
+            <p>Острая нагрузка к хронической - показывает, не форсирует ли игрок объём быстрее, чем тело успевает адаптироваться.</p>
+          </div>
+          <div style="flex:1.4;min-width:280px;">
+            <div class="zonebar">
+              <div class="z1"></div><div class="z2"></div><div class="z3"></div><div class="z4"></div>
+              <div class="marker"></div>
+            </div>
+            <div class="zone-ticks"><span>0</span><span>0.8</span><span>1.3</span><span>1.5</span><span>2.0+</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ HOW IT WORKS -->
+<section id="how" style="background:var(--surface);border-top:1px solid var(--border);border-bottom:1px solid var(--border);">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="eyebrow">Как устроено</div>
+      <h2>От опроса игрока до решения тренера - без ручного пересчёта</h2>
+      <p>Четыре шага одного и того же конвейера данных, каждую ночь и при каждом новом ответе.</p>
+    </div>
+    <div class="timeline">
+      <div class="step">
+        <div class="step-n">01</div>
+        <h3>Игрок отвечает</h3>
+        <p>Опрос и RPE - в мобильном приложении, офлайн при отсутствии сети, синхронизация позже.</p>
+      </div>
+      <div class="step">
+        <div class="step-n">02</div>
+        <h3>Бэкенд считает</h3>
+        <p>EWMA, ACWR, Readiness и Availability пересчитываются сразу при сабмите и повторно ночью по всей базе.</p>
+      </div>
+      <div class="step">
+        <div class="step-n">03</div>
+        <h3>Тренер видит статус</h3>
+        <p>Squad Status на одном экране: кто готов, кто в жёлтой или красной зоне риска, Load Ratio по каждому.</p>
+      </div>
+      <div class="step">
+        <div class="step-n">04</div>
+        <h3>Врач ведёт медицину</h3>
+        <p>Отдельный уровень детализации - статусы доступности, карта травм, аудит изменений.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ ROADMAP -->
+<section id="roadmap">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="eyebrow">Дорожная карта</div>
+      <h2>MVP - это только ручной ввод. Дальше - датчики</h2>
+      <p>Сейчас игрок вводит данные сам. Следующий шаг - убрать ручной ввод там, где его может заменить железо.</p>
+    </div>
+    <div class="roadmap">
+      <div class="road-card road-lead">
+        <div class="feat-icon" style="width:52px;height:52px;border-radius:var(--r-card);"><svg width="26" height="26" viewBox="0 0 24 24" fill="none"><path d="M12 2L4 6V11C4 16 7.5 20.5 12 22C16.5 20.5 20 16 20 11V6L12 2Z" stroke="currentColor" stroke-width="1.6"/><path d="M9 12H10.5L11.5 9L13 15L14 12H15" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        <div>
+          <div class="phase">Фаза 2 · носимые устройства</div>
+          <h3 style="font-size:17px;margin-top:4px;">Пульсометры, GPS-трекеры, умные браслеты</h3>
+          <p style="margin-top:6px;">Пульс покоя, дистанция и сон будут приходить с датчика автоматически - опрос станет короче, а данные точнее там, где самоотчёт неизбежно субъективен.</p>
+        </div>
+      </div>
+      <div class="road-card">
+        <div class="phase">Фаза 2</div>
+        <h3>Дневник питания</h3>
+        <p>Калории и БЖУ по справочнику продуктов. Строго личное: тренер и врач доступа к записям не получают.</p>
+      </div>
+      <div class="road-card">
+        <div class="phase">Фаза 2</div>
+        <h3>Мессенджер команды</h3>
+        <p>Личные чаты поверх нынешнего канала объявлений.</p>
+      </div>
+      <div class="road-card">
+        <div class="phase">Фаза 2</div>
+        <h3>Календари Google/Apple</h3>
+        <p>Двусторонняя синхронизация расписания команды.</p>
+      </div>
+      <div class="road-card">
+        <div class="phase">Фаза 2</div>
+        <h3>Экспорт и тренды</h3>
+        <p>Отчёты в CSV/PDF, расширенная аналитика по сезону.</p>
+      </div>
+      <div class="road-card">
+        <div class="phase">Фаза 2</div>
+        <h3>Геймификация</h3>
+        <p>Бейджи и лидерборды за стрики опросов.</p>
+      </div>
+      <div class="road-card">
+        <div class="phase">Фаза 2</div>
+        <h3>Расширенная медкарта</h3>
+        <p>Более детальные права доступа для врача команды.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ SECURITY -->
+<section id="security" style="background:var(--surface);border-top:1px solid var(--border);border-bottom:1px solid var(--border);">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="eyebrow">Безопасность и доступ</div>
+      <h2>Медицинские данные команды - под контролем, не под паролем «1234»</h2>
+    </div>
+    <div class="sec-grid">
+      <div class="sec-item">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="3.5" stroke="currentColor" stroke-width="1.8"/><path d="M5 20c0-4 3.1-6.5 7-6.5s7 2.5 7 6.5" stroke="currentColor" stroke-width="1.8"/></svg>
+        <div><h3>Работает и без команды</h3><p>Нет клуба или тренера - есть личный режим: свои опросы, RPE, Readiness и ACWR, без привязки к организации.</p></div>
+      </div>
+      <div class="sec-item">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="9" cy="8" r="3.2" stroke="currentColor" stroke-width="1.8"/><path d="M3 20c0-3.3 2.7-5.5 6-5.5s6 2.2 6 5.5" stroke="currentColor" stroke-width="1.8"/><circle cx="18" cy="9" r="2.4" stroke="currentColor" stroke-width="1.8"/></svg>
+        <div><h3>Права по ролям</h3><p>Тренер видит свою команду, врач - медицинские данные, администратор управляет организацией. Каждый видит только то, что ему нужно.</p></div>
+      </div>
+      <div class="sec-item">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.8"/><path d="M2 12C2 12 5 5 12 5C19 5 22 12 22 12C22 12 19 19 12 19C5 19 2 12 2 12Z" stroke="currentColor" stroke-width="1.8"/></svg>
+        <div><h3>Приватно, по согласию</h3><p>Тренер видит статусы и агрегаты, детали травм - только врач. Чувствительные данные вроде дневника питания не видит никто без явного согласия игрока - его можно отозвать в любой момент.</p></div>
+      </div>
+      <div class="sec-item">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 3L4 7V12C4 16.5 7.4 20.6 12 21.8C16.6 20.6 20 16.5 20 12V7L12 3Z" stroke="currentColor" stroke-width="1.8"/></svg>
+        <div><h3>Данные в РФ-контуре</h3><p>Self-hosted инфраструктура, 152-ФЗ, шифрование в транзите и при хранении, аудит-лог изменений статусов.</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ CONTACT / CTA -->
+<section id="contact">
+  <div class="wrap">
+    <div class="cta-panel">
+      <div class="cta-copy">
+        <div class="eyebrow">Начать</div>
+        <h2>Покажем демо - команде или вам лично</h2>
+        <p>Оставьте заявку - вернёмся с демо-доступом. Работаете с командой или хотите пользоваться для себя - подскажем, с чего начать.</p>
+        <div class="cta-contact">
+          <a href="mailto:hello@player-pro.ru">hello@player-pro.ru</a>
+          <a href="#">player-pro.ru</a>
+        </div>
+      </div>
+      <form class="lead" onsubmit="return false;">
+        <div class="field-row">
+          <div><label for="f-name">Имя</label><input id="f-name" type="text" placeholder="Иван Петров"></div>
+          <div><label for="f-org">Организация (если есть)</label><input id="f-org" type="text" placeholder="ФК «Вымпел»"></div>
+        </div>
+        <div class="field-row">
+          <div><label for="f-contact">Email или телефон</label><input id="f-contact" type="text" placeholder="ivan@club.ru"></div>
+          <div><label for="f-role">Роль</label>
+            <select id="f-role">
+              <option>Тренер</option><option>Врач</option><option>Администратор</option><option>Для себя (личный режим)</option><option>Инвестор / грант</option>
+            </select>
+          </div>
+        </div>
+        <div><label for="f-msg">Сообщение</label><textarea id="f-msg" placeholder="Команда или личное использование - расскажите, что нужно"></textarea></div>
+        <button class="btn btn-primary" type="submit">Отправить заявку</button>
+        <span class="form-note">Нажимая «Отправить», вы соглашаетесь на обработку персональных данных.</span>
+      </form>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ FOOTER -->
+<footer>
+  <div class="wrap">
+    <div class="foot-grid">
+      <div class="foot-brand">
+        <a class="brand" href="#top">
+          <svg class="brand-mark" viewBox="0 0 38 38" fill="none">
+            <rect width="38" height="38" rx="11" fill="#1B2432"/>
+            <path d="M6 21H12L15 12L19 27L23 17L25 21H32" stroke="url(#g2)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+            <defs><linearGradient id="g2" x1="6" y1="21" x2="32" y2="21"><stop stop-color="#3D96FF"/><stop offset="1" stop-color="#1B6FE8"/></linearGradient></defs>
+          </svg>
+          <span class="brand-text"><b>PlayerPro</b><span>ИгрокПро</span></span>
+        </a>
+        <p>Платформа мониторинга состояния спортсменов: wellness, RPE, Readiness, Load Ratio и Availability - в одном приложении, в российском контуре.</p>
+      </div>
+      <div class="foot-col">
+        <h4>Продукт</h4>
+        <a href="#product">Функции</a>
+        <a href="#how">Как устроено</a>
+        <a href="#roadmap">Дорожная карта</a>
+      </div>
+      <div class="foot-col">
+        <h4>Компания</h4>
+        <a href="#security">Безопасность</a>
+        <a href="#contact">Контакты</a>
+        <a href="mailto:hello@player-pro.ru">hello@player-pro.ru</a>
+      </div>
+    </div>
+    <div class="foot-bottom">
+      <span>© 2026 PlayerPro. Сделано в России.</span>
+      <span>Readiness · ACWR · Availability</span>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

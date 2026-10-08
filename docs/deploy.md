@@ -15,8 +15,11 @@ Compose — `nginx` → `api` (FastAPI) → `postgres` + `redis`, плюс `work
 по внутренней docker-сети (`API_URL=http://api:8000`) — CORS тут тоже не нужен, браузер
 никогда не видит `api` напрямую.
 
-Апекс `player-pro.ru` — под сайт-визитку, разворачивается отдельно, этой конфигурации
-не касается.
+Апекс `player-pro.ru` — сайт-визитка (`landing/index.html`), третий `server_name` в
+том же nginx, что и остальные два домена. В отличие от `app.`/`admin.` — чистая
+статика без бэкенда: один файл, собирать нечего, `landing/` коммитится в git как
+обычный исходник (не build-артефакт вроде `infra/web/`), обновление — `git pull` на
+сервере.
 
 > Один compose-файл на стенд и на прод: `infra/docker-compose.stand.yml`. Разница —
 > профиль: без него (`make stand-up`) поднимается только бэкенд, API на `:8000`
@@ -51,8 +54,10 @@ Managed-сервисы дают бэкапы и отказоустойчивос
 | `infra/docker-compose.stand.yml` | postgres · redis · migrate (Alembic → head, одноразовый) · api (healthcheck, `:8000` наружу) · worker · beat · admin (кабинет, свой образ); `nginx` — под профилем `web` |
 | `infra/nginx/playerpro.conf` | `server_name app.player-pro.ru`, :80. Проксирует `/api/`, `/ws`, `/health`, `/static/`, `/docs`; всё остальное — статика `/srv/web` с SPA-фолбэком `try_files $uri /index.html`. TLS добавляется в шаге 5 |
 | `infra/nginx/admin.conf` | `server_name admin.player-pro.ru`, :80. Всё проксируется на `admin:3000` — статики тут нет, кабинет полностью динамический. TLS — шаг 5 |
-| `infra/nginx/templates/` | `*-tls.conf`-варианты обоих доменов — не загружаются nginx'ом (только `infra/nginx/*.conf` без подпапок монтируется в `conf.d`), копируются поверх активного файла вручную **после** выпуска сертификата (шаг 5) |
+| `infra/nginx/landing.conf` | `server_name player-pro.ru`, :80. Чистая статика `/srv/landing`, без проксирования — у сайта-визитки нет бэкенда. TLS — шаг 5 |
+| `infra/nginx/templates/` | `*-tls.conf`-варианты всех трёх доменов — не загружаются nginx'ом (только `infra/nginx/*.conf` без подпапок монтируется в `conf.d`), копируются поверх активного файла вручную **после** выпуска сертификата (шаг 5) |
 | `infra/web/` | каталог со статикой веб-PWA; nginx монтирует `:ro`, содержимое кладётся шагом 4b (в git не коммитится) |
+| `landing/` | исходник сайта-визитки (`index.html`, один файл, без сборки); nginx монтирует `../landing:/srv/landing:ro`, обновление — `git pull` (в отличие от `infra/web/` коммитится в git как обычный код) |
 
 ### `infra/.env` (не коммитить)
 
@@ -220,11 +225,76 @@ curl -sI  https://app.player-pro.ru/api/v1/branding  # доходит до FastA
 Обновление версии веб-PWA = повторить сборку и `rsync`. Хэшированные имена в `_expo/`
 дают безопасный кэш; `index.html` и `manifest.json` отдаются с `Cache-Control: no-cache`.
 
+## Шаг 4c. Сайт-визитка (`player-pro.ru`)
+
+Никакой сборки: `landing/index.html` уже в репозитории (клонирован шагом 4), nginx
+монтирует его напрямую (`../landing:/srv/landing:ro`, уже в `docker-compose.stand.yml`).
+Если на ВМ уже поднят стек с профилем `web` — статика отдаётся сразу после `git pull`,
+отдельного шага выкладки нет.
+
+```bash
+curl -sI http://localhost/ -H "Host: player-pro.ru"   # 200, text/html
+```
+
+Обновление = `git pull` на сервере, `reload` nginx не нужен (контент — volume, не
+образ). `reload` нужен, только если менялся сам `landing.conf`.
+
+> Форма заявки (`#contact`) пока декоративная — `onsubmit="return false"`, сабмит
+> никуда не уходит. Реальный приём заявок (письмо/бэкенд-эндпоинт) — отдельная
+> задача, не блокирует публикацию сайта: контакты (`hello@player-pro.ru`) рабочие.
+
 ## Шаг 5. Домен и TLS
 
 Установочный PWA и standalone на iOS **требуют HTTPS**; HTTPS-страница не может ходить
 на HTTP-API (mixed content). Поэтому TLS обязателен, вариант «HTTP по IP» — только для
 черновой проверки бэкенда без веб-версии.
+
+> **Сертификат — отдельным вызовом на каждый домен, не один SAN на все три.** Каждый
+> `infra/nginx/templates/*-tls.conf` жёстко ссылается на свой путь —
+> `/etc/letsencrypt/live/app.player-pro.ru/…`, `live/admin.player-pro.ru/…`,
+> `live/player-pro.ru/…` — а certbot по умолчанию называет папку в `live/` по
+> **первому** домену из `-d`. Выпустишь одним вызовом `-d app.player-pro.ru
+> -d admin.player-pro.ru` — сертификат ляжет только в `live/app.player-pro.ru/`, и
+> `admin-tls.conf` не найдёт свой файл (nginx не стартует). Объединять в один
+> SAN-сертификат можно, но только с явным `--cert-name <домен>` у каждого домена или
+> правкой путей во всех трёх `*-tls.conf` — ниже везде расписан более простой путь:
+> три независимых вызова `certbot certonly`, `certbot renew` продлит их все разом.
+
+### Шпаргалка: команды по доменам
+
+Имена volume — пример (`playerpro_…`), **сверить реальные** перед первым запуском:
+`docker volume ls | grep certbot` (см. врезку выше — ошибиться тут значит получить
+`403`/`404` от Let's Encrypt без очевидной причины). Email — свой, `--agree-tos
+--no-eff-email` можно убрать, если хочется интерактивного подтверждения.
+
+| Домен | Выпуск сертификата (разово) | Активировать TLS-конфиг |
+|---|---|---|
+| `app.player-pro.ru` | `docker run --rm -v playerpro_certbot_conf:/etc/letsencrypt -v playerpro_certbot_webroot:/var/www/certbot certbot/certbot certonly --webroot -w /var/www/certbot -d app.player-pro.ru --email you@player-pro.ru --agree-tos --no-eff-email` | `cp infra/nginx/templates/playerpro-tls.conf infra/nginx/playerpro.conf` |
+| `admin.player-pro.ru` | `docker run --rm -v playerpro_certbot_conf:/etc/letsencrypt -v playerpro_certbot_webroot:/var/www/certbot certbot/certbot certonly --webroot -w /var/www/certbot -d admin.player-pro.ru --email you@player-pro.ru --agree-tos --no-eff-email` | `cp infra/nginx/templates/admin-tls.conf infra/nginx/admin.conf` |
+| `player-pro.ru` | `docker run --rm -v playerpro_certbot_conf:/etc/letsencrypt -v playerpro_certbot_webroot:/var/www/certbot certbot/certbot certonly --webroot -w /var/www/certbot -d player-pro.ru --email you@player-pro.ru --agree-tos --no-eff-email` | `cp infra/nginx/templates/landing-tls.conf infra/nginx/landing.conf` |
+
+После `cp` для любого домена — один общий reload (подхватывает все изменённые
+`*.conf` разом, не нужно дёргать трижды):
+
+```bash
+docker compose -f infra/docker-compose.stand.yml --env-file infra/.env exec nginx nginx -s reload
+```
+
+**Продление — одна команда на все три домена** (отдельные сертификаты, но общий
+volume — `certbot renew` обходит их все сам), это и есть то, что стоит положить в
+systemd-таймер:
+
+```bash
+docker run --rm \
+  -v playerpro_certbot_conf:/etc/letsencrypt \
+  -v playerpro_certbot_webroot:/var/www/certbot \
+  certbot/certbot renew --webroot -w /var/www/certbot
+
+docker compose -f infra/docker-compose.stand.yml --env-file infra/.env exec nginx nginx -s reload
+```
+
+`certbot renew` сам пропускает сертификаты, которым ещё рано продлеваться (не истекают
+в ближайшие 30 дней) — безопасно гонять по таймеру хоть раз в сутки.
 
 ### Вариант A — поддомен `app.player-pro.ru` (рекомендуемый)
 
@@ -300,10 +370,9 @@ server {
 3. **Сертификат** — тем же `docker run certbot/certbot`, что и для `app.player-pro.ru`
    (шаг выше, включая сверку имён volume через `docker volume ls | grep certbot` —
    это тот самый шаг, который проще всего пропустить, а без него будет молчаливый
-   `404` на ACME-challenge), но с `-d admin.player-pro.ru`. Можно добавить в ту же команду
-   (`-d app.player-pro.ru -d admin.player-pro.ru` — один SAN-сертификат на оба
-   домена) или выпустить отдельным вызовом с тем же `-w /var/www/certbot` — оба
-   варианта равноценны, отдельный проще мысленно развести по доменам при продлении.
+   `404` на ACME-challenge), но с `-d admin.player-pro.ru`, **отдельным вызовом**
+   (см. врезку в начале шага 5 — `admin-tls.conf` ждёт сертификат именно в
+   `live/admin.player-pro.ru/`).
 4. **Активировать TLS-конфиг**:
    ```bash
    cp infra/nginx/templates/admin-tls.conf infra/nginx/admin.conf
@@ -317,6 +386,32 @@ server {
 
 Продление сертификата — тот же cron/systemd-таймер, что у `app.player-pro.ru`
 (шаг выше), `certbot renew` продлевает все домены сертификата разом.
+
+### Сайт-визитка — `player-pro.ru`
+
+Тот же приём, третьим доменом. TLS тут не критичен так же жёстко, как для
+`admin.player-pro.ru` (нет cookie-сессии, нет PWA-установки) — но без него браузеры
+всё равно помечают сайт «небезопасным», а HSTS с других поддоменов на апекс не
+распространяется, так что сертификат нужен в любом случае, просто не блокирует
+запуск: лендинг отдаёт контент и на :80.
+
+1. **DNS** — A-запись `player-pro.ru` (апекс, без `www`) → тот же публичный IP ВМ.
+2. **Сертификат** — тем же `docker run certbot/certbot`, что и для `app.`/`admin.`
+   (см. выше, включая сверку имён volume), с `-d player-pro.ru`, **отдельным вызовом**
+   (врезка в начале шага 5 — `landing-tls.conf` ждёт сертификат в
+   `live/player-pro.ru/`).
+3. **Активировать TLS-конфиг**:
+   ```bash
+   cp infra/nginx/templates/landing-tls.conf infra/nginx/landing.conf
+   docker compose -f infra/docker-compose.stand.yml --env-file infra/.env exec nginx nginx -s reload
+   ```
+4. **Проверка**:
+   ```bash
+   curl -sI https://player-pro.ru/   # 200, text/html
+   curl -sI http://player-pro.ru/    # 301 → https://
+   ```
+
+Продление — тот же cron/systemd-таймер, что у остальных доменов.
 
 ### Вариант B — без своего домена
 
@@ -447,6 +542,8 @@ docker compose -f infra/docker-compose.stand.yml exec -T postgres \
       `/api/v1/...` доходит до FastAPI, а не до SPA-фолбэка (не 404 от nginx).
 - [ ] **iOS:** на реальном iPhone — «Поделиться → На экран Домой» даёт standalone, свою
       иконку и сплеш; полный флоу (вход по OTP → PIN → wellness/RPE), 3 локали.
+- [ ] **Сайт-визитка:** `https://player-pro.ru/` → 200; `http://` редиректит на `https://`
+      (после шага 5). Форма заявки декоративная — это осознанно, не баг.
 
 ## Что ещё не сделано
 

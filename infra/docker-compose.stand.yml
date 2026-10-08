@@ -146,10 +146,12 @@ services:
     profiles: ["web"]
     restart: unless-stopped
 
-  # Прод-край: раздача статики веб-PWA + reverse-proxy на api и на admin. Профиль web —
-  # на стенде не нужен, на ВМ: --profile web. Конфиги — infra/nginx/*.conf (директория,
-  # не один файл: playerpro.conf — app.player-pro.ru, admin.conf — admin.player-pro.ru).
-  # Статика PWA кладётся в ./web выкладкой (docs/deploy.md, шаг 4b). TLS — шаг 5.
+  # Прод-край: раздача статики веб-PWA + лендинга + reverse-proxy на api и на admin.
+  # Профиль web — на стенде не нужен, на ВМ: --profile web. Конфиги — infra/nginx/*.conf
+  # (директория, не один файл: playerpro.conf — app.player-pro.ru, admin.conf —
+  # admin.player-pro.ru, landing.conf — player-pro.ru). Статика PWA кладётся в ./web
+  # выкладкой (docs/deploy.md, шаг 4b); ../landing — обычный исходник из git, ничего
+  # собирать не нужно. TLS — шаг 5.
   nginx:
     image: nginx:1.27-alpine
     ports:
@@ -158,6 +160,7 @@ services:
     volumes:
       - ./nginx:/etc/nginx/conf.d:ro
       - ./web:/srv/web:ro
+      - ../landing:/srv/landing:ro
       - certbot_conf:/etc/letsencrypt:ro
       - certbot_webroot:/var/www/certbot
     depends_on:
