@@ -18,6 +18,17 @@ jest.mock('./vault', () => ({
   verifyPin: jest.fn(),
 }));
 jest.mock('./device', () => ({ getDeviceId: jest.fn(() => Promise.resolve('dev-1')) }));
+const mockClearActiveTeam = jest.fn();
+jest.mock('./activeTeam', () => ({
+  activeTeamStore: { getState: () => ({ clearActiveTeam: mockClearActiveTeam }) },
+}));
+const mockQueryClientClear = jest.fn();
+jest.mock('@/api/queryClient', () => ({
+  // Чтение mockQueryClientClear отложено внутрь вложенной функции (как в моке
+  // ./activeTeam выше) — иначе babel-jest-hoist поднимает jest.mock() раньше
+  // объявления const, и тело фабрики падает в TDZ ещё до начала тестов.
+  queryClient: { clear: () => mockQueryClientClear() },
+}));
 jest.mock('./storage', () => ({
   secureStorage: {
     get: (k: string) => Promise.resolve(mockSecureStore.has(k) ? mockSecureStore.get(k)! : null),
@@ -83,5 +94,18 @@ describe('clearSession / signOut', () => {
     expect(session.getState().accessToken).toBeNull();
     await Promise.resolve(); // clearSession — fire-and-forget
     expect(mockVault.clearVault).toHaveBeenCalled();
+  });
+
+  test('signOut сбрасывает выбранную команду — не протекает в следующий аккаунт на устройстве', () => {
+    session.setState({ status: 'active', accessToken: 'access-jwt' });
+    session.getState().signOut();
+    expect(mockClearActiveTeam).toHaveBeenCalledTimes(1);
+  });
+
+  test('signOut чистит кэш react-query — иначе следующий вход на устройстве', () => {
+    // видит me/teams/… ПРЕДЫДУЩЕГО аккаунта, пока не истечёт staleTime.
+    session.setState({ status: 'active', accessToken: 'access-jwt' });
+    session.getState().signOut();
+    expect(mockQueryClientClear).toHaveBeenCalledTimes(1);
   });
 });

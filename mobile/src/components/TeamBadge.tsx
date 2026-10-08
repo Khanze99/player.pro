@@ -8,6 +8,7 @@ import { useTranslation } from 'react-i18next';
 
 import { logoUri, useBranding } from '@/api/branding';
 import { useMyTeams } from '@/api/hooks';
+import { activeTeamStore } from '@/auth/activeTeam';
 import { spacing, type Theme, useStyles, useTheme } from '@/theme';
 
 interface Props {
@@ -24,10 +25,14 @@ export function TeamBadge({ showPersonal = false, teamName: explicitTeam }: Prop
   const styles = useStyles(makeStyles);
   const { t } = useTranslation();
   const teams = useMyTeams();
+  const activeTeamId = activeTeamStore((s) => s.activeTeamId);
   const { data: branding } = useBranding();
   const [broken, setBroken] = useState(false);
 
-  const teamName = explicitTeam ?? teams.data?.[0]?.name;
+  // Явная команда (экраны со своим гейтом/пропсом) > выбранная в сторе (staff
+  // с несколькими командами) > первая из списка (игрок — у него она обычно одна).
+  const activeTeamName = teams.data?.find((team) => team.id === activeTeamId)?.name;
+  const teamName = explicitTeam ?? activeTeamName ?? teams.data?.[0]?.name;
   const logo = logoUri(branding);
   if (!teamName && !showPersonal) return null;
 

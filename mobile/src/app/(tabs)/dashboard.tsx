@@ -18,6 +18,7 @@ import type {
   TeamInjury,
   TeamSummary,
 } from '@/api/types';
+import { activeTeamStore } from '@/auth/activeTeam';
 import { TeamBadge } from '@/components/TeamBadge';
 import { Donut } from '@/components/Donut';
 import { Screen } from '@/components/Screen';
@@ -421,12 +422,11 @@ export default function Dashboard() {
   const { t, i18n } = useTranslation();
   const qc = useQueryClient();
   const [section, setSection] = useState<Section>('summary');
-  const [teamId, setTeamId] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
   const teams = useMyTeams();
-  const activeTeamId = teamId ?? teams.data?.[0]?.id;
-  const activeTeam = teams.data?.find((team) => team.id === activeTeamId);
+  const storedTeamId = activeTeamStore((s) => s.activeTeamId);
+  const activeTeamId = storedTeamId ?? teams.data?.[0]?.id;
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -450,20 +450,8 @@ export default function Dashboard() {
             <Text style={styles.date}>{dateLabel}</Text>
             <ScreenTitle>{t('dashboard.title')}</ScreenTitle>
           </View>
-          <TeamBadge teamName={activeTeam?.name} />
+          <TeamBadge />
         </View>
-
-        {(teams.data?.length ?? 0) > 1 ? (
-          <View style={styles.teamRow}>
-            <Segmented
-              options={(teams.data ?? []).map((team) => team.id)}
-              value={activeTeamId ?? ''}
-              onSelect={setTeamId}
-              labelFor={(id) => teams.data?.find((team) => team.id === id)?.name ?? ''}
-              scrollable
-            />
-          </View>
-        ) : null}
 
         <Segmented
           options={SECTIONS}
@@ -495,7 +483,6 @@ const makeStyles = (th: Theme) => StyleSheet.create({
     letterSpacing: 1.4,
     marginBottom: 4,
   },
-  teamRow: { marginBottom: -spacing.s },
   sectionBody: { gap: spacing.l },
 
   gaugeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.s },

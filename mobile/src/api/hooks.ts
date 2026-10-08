@@ -49,9 +49,10 @@ export { todayISO };
 export const useMe = (enabled = true) =>
   useQuery({ queryKey: ['me'], enabled, queryFn: () => api<Me>('/auth/me') });
 
-export const useMyTeams = () =>
+export const useMyTeams = (enabled = true) =>
   useQuery({
     queryKey: ['teams'],
+    enabled,
     queryFn: () => api<{ id: string; name: string }[]>('/teams'),
   });
 

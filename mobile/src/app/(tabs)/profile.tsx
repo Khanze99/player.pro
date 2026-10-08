@@ -16,11 +16,13 @@ import {
   useFeatures,
   useMe,
   useMyProfile,
+  useMyTeams,
   useUpdateMe,
   useUploadAvatar,
   useUpsertProfile,
 } from '@/api/hooks';
 import type { AthleteProfile, Sex } from '@/api/types';
+import { activeTeamStore } from '@/auth/activeTeam';
 import { getRefreshToken, session } from '@/auth/session';
 import { TeamBadge } from '@/components/TeamBadge';
 import { Field } from '@/components/Field';
@@ -135,6 +137,15 @@ export default function Profile() {
   // их данные (цикл, питание, рост/вес) кто-то из штаба может смотреть. У самого
   // штаба (админ/тренер/врач) таких потоков нет, экран согласий для них — пустой.
   const isPlayer = me.data?.global_role === 'player';
+  // Личный режим (org_id нет) — команд не бывает, пункт «Команда» для него не нужен,
+  // даже если роль почему-то не 'player' (см. тот же гейт в (tabs)/_layout.tsx).
+  const isStaff = me.data != null && !isPlayer && me.data.org_id != null;
+  // Команда» в меню — только если есть из чего выбирать (как и гейт при входе,
+  // docs/plan-team-selector.md): рядовой coach должен мочь переключаться так же,
+  // как admin, не только он.
+  const teams = useMyTeams(isStaff);
+  const activeTeamId = activeTeamStore((s) => s.activeTeamId);
+  const activeTeamName = teams.data?.find((team) => team.id === activeTeamId)?.name ?? teams.data?.[0]?.name;
 
   const savePart = (field: keyof typeof fio) => () => {
     const server = me.data;
@@ -409,6 +420,19 @@ export default function Profile() {
           {isAdmin ? (
             <Pressable style={styles.row} accessibilityRole="button" onPress={() => router.push('/invite')}>
               <Text style={styles.rowText}>{t('profile.invite')}</Text>
+              <ChevronIcon color={th.textMuted} />
+            </Pressable>
+          ) : null}
+          {isStaff && (teams.data?.length ?? 0) > 1 ? (
+            <Pressable
+              style={styles.row}
+              accessibilityRole="button"
+              onPress={() => router.push('/team-choice')}
+            >
+              <Text style={styles.rowText}>
+                {t('profile.team')}
+                {activeTeamName ? `: ${activeTeamName}` : ''}
+              </Text>
               <ChevronIcon color={th.textMuted} />
             </Pressable>
           ) : null}

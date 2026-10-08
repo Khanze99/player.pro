@@ -4,6 +4,9 @@
 
 import { create } from 'zustand';
 
+import { queryClient } from '@/api/queryClient';
+
+import { activeTeamStore } from './activeTeam';
 import { secureStorage } from './storage';
 import { clearVault, hasPin, hasStoredSession } from './vault';
 
@@ -43,6 +46,11 @@ export const session = create<SessionState>((set) => ({
   setAccessToken: (accessToken) => set({ accessToken, status: 'active' }),
   signOut: () => {
     void clearSession();
+    activeTeamStore.getState().clearActiveTeam();
+    // Кэш запросов привязан к ['me']/['teams']/… без userId в ключе — без явной
+    // очистки следующий вход на этом устройстве какое-то время видит данные
+    // ПРЕДЫДУЩЕГО аккаунта (staleTime), а не просто «устаревшие свои».
+    queryClient.clear();
     set({ status: 'signedOut', accessToken: null });
   },
 }));

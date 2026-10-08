@@ -3,12 +3,14 @@
 // Staff/админ видят Squad Status вместо игрового «Дома» и «Дашборд» вместо «Истории».
 
 import { Redirect, Tabs } from 'expo-router';
+import { useEffect } from 'react';
 import { View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useTheme } from '@/theme';
-import { useFeatures, useMe } from '@/api/hooks';
+import { useFeatures, useMe, useMyTeams } from '@/api/hooks';
+import { activeTeamStore } from '@/auth/activeTeam';
 import { session } from '@/auth/session';
 import { AppleIcon, CalendarIcon, ChartIcon, GridIcon, HomeIcon, UserIcon } from '@/components/Icons';
 
@@ -29,12 +31,40 @@ export default function TabsLayout() {
   const status = session((s) => s.status);
   const me = useMe(status === 'active');
   const features = useFeatures(status === 'active');
-  const isStaff = me.data != null && me.data.global_role !== 'player';
+  // Личный режим (org_id нет) — команд физически не бывает, гейт их никогда не ждёт,
+  // даже если global_role почему-то не 'player' (staff всегда приходит через инвайт
+  // в организацию, но на всякий случай не полагаемся на одну только роль).
+  const isStaff = me.data != null && me.data.global_role !== 'player' && me.data.org_id != null;
+  const teams = useMyTeams(status === 'active' && isStaff);
+  const activeTeamId = activeTeamStore((s) => s.activeTeamId);
+  const teamHydrated = activeTeamStore((s) => s.hydrated);
+  const setActiveTeam = activeTeamStore((s) => s.setActiveTeam);
+
+  // Ровно одна команда — проставляем её активной сами, не заставляя тапать
+  // единственный пункт на экране выбора.
+  useEffect(() => {
+    if (!isStaff || !teamHydrated || teams.data?.length !== 1) return;
+    const onlyTeamId = teams.data[0].id;
+    if (activeTeamId !== onlyTeamId) setActiveTeam(onlyTeamId);
+  }, [isStaff, teamHydrated, teams.data, activeTeamId, setActiveTeam]);
 
   if (status === 'loading') return <View style={{ flex: 1, backgroundColor: th.bg }} />;
   if (status === 'signedOut') return <Redirect href="/(auth)/welcome" />;
   if (status === 'onboarding') return <Redirect href="/(auth)/profile-setup" />;
   if (status === 'locked') return <Redirect href="/(auth)/pin" />;
+
+  if (isStaff) {
+    // Гонка на старте: useMyTeams()/гидратация AsyncStorage ещё не ответили —
+    // не мигаем табами, пока не знаем, нужен ли гейт выбора команды.
+    if (teams.isLoading || !teamHydrated) {
+      return <View style={{ flex: 1, backgroundColor: th.bg }} />;
+    }
+    const count = teams.data?.length ?? 0;
+    const validSelection = activeTeamId != null && teams.data?.some((t) => t.id === activeTeamId);
+    if (count > 1 && !validSelection) {
+      return <Redirect href="/team-choice?from=gate" />;
+    }
+  }
 
   return (
     <Tabs

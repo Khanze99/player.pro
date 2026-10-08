@@ -5,7 +5,7 @@ import {
   Inter_700Bold,
 } from '@expo-google-fonts/inter';
 import { Unbounded_600SemiBold } from '@expo-google-fonts/unbounded';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClientProvider } from '@tanstack/react-query';
 import { useFonts } from 'expo-font';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
@@ -17,15 +17,13 @@ import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-c
 import { ThemeProvider, useTheme } from '@/theme';
 import '@/i18n';
 import { api, refreshAccessToken } from '@/api/client';
+import { queryClient } from '@/api/queryClient';
 import type { Me } from '@/api/types';
+import { hydrateActiveTeam } from '@/auth/activeTeam';
 import { bootstrapSession, isNewUser, session } from '@/auth/session';
 import { ToastHost } from '@/components/Toast';
 
 void SplashScreen.preventAutoHideAsync();
-
-const queryClient = new QueryClient({
-  defaultOptions: { queries: { retry: 1, staleTime: 30_000 } },
-});
 
 function AuthGate() {
   const status = session((s) => s.status);
@@ -34,6 +32,7 @@ function AuthGate() {
 
   useEffect(() => {
     void bootstrapSession();
+    void hydrateActiveTeam();
   }, []);
 
   useEffect(() => {

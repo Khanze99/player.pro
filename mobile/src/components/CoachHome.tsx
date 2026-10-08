@@ -10,6 +10,7 @@ import { useTranslation } from 'react-i18next';
 
 import { useMyTeams, useSquadStatus } from '@/api/hooks';
 import type { SquadPlayer } from '@/api/types';
+import { activeTeamStore } from '@/auth/activeTeam';
 import { Screen } from '@/components/Screen';
 import { StatTile } from '@/components/StatTile';
 import { TeamBadge } from '@/components/TeamBadge';
@@ -88,12 +89,11 @@ export function CoachHome() {
   const { t, i18n } = useTranslation();
   const qc = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
-  const [teamId, setTeamId] = useState<string | null>(null);
 
   const teams = useMyTeams();
-  const activeTeamId = teamId ?? teams.data?.[0]?.id;
+  const storedTeamId = activeTeamStore((s) => s.activeTeamId);
+  const activeTeamId = storedTeamId ?? teams.data?.[0]?.id;
   const squad = useSquadStatus(activeTeamId);
-  const activeTeam = teams.data?.find((team) => team.id === activeTeamId);
 
   const players = squad.data?.players ?? [];
   const readyCount = players.filter((p) => p.readiness_zone === 'green').length;
@@ -122,27 +122,8 @@ export function CoachHome() {
             <Text style={styles.date}>{dateLabel}</Text>
             <ScreenTitle>{t('coach.title')}</ScreenTitle>
           </View>
-          <TeamBadge teamName={activeTeam?.name} />
+          <TeamBadge />
         </View>
-
-        {(teams.data?.length ?? 0) > 1 && (
-          <View style={styles.teamRow}>
-            {teams.data?.map((team) => {
-              const active = team.id === activeTeamId;
-              return (
-                <Pressable
-                  key={team.id}
-                  onPress={() => setTeamId(team.id)}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: active }}
-                  style={[styles.teamChip, active && styles.teamChipActive]}
-                >
-                  <Text style={[styles.teamText, active && styles.teamTextActive]}>{team.name}</Text>
-                </Pressable>
-              );
-            })}
-          </View>
-        )}
 
         <View style={styles.tiles}>
           <StatTile label={t('coach.ready')} value={String(readyCount)} accent={th.good} />
@@ -186,18 +167,6 @@ const makeStyles = (th: Theme) => StyleSheet.create({
     letterSpacing: 1.4,
     marginBottom: 4,
   },
-  teamRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.s, marginBottom: spacing.l },
-  teamChip: {
-    paddingHorizontal: spacing.m,
-    paddingVertical: spacing.s,
-    borderRadius: th.radius.chip,
-    backgroundColor: th.surface2,
-    borderWidth: 1,
-    borderColor: th.border,
-  },
-  teamChipActive: { backgroundColor: th.brand, borderColor: th.brandOn },
-  teamText: { fontFamily: th.font.medium, fontSize: 13, color: th.textMuted },
-  teamTextActive: { color: th.onBrand },
   tiles: { flexDirection: 'row', gap: spacing.s, marginBottom: spacing.l },
   list: {
     backgroundColor: th.surface,
