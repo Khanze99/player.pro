@@ -4,7 +4,7 @@ PYTHON := $(VENV)/bin/python
 PIP := $(VENV)/bin/pip
 COMPOSE := docker compose -f ../infra/docker-compose.yml
 
-.PHONY: help install dev worker beat test lint format migration upgrade downgrade seed seed-reset branding foods foods-off infra-up infra-celery infra-down clean
+.PHONY: help install dev worker beat test lint format migration upgrade downgrade seed seed-reset branding foods foods-off delete-user infra-up infra-celery infra-down clean
 
 help: ## Список команд
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-12s\033[0m %s\n", $$1, $$2}'
@@ -71,6 +71,10 @@ cyrillic ?= 1
 foods-off: ## Импорт дампа Open Food Facts: make foods-off f=dump.csv.gz [country=russia] [limit=0]
 	@test -n "$(f)" || (echo 'Нужен путь: make foods-off f=en.openfoodfacts.org.products.csv.gz'; exit 1)
 	$(PYTHON) scripts/import_foods.py --off $(f) --country "$(country)" --limit $(limit) $(if $(filter 1,$(cyrillic)),--cyrillic,)
+
+delete-user: ## Удалить юзера со всеми данными: make delete-user identifier="a@b.com" [yes=1]
+	@test -n "$(identifier)" || (echo 'Нужно: make delete-user identifier="a@b.com" [yes=1]'; exit 1)
+	$(PYTHON) scripts/delete_user.py --identifier "$(identifier)" $(if $(filter 1,$(yes)),--yes,)
 
 infra-up: ## Поднять PostgreSQL + Redis
 	$(COMPOSE) up -d postgres redis
