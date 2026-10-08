@@ -147,6 +147,27 @@ async def test_invite_notifies_invitee(client, caplog, email_channel):
     assert "FC Test" in caplog.text
 
 
+async def test_invite_to_team_notifies_with_team_name(client, caplog, email_channel):
+    """Инвайт с team_id — в письме видно и организацию, и команду, не только клуб:
+    у организации может быть несколько команд, без имени непонятно, в какую именно."""
+    email_channel("log")
+    admin, _org, team = await _make_admin_with_team(client)
+    with caplog.at_level(logging.INFO, logger="app.services.notify_service"):
+        inv = await client.post(
+            "/api/v1/organizations/invites",
+            json={
+                "identifier": "coach@example.com",
+                "global_role": "staff",
+                "team_id": team["id"],
+                "team_role": "coach",
+            },
+            headers=admin["headers"],
+        )
+    assert inv.status_code == 201, inv.text
+    assert "FC Test" in caplog.text
+    assert "Team A" in caplog.text
+
+
 async def test_invite_survives_delivery_failure(client, caplog, email_channel):
     """Лежащий канал доставки не отменяет приглашение: вход по OTP работает и без письма."""
     admin, _org, _team = await _make_admin_with_team(client)

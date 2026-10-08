@@ -80,6 +80,20 @@ def test_invite_text_names_org_and_login_address():
     assert f"{settings.invite_ttl_days} дн" in text
 
 
+def test_invite_text_names_team_when_given():
+    """Инвайт в команду — в тексте должна быть видна именно она, не только организация:
+    в организации команд может быть несколько, без имени непонятно, куда именно."""
+    text = LogNotifier().invite_text("coach@example.com", "ФК Рубин", "ЮФЛ Ю18")
+    assert "ФК Рубин" in text
+    assert "ЮФЛ Ю18" in text
+
+
+def test_invite_text_without_team_has_no_stray_none():
+    """Инвайт без команды (например, роль admin) — никакого «команда «None»»."""
+    text = LogNotifier().invite_text("admin@example.com", "ФК Рубин")
+    assert "None" not in text
+
+
 async def test_send_invite_goes_through_channel(caplog):
     with caplog.at_level(logging.INFO, logger="app.services.notify_service"):
         await LogNotifier().send_invite("player@example.com", "ФК Рубин")

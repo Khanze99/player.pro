@@ -26,16 +26,20 @@ from app.services.notify_service import NotifyError
 logger = logging.getLogger(__name__)
 
 
-async def notify_invitee(kind: str, identifier: str, org_name: str) -> None:
+async def notify_invitee(kind: str, identifier: str, org_name: str, team_name: str | None = None) -> None:
     """Письмо приглашённому — best-effort, ошибка доставки не отменяет инвайт.
 
     Приглашение самодостаточно: человек входит обычным OTP по тому же адресу,
     письмо лишь подсказывает, что пора это сделать. Поэтому лежащий SMTP (или
     вовсе отсутствующий SMS-канал для телефонных инвайтов) не должен ронять
     создание приглашения — админ увидит его в списке в любом случае.
+
+    team_name — явно, не команда ли приглашённого (team_name у отправителя может
+    быть другой): без неё текст говорил только «пригласили в организацию»,
+    а в организации может быть несколько команд — неясно, в какую именно.
     """
     try:
-        await notify_service.get_notifier(kind).send_invite(identifier, org_name)
+        await notify_service.get_notifier(kind).send_invite(identifier, org_name, team_name)
     except NotifyError as exc:
         logger.warning("Не удалось уведомить приглашённого %s: %s", identifier, exc)
 
@@ -46,6 +50,7 @@ async def create_invitation(db: AsyncSession, admin: User, data: InvitationCreat
 
     kind, value = normalize_identifier(data.identifier)
 
+    team: Team | None = None
     if data.team_id is not None:
         team = await db.get(Team, data.team_id)
         if team is None or team.org_id != admin.org_id:
@@ -88,7 +93,7 @@ async def create_invitation(db: AsyncSession, admin: User, data: InvitationCreat
     await db.refresh(invitation)
 
     org = await db.get(Organization, admin.org_id)
-    await notify_invitee(kind, value, org.name if org else "PlayerPro")
+    await notify_invitee(kind, value, org.name if org else "PlayerPro", team.name if team else None)
     return invitation
 
 

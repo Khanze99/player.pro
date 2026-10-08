@@ -33,23 +33,29 @@ class Notifier(ABC):
     async def send_otp(self, recipient: str, code: str) -> None:
         await self.deliver(recipient, "Код для входа в PlayerPro", self.otp_text(code))
 
-    async def send_invite(self, recipient: str, org_name: str) -> None:
-        await self.deliver(
-            recipient, f"Приглашение в «{org_name}» — PlayerPro", self.invite_text(recipient, org_name)
-        )
+    async def send_invite(self, recipient: str, org_name: str, team_name: str | None = None) -> None:
+        subject = f"Приглашение в «{org_name}» — PlayerPro"
+        if team_name:
+            subject = f"Приглашение в «{org_name}», команда «{team_name}» — PlayerPro"
+        await self.deliver(recipient, subject, self.invite_text(recipient, org_name, team_name))
 
     def otp_text(self, code: str) -> str:
         minutes = max(1, settings.otp_ttl_seconds // 60)
         return f"Код для входа в PlayerPro: {code}\nДействует {minutes} мин. Никому не сообщайте этот код."
 
-    def invite_text(self, recipient: str, org_name: str) -> str:
+    def invite_text(self, recipient: str, org_name: str, team_name: str | None = None) -> str:
         """Приглашение не несёт кода: вход обычный, по OTP на этот же адрес.
 
         Поэтому текст объясняет ровно одно — каким адресом входить. Отдельной
         ссылки-приглашения в продукте нет и заводить её не нужно.
+
+        team_name — None у приглашения без команды (например, роль admin, см.
+        invitations_service.create_invitation: data.team_id опционален). Тогда
+        человек видит только организацию, без «команда «None»» в тексте.
         """
+        where = f"в «{org_name}»" + (f", команда «{team_name}»" if team_name else "")
         return (
-            f"Вас пригласили в «{org_name}» в PlayerPro.\n\n"
+            f"Вас пригласили {where} в PlayerPro.\n\n"
             f"Откройте приложение и войдите по этому адресу: {recipient}\n"
             "Код для входа придёт на эту же почту — отдельный код из письма вводить не нужно.\n\n"
             f"Приглашение действует {settings.invite_ttl_days} дн."
