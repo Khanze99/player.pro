@@ -48,7 +48,6 @@ export default function SexSelect() {
       <BackButton fallbackTo="/(auth)/profile-setup" />
       <View style={styles.content}>
         <ScreenTitle>{t('onboarding.sexTitle')}</ScreenTitle>
-        <Text style={styles.hint}>{t('onboarding.sexSubtitle')}</Text>
         <View style={styles.options}>
           {OPTIONS.map(({ value, key }) => {
             const active = choice === value;
@@ -83,7 +82,6 @@ export default function SexSelect() {
 const makeStyles = (th: Theme) =>
   StyleSheet.create({
     content: { flex: 1, padding: spacing.screen, gap: spacing.l, justifyContent: 'center' },
-    hint: { fontFamily: th.font.regular, fontSize: 15, color: th.textMuted, lineHeight: 21 },
     options: { gap: spacing.s, marginTop: spacing.s },
     option: {
       minHeight: 56,

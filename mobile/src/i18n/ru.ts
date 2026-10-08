@@ -33,7 +33,6 @@ export default {
     middleNameLabel: 'Отчество · необязательно',
     continue: 'Продолжить',
     sexTitle: 'Укажи пол',
-    sexSubtitle: 'Нужно для точности расчётов и женского цикл-трекинга. Можно не указывать.',
     sexFemale: 'Женский',
     sexMale: 'Мужской',
     sexSkip: 'Предпочитаю не указывать',
@@ -215,6 +214,7 @@ export default {
     identifierLabel: 'Телефон или email',
     nameLabel: 'ФИО (необязательно)',
     namePlaceholder: 'Иванов Иван Петрович',
+    orgHint: 'Организация: {{org}}',
     roleLabel: 'Роль',
     teamLabel: 'Команда',
     roles: { player: 'Игрок', coach: 'Тренер', medic: 'Врач', admin: 'Админ' },
@@ -263,6 +263,7 @@ export default {
     privacy: 'Приватность и данные',
     cycle: 'Цикл',
     invite: 'Пригласить в клуб',
+    team: 'Команда',
     changePin: 'Сменить PIN',
     logout: 'Выйти',
     lastName: 'Фамилия',
@@ -536,6 +537,9 @@ export default {
       glute: 'Ягодица', groin: 'Пах', quad: 'Квадрицепс', hamstring: 'Задняя бедра',
       knee: 'Колено', calf: 'Икра', shin: 'Голень', ankle: 'Голеностоп', foot: 'Стопа',
     },
+  },
+  teamChoice: {
+    title: 'Выбери команду',
   },
   tabs: {
     home: 'Дом',

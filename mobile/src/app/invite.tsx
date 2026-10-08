@@ -15,6 +15,7 @@ import {
 import { useTranslation } from 'react-i18next';
 
 import { ApiError } from '@/api/client';
+import { useBranding } from '@/api/branding';
 import { useCreateInvite, useMyTeams } from '@/api/hooks';
 import type { GlobalRole, TeamRole } from '@/api/types';
 import { Button } from '@/components/Button';
@@ -43,6 +44,7 @@ export default function Invite() {
   const { t } = useTranslation();
   const router = useRouter();
   const toast = useToast((s) => s.show);
+  const branding = useBranding();
   const teams = useMyTeams();
   const createInvite = useCreateInvite();
 
@@ -98,6 +100,9 @@ export default function Invite() {
               <CloseIcon color={th.textMuted} />
             </Pressable>
           </View>
+          {branding.data?.org_name ? (
+            <Text style={styles.orgHint}>{t('invite.orgHint', { org: branding.data.org_name })}</Text>
+          ) : null}
 
           <Field
             label={t('invite.identifierLabel')}
@@ -124,7 +129,7 @@ export default function Invite() {
             />
           </View>
 
-          {needsTeam && (teams.data?.length ?? 0) > 1 && (
+          {needsTeam && (teams.data?.length ?? 0) > 1 ? (
             <View style={styles.section}>
               <MicroLabel>{t('invite.teamLabel')}</MicroLabel>
               <OptionChips
@@ -134,7 +139,15 @@ export default function Invite() {
                 labelFor={(id) => teams.data?.find((team) => team.id === id)?.name ?? ''}
               />
             </View>
-          )}
+          ) : null}
+          {/* Ровно одна команда — показываем явно, а не молчим: иначе непонятно,
+              в какую именно команду организации уходит приглашение. */}
+          {needsTeam && teams.data?.length === 1 ? (
+            <View style={styles.section}>
+              <MicroLabel>{t('invite.teamLabel')}</MicroLabel>
+              <Text style={styles.singleTeam}>{teams.data[0].name}</Text>
+            </View>
+          ) : null}
 
           {noTeams ? <Text style={styles.error}>{t('invite.noTeams')}</Text> : null}
           {error ? <Text style={styles.error}>{error}</Text> : null}
@@ -162,6 +175,8 @@ const makeStyles = (th: Theme) => StyleSheet.create({
     marginBottom: spacing.s,
   },
   close: { padding: spacing.xs },
+  orgHint: { fontFamily: th.font.medium, fontSize: 14, color: th.textMuted, marginTop: -spacing.s },
+  singleTeam: { fontFamily: th.font.semibold, fontSize: 15, color: th.text },
   section: { gap: spacing.s },
   error: { fontFamily: th.font.medium, fontSize: 13, color: th.risk },
   footer: { padding: spacing.screen },

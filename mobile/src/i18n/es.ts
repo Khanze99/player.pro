@@ -35,7 +35,6 @@ const es: typeof ru = {
     middleNameLabel: 'Segundo apellido · opcional',
     continue: 'Continuar',
     sexTitle: 'Indica tu sexo',
-    sexSubtitle: 'Se usa para la precisión de los cálculos y el seguimiento del ciclo. Puedes no indicarlo.',
     sexFemale: 'Femenino',
     sexMale: 'Masculino',
     sexSkip: 'Prefiero no decirlo',
@@ -217,6 +216,7 @@ const es: typeof ru = {
     identifierLabel: 'Teléfono o email',
     nameLabel: 'Nombre completo (opcional)',
     namePlaceholder: 'García Carlos',
+    orgHint: 'Organización: {{org}}',
     roleLabel: 'Rol',
     teamLabel: 'Equipo',
     roles: { player: 'Jugador', coach: 'Entrenador', medic: 'Médico', admin: 'Admin' },
@@ -265,6 +265,7 @@ const es: typeof ru = {
     privacy: 'Privacidad y datos',
     cycle: 'Ciclo',
     invite: 'Invitar al club',
+    team: 'Equipo',
     changePin: 'Cambiar PIN',
     logout: 'Salir',
     lastName: 'Apellido',
@@ -538,6 +539,9 @@ const es: typeof ru = {
       glute: 'Glúteo', groin: 'Ingle', quad: 'Cuádriceps', hamstring: 'Isquiotibial',
       knee: 'Rodilla', calf: 'Gemelo', shin: 'Espinilla', ankle: 'Tobillo', foot: 'Pie',
     },
+  },
+  teamChoice: {
+    title: 'Elige un equipo',
   },
   tabs: {
     home: 'Inicio',

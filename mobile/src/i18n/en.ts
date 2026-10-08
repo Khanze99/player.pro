@@ -35,7 +35,6 @@ const en: typeof ru = {
     middleNameLabel: 'Middle name · optional',
     continue: 'Continue',
     sexTitle: 'Your sex',
-    sexSubtitle: 'Used for calculation accuracy and cycle tracking. You can leave it unset.',
     sexFemale: 'Female',
     sexMale: 'Male',
     sexSkip: 'Prefer not to say',
@@ -217,6 +216,7 @@ const en: typeof ru = {
     identifierLabel: 'Phone or email',
     nameLabel: 'Full name (optional)',
     namePlaceholder: 'Ivanov Ivan',
+    orgHint: 'Organization: {{org}}',
     roleLabel: 'Role',
     teamLabel: 'Team',
     roles: { player: 'Player', coach: 'Coach', medic: 'Medic', admin: 'Admin' },
@@ -265,6 +265,7 @@ const en: typeof ru = {
     privacy: 'Privacy and data',
     cycle: 'Cycle',
     invite: 'Invite to club',
+    team: 'Team',
     changePin: 'Change PIN',
     logout: 'Log out',
     lastName: 'Last name',
@@ -538,6 +539,9 @@ const en: typeof ru = {
       glute: 'Glute', groin: 'Groin', quad: 'Quad', hamstring: 'Hamstring',
       knee: 'Knee', calf: 'Calf', shin: 'Shin', ankle: 'Ankle', foot: 'Foot',
     },
+  },
+  teamChoice: {
+    title: 'Choose a team',
   },
   tabs: {
     home: 'Home',
