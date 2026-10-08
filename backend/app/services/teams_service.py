@@ -3,7 +3,7 @@
 import uuid
 
 from fastapi import HTTPException, status
-from sqlalchemy import delete, select
+from sqlalchemy import delete, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.enums import TeamRole
@@ -24,16 +24,25 @@ async def create_team(db: AsyncSession, admin: User, data: TeamCreateIn) -> Team
 
 
 async def list_my_teams(db: AsyncSession, user: User) -> list[Team]:
-    """Админ — все команды организации, остальные — команды, где состоят."""
+    """Команды, где состоят (TeamMembership) + для admin ещё все команды своей организации.
+
+    Объединение, а не either/or: пока нет отдельного флоу кросс-организационного
+    доступа (docs/plan-team-selector.md — открытый вопрос), такой доступ выдаётся
+    вручную строкой в team_memberships на команду чужой организации. Админ должен
+    видеть её наравне со своими — старая версия (только Team.org_id == user.org_id
+    для admin) такие строки молча игнорировала.
+    """
+    stmt = select(Team).distinct()
     if user.org_id is not None and user.global_role == "admin":
-        rows = await db.execute(select(Team).where(Team.org_id == user.org_id).order_by(Team.name))
-        return list(rows.scalars())
-    rows = await db.execute(
-        select(Team)
-        .join(TeamMembership, TeamMembership.team_id == Team.id)
-        .where(TeamMembership.user_id == user.id)
-        .order_by(Team.name)
-    )
+        stmt = stmt.outerjoin(
+            TeamMembership,
+            (TeamMembership.team_id == Team.id) & (TeamMembership.user_id == user.id),
+        ).where(or_(Team.org_id == user.org_id, TeamMembership.user_id == user.id))
+    else:
+        stmt = stmt.join(TeamMembership, TeamMembership.team_id == Team.id).where(
+            TeamMembership.user_id == user.id
+        )
+    rows = await db.execute(stmt.order_by(Team.name))
     return list(rows.scalars())
 
 
