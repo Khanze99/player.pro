@@ -15,6 +15,8 @@ from app.models.enums import (
     CyclePhase,
     CycleSymptom,
     EventType,
+    ExerciseBodyPart,
+    ExerciseSource,
     FlowIntensity,
     FoodCategory,
     FoodSource,
@@ -33,6 +35,7 @@ from app.models.enums import (
     UserStatus,
 )
 from app.models.event import Attendance, Event
+from app.models.exercise import Exercise
 from app.models.injury import InjuryRecord
 from app.models.invitation import Invitation
 from app.models.medical_exam import MedicalExam
@@ -85,6 +88,9 @@ __all__ = [
     "UserStatus",
     "Attendance",
     "Event",
+    "Exercise",
+    "ExerciseBodyPart",
+    "ExerciseSource",
     "InjuryRecord",
     "Invitation",
     "DailyMetric",

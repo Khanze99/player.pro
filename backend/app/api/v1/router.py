@@ -10,6 +10,7 @@ from app.api.v1 import (
     cycle,
     dashboard,
     events,
+    exercises,
     features,
     injuries,
     medical_exams,
@@ -44,6 +45,7 @@ router.include_router(teams.router, dependencies=[_consented])
 router.include_router(wellness.router, dependencies=[_consented])
 router.include_router(rpe.router, dependencies=[_consented])
 router.include_router(events.router, dependencies=[_consented])
+router.include_router(exercises.router, dependencies=[_consented])
 router.include_router(availability.router, dependencies=[_consented])
 router.include_router(injuries.router, dependencies=[_consented])
 router.include_router(medical_exams.router, dependencies=[_consented])

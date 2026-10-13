@@ -266,3 +266,31 @@ class SymptomType(str, enum.Enum):
     gastro = "gastro"
     fatigue = "fatigue"
     other = "other"
+
+
+class ExerciseSource(str, enum.Enum):
+    """Откуда упражнение. custom зарезервирован под будущие личные/клубные
+    упражнения — сегодня не используется, заводим сразу, чтобы не делать
+    вторую миграцию (см. docs/plan-exercise-catalog.md)."""
+
+    exercises_dataset = "exercises_dataset"
+    custom = "custom"
+
+
+class ExerciseBodyPart(str, enum.Enum):
+    """Категория упражнения по части тела (для подбора упражнения).
+
+    НЕ ТО ЖЕ САМОЕ, что BodyRegion (карта боли/травмы) — там анатомическая точка
+    боли у игрока, здесь категория упражнения в справочнике. Разные сущности,
+    разный смысл, не смешивать."""
+
+    back = "back"
+    cardio = "cardio"
+    chest = "chest"
+    lower_arms = "lower_arms"
+    lower_legs = "lower_legs"
+    neck = "neck"
+    shoulders = "shoulders"
+    upper_arms = "upper_arms"
+    upper_legs = "upper_legs"
+    waist = "waist"
