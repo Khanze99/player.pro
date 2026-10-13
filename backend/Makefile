@@ -4,7 +4,7 @@ PYTHON := $(VENV)/bin/python
 PIP := $(VENV)/bin/pip
 COMPOSE := docker compose -f ../infra/docker-compose.yml
 
-.PHONY: help install dev worker beat test lint format migration upgrade downgrade seed seed-reset branding foods foods-off exercises delete-user infra-up infra-celery infra-down clean
+.PHONY: help install dev worker beat test lint format migration upgrade downgrade seed seed-reset branding foods foods-off exercises exercises-media delete-user infra-up infra-celery infra-down clean
 
 help: ## Список команд
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-12s\033[0m %s\n", $$1, $$2}'
@@ -75,6 +75,23 @@ foods-off: ## Импорт дампа Open Food Facts: make foods-off f=dump.csv
 exercises: ## Справочник упражнений: make exercises file=exercises.json [limit=0]
 	@test -n "$(file)" || (echo 'Нужен путь: make exercises file=exercises.json'; exit 1)
 	$(PYTHON) scripts/import_exercises.py --file $(file) --limit $(or $(limit),0)
+
+# Картинки/GIF (180×180, Gym Visual — лицензия на использование подтверждена
+# напрямую с правообладателем, не только условиями самого датасета). В git не
+# кладём — те же 137 МБ бинарников навсегда раздули бы историю, как и дамп
+# датасета выше; качаем по требованию тем же приёмом. Повторный запуск ничего
+# не перекачивает, если каталог уже заполнен — удалите media/exercises для реимпорта.
+exercises-media: ## Картинки/GIF упражнений с GitHub: make exercises-media
+	@if [ -d media/exercises/images ] && [ -d media/exercises/videos ]; then \
+		echo "Уже загружено: $$(ls media/exercises/images | wc -l) картинок, $$(ls media/exercises/videos | wc -l) GIF."; \
+		echo "Для повторной загрузки удалите media/exercises и запустите заново."; \
+	else \
+		mkdir -p media/exercises && \
+		curl -sL -o /tmp/exercises-media.tar.gz "https://codeload.github.com/hasaneyldrm/exercises-dataset/tar.gz/refs/heads/main" && \
+		tar -xzf /tmp/exercises-media.tar.gz -C media/exercises --strip-components=1 exercises-dataset-main/images exercises-dataset-main/videos && \
+		rm -f /tmp/exercises-media.tar.gz && \
+		echo "Готово: $$(ls media/exercises/images | wc -l) картинок, $$(ls media/exercises/videos | wc -l) GIF."; \
+	fi
 
 delete-user: ## Удалить юзера со всеми данными: make delete-user identifier="a@b.com" [yes=1]
 	@test -n "$(identifier)" || (echo 'Нужно: make delete-user identifier="a@b.com" [yes=1]'; exit 1)
