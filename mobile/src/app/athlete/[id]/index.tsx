@@ -1,6 +1,7 @@
 // Отчёт по игроку для тренера/врача: одна страница целиком — нагрузка, тренд
 // готовности, разбивка Readiness по критериям и полная детализация последнего
-// заполненного дня (опрос, карта боли, травма/недомогание, комментарий, RPE),
+// заполненного дня (опрос, карта боли, травма/недомогание, восстановительные
+// процедуры, комментарий, RPE),
 // без урезания — coach и medic видят одинаково (ensure_can_view_athlete).
 // Открывается тапом по строке игрока в CoachHome.
 
@@ -15,6 +16,7 @@ import { CloseIcon } from '@/components/Icons';
 import { LoadBars } from '@/components/LoadBars';
 import { ReadinessBreakdownSection } from '@/components/ReadinessBreakdownSection';
 import { ReadinessSparkline } from '@/components/ReadinessSparkline';
+import { RecoveryMethods } from '@/components/RecoveryMethods';
 import { RpeDayCard } from '@/components/RpeDayCard';
 import { ScaleRow } from '@/components/ScaleRow';
 import { Screen } from '@/components/Screen';
@@ -214,6 +216,19 @@ export default function AthleteReport() {
                     <Text style={styles.badgeDetails}>{dayEntry.symptom_details}</Text>
                   )}
                 </View>
+              </View>
+            </View>
+
+            <View style={styles.card}>
+              <View style={styles.cardHead}>
+                <Text style={styles.cardHeadText}>{t('dayDetail.recovery')}</Text>
+              </View>
+              <View style={styles.cardBody}>
+                {dayEntry.recovery_methods.length === 0 ? (
+                  <Text style={styles.empty}>{t('dayDetail.noRecovery')}</Text>
+                ) : (
+                  <RecoveryMethods value={dayEntry.recovery_methods} readOnly />
+                )}
               </View>
             </View>
 

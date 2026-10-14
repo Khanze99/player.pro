@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.enums import StreakType
 from app.models.pain_point import PainPoint
+from app.models.recovery_method import RecoveryMethodLog
 from app.models.wellness import WellnessEntry
 from app.schemas.wellness import WellnessCreateIn
 from app.services import analytics_service, streaks_service
@@ -28,9 +29,13 @@ async def create_entry(
 
     payload = data.model_dump()
     pain_points = payload.pop("pain_points", [])
+    recovery_methods = payload.pop("recovery_methods", [])
     entry = WellnessEntry(athlete_id=athlete_id, **payload)
     # Карта боли — деталь; на Readiness не влияет (см. analytics: score считает soreness).
     entry.pain_points = [PainPoint(**pp) for pp in pain_points]
+    # set() — защита от дублей с клиента (чекбоксы и так не дадут выбрать дважды,
+    # но дёшево не доверять фронту), на Readiness тоже не влияет.
+    entry.recovery_methods = [RecoveryMethodLog(method=m) for m in set(recovery_methods)]
     db.add(entry)
     streak = await streaks_service.bump_streak(db, athlete_id, StreakType.wellness, data.date)
     await db.flush()

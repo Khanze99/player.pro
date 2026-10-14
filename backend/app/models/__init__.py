@@ -26,6 +26,7 @@ from app.models.enums import (
     MealType,
     MedicalExamKind,
     PolicyConsentKind,
+    RecoveryMethod,
     Sex,
     StreakType,
     SymptomType,
@@ -42,6 +43,7 @@ from app.models.nutrition import FoodItem, FoodLogEntry, NutritionTarget
 from app.models.organization import Organization
 from app.models.pain_point import PainPoint
 from app.models.policy_consent import PolicyConsent
+from app.models.recovery_method import RecoveryMethodLog
 from app.models.rpe import RpeEntry
 from app.models.team import Location, Team, TeamMembership
 from app.models.user import AthleteProfile, RefreshToken, User
@@ -78,6 +80,8 @@ __all__ = [
     "MedicalExamKind",
     "PolicyConsent",
     "PolicyConsentKind",
+    "RecoveryMethod",
+    "RecoveryMethodLog",
     "StreakType",
     "Sex",
     "SymptomType",

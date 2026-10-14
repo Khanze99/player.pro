@@ -47,6 +47,13 @@ class WellnessEntry(Base):
         cascade="all, delete-orphan",
         lazy="selectin",
     )
+    # Восстановительные процедуры вчера — тоже деталь, на Readiness не влияет.
+    recovery_methods: Mapped[list["RecoveryMethodLog"]] = relationship(
+        back_populates="entry",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
 
 
 from app.models.pain_point import PainPoint  # noqa: E402  — разрыв циклического импорта для relationship
+from app.models.recovery_method import RecoveryMethodLog  # noqa: E402

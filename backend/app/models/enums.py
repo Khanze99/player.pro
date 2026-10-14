@@ -266,3 +266,13 @@ class SymptomType(str, enum.Enum):
     gastro = "gastro"
     fatigue = "fatigue"
     other = "other"
+
+
+class RecoveryMethod(str, enum.Enum):
+    """Восстановительные процедуры вчера — закрытый список, деталь для medic/coach,
+    на Readiness не влияет."""
+
+    massage = "massage"
+    compression = "compression"
+    cryo_compression = "cryo_compression"
+    physio = "physio"

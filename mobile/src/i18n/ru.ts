@@ -119,6 +119,13 @@ export default {
     symptomTypeLabel: 'Тип недомогания',
     comment: 'Комментарий (необязательно)',
     commentPlaceholder: 'Что беспокоит, детали…',
+    recoveryTitle: 'Восстановительные процедуры вчера',
+    recoveryMethod: {
+      massage: 'Массаж',
+      compression: 'Компрессия',
+      cryo_compression: 'Крио компрессия',
+      physio: 'Физиолечение',
+    },
     bodyMap: {
       left: 'ЛЕВО',
       right: 'ПРАВО',
@@ -232,6 +239,8 @@ export default {
     injurySymptom: 'Травма / недомогание',
     noInjury: 'Травмы нет',
     noSymptom: 'Недомогания нет',
+    recovery: 'Восстановительные процедуры',
+    noRecovery: 'Процедур не было',
     comment: 'Комментарий игрока',
     rpe: 'RPE',
     sleepHours: 'Сон, ч',

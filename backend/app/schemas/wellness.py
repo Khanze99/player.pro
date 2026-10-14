@@ -1,9 +1,9 @@
 import uuid
 from datetime import date as date_type
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
-from app.models.enums import BodyRegion, BodySide, InjuryType, SymptomType
+from app.models.enums import BodyRegion, BodySide, InjuryType, RecoveryMethod, SymptomType
 
 
 class PainPointIn(BaseModel):
@@ -40,6 +40,7 @@ class WellnessCreateIn(BaseModel):
     resting_hr: int | None = Field(default=None, ge=20, le=250)
     comment: str | None = Field(default=None, max_length=1000)
     pain_points: list[PainPointIn] = Field(default_factory=list, max_length=40)
+    recovery_methods: list[RecoveryMethod] = Field(default_factory=list, max_length=4)
 
 
 class WellnessOut(BaseModel):
@@ -64,6 +65,16 @@ class WellnessOut(BaseModel):
     resting_hr: int | None
     comment: str | None
     pain_points: list[PainPointOut] = Field(default_factory=list)
+    recovery_methods: list[RecoveryMethod] = Field(default_factory=list)
+
+    @field_validator("recovery_methods", mode="before")
+    @classmethod
+    def _flatten_recovery_methods(cls, v: object) -> object:
+        """ORM отдаёт list[RecoveryMethodLog] (своя таблица, как pain_points), а наружу
+        это плоский список enum — у точки нет других полей, обёрточная схема не нужна."""
+        if not isinstance(v, list):
+            return v
+        return [getattr(item, "method", item) for item in v]
 
 
 class WellnessCreateOut(BaseModel):

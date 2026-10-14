@@ -121,6 +121,13 @@ const en: typeof ru = {
     symptomTypeLabel: 'Symptom type',
     comment: 'Comment (optional)',
     commentPlaceholder: 'What bothers you, details…',
+    recoveryTitle: 'Recovery methods yesterday',
+    recoveryMethod: {
+      massage: 'Massage',
+      compression: 'Compression',
+      cryo_compression: 'Cryo compression',
+      physio: 'Physiotherapy',
+    },
     bodyMap: {
       left: 'LEFT',
       right: 'RIGHT',
@@ -234,6 +241,8 @@ const en: typeof ru = {
     injurySymptom: 'Injury / symptom',
     noInjury: 'No injury',
     noSymptom: 'No symptom',
+    recovery: 'Recovery methods',
+    noRecovery: 'No recovery methods',
     comment: 'Player comment',
     rpe: 'RPE',
     sleepHours: 'Sleep, h',

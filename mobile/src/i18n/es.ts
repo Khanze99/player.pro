@@ -121,6 +121,13 @@ const es: typeof ru = {
     symptomTypeLabel: 'Tipo de malestar',
     comment: 'Comentario (opcional)',
     commentPlaceholder: 'Qué te molesta, detalles…',
+    recoveryTitle: 'Procedimientos de recuperación de ayer',
+    recoveryMethod: {
+      massage: 'Masaje',
+      compression: 'Compresión',
+      cryo_compression: 'Crioterapia compresiva',
+      physio: 'Fisioterapia',
+    },
     bodyMap: {
       left: 'IZQ.',
       right: 'DER.',
@@ -234,6 +241,8 @@ const es: typeof ru = {
     injurySymptom: 'Lesión / malestar',
     noInjury: 'Sin lesión',
     noSymptom: 'Sin malestar',
+    recovery: 'Procedimientos de recuperación',
+    noRecovery: 'Sin procedimientos',
     comment: 'Comentario del jugador',
     rpe: 'RPE',
     sleepHours: 'Sueño, h',

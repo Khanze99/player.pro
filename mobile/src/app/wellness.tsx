@@ -18,10 +18,11 @@ import { useTranslation } from 'react-i18next';
 
 import { ApiError } from '@/api/client';
 import { todayISO, useSubmitWellness } from '@/api/hooks';
-import type { InjuryType, PainPoint, SymptomType } from '@/api/types';
+import type { InjuryType, PainPoint, RecoveryMethod, SymptomType } from '@/api/types';
 import { BodyMap } from '@/components/BodyMap';
 import { Button } from '@/components/Button';
 import { OptionChips } from '@/components/OptionChips';
+import { RecoveryMethods } from '@/components/RecoveryMethods';
 import { ScaleBar } from '@/components/ScaleBar';
 import { Screen } from '@/components/Screen';
 import { useToast } from '@/components/Toast';
@@ -76,6 +77,7 @@ export default function Wellness() {
   const [symptom, setSymptom] = useState(false);
   const [symptomType, setSymptomType] = useState<SymptomType | null>(null);
   const [symptomDetails, setSymptomDetails] = useState('');
+  const [recoveryMethods, setRecoveryMethods] = useState<RecoveryMethod[]>([]);
   const [comment, setComment] = useState('');
 
   const scales = [sleep, energy, soreness, stress, mood];
@@ -109,6 +111,7 @@ export default function Wellness() {
         resting_hr: restingHr ? Number(restingHr) : null,
         comment: comment.trim() ? comment.trim() : null,
         pain_points: painPoints,
+        recovery_methods: recoveryMethods,
       });
       toast(t('common.saved'));
       router.back();
@@ -260,6 +263,9 @@ export default function Wellness() {
               )}
             </>
           )}
+
+          <Text style={styles.sectionLabel}>{t('wellness.recoveryTitle')}</Text>
+          <RecoveryMethods value={recoveryMethods} onChange={setRecoveryMethods} />
 
           <Text style={styles.sectionLabel}>{t('wellness.comment')}</Text>
           <TextInput

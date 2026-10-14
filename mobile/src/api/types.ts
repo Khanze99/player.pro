@@ -124,6 +124,10 @@ export interface PainPoint {
   note?: string | null; // что болит и как, необязательно, привязано к точке
 }
 
+// Восстановительные процедуры вчера — закрытый список, деталь для medic/coach,
+// на Readiness не влияет (зеркалит RecoveryMethod backend/app/models/enums.py).
+export type RecoveryMethod = 'massage' | 'compression' | 'cryo_compression' | 'physio';
+
 export interface WellnessEntry {
   id: string;
   date: string;
@@ -143,6 +147,7 @@ export interface WellnessEntry {
   resting_hr: number | null;
   comment: string | null;
   pain_points: PainPoint[];
+  recovery_methods: RecoveryMethod[];
 }
 
 export interface RpeEntry {
@@ -195,6 +200,7 @@ export interface WellnessPayload {
   resting_hr?: number | null;
   comment?: string | null;
   pain_points?: PainPoint[];
+  recovery_methods?: RecoveryMethod[];
 }
 
 // События расписания: командные (team_id задан) и индивидуальные (backend/app/schemas/event.py)
