@@ -29,6 +29,11 @@ import { MicroLabel, ScreenTitle } from '@/components/Typography';
 import { spacing, type Theme, useStyles, useTheme } from '@/theme';
 
 const SLEEP_HOURS = [5, 6, 7, 8, 9, 10];
+// Тот же порог, что и в backend/app/services/dashboard_service.py (PAIN_THRESHOLD):
+// там soreness >= 7 уже считается «есть боль» для отчёта тренеру/врачу. Раз это
+// порог, после которого коуч/медик должны увидеть боль, с этого же порога нужно
+// заставить игрока указать где, иначе отчёт получит флаг без локации.
+const PAIN_THRESHOLD = 7;
 const INJURY_TYPES: readonly InjuryType[] = [
   'muscle',
   'joint',
@@ -67,13 +72,22 @@ export default function Wellness() {
   const [painPoints, setPainPoints] = useState<PainPoint[]>([]);
   const [injury, setInjury] = useState(false);
   const [injuryType, setInjuryType] = useState<InjuryType | null>(null);
+  const [injuryDetails, setInjuryDetails] = useState('');
   const [symptom, setSymptom] = useState(false);
   const [symptomType, setSymptomType] = useState<SymptomType | null>(null);
+  const [symptomDetails, setSymptomDetails] = useState('');
   const [comment, setComment] = useState('');
 
   const scales = [sleep, energy, soreness, stress, mood];
   const done = scales.filter((v) => v !== null).length + (sleepHours !== null ? 1 : 0);
-  const complete = scales.every((v) => v !== null);
+
+  // Травма или высокая боль: локация на карте обязательна, иначе тренер/врач
+  // получит голый флаг без «где именно» (см. постановку задачи).
+  const painMapRequired = injury || (soreness !== null && soreness >= PAIN_THRESHOLD);
+  const painMapOk = !painMapRequired || painPoints.length > 0;
+  const injuryTypeOk = !injury || injuryType !== null;
+
+  const complete = scales.every((v) => v !== null) && painMapOk && injuryTypeOk;
 
   const save = async () => {
     try {
@@ -87,8 +101,11 @@ export default function Wellness() {
         soreness: soreness!,
         injury,
         injury_type: injury ? injuryType : null,
+        injury_details: injury && injuryType === 'other' && injuryDetails.trim() ? injuryDetails.trim() : null,
         symptom,
         symptom_type: symptom ? symptomType : null,
+        symptom_details:
+          symptom && symptomType === 'other' && symptomDetails.trim() ? symptomDetails.trim() : null,
         resting_hr: restingHr ? Number(restingHr) : null,
         comment: comment.trim() ? comment.trim() : null,
         pain_points: painPoints,
@@ -154,6 +171,9 @@ export default function Wellness() {
 
           <MicroLabel style={styles.section}>{t('wellness.painMapTitle')}</MicroLabel>
           <BodyMap value={painPoints} onChange={setPainPoints} severity={soreness ?? 5} />
+          {painMapRequired && painPoints.length === 0 && (
+            <Text style={styles.requiredHint}>{t('wellness.painMapRequired')}</Text>
+          )}
 
           <Text style={styles.sectionLabel}>{t('wellness.sleepHours')}</Text>
           <View style={styles.hoursRow}>
@@ -197,6 +217,17 @@ export default function Wellness() {
                 onSelect={setInjuryType}
                 labelFor={(v) => t(`wellness.injuryType.${v}`)}
               />
+              {!injuryType && <Text style={styles.requiredHint}>{t('wellness.injuryTypeRequired')}</Text>}
+              {injuryType === 'other' && (
+                <TextInput
+                  style={styles.detailsInput}
+                  value={injuryDetails}
+                  onChangeText={setInjuryDetails}
+                  placeholder={t('wellness.details')}
+                  placeholderTextColor={th.textMuted}
+                  maxLength={512}
+                />
+              )}
             </>
           )}
 
@@ -217,6 +248,16 @@ export default function Wellness() {
                 onSelect={setSymptomType}
                 labelFor={(v) => t(`wellness.symptomType.${v}`)}
               />
+              {symptomType === 'other' && (
+                <TextInput
+                  style={styles.detailsInput}
+                  value={symptomDetails}
+                  onChangeText={setSymptomDetails}
+                  placeholder={t('wellness.details')}
+                  placeholderTextColor={th.textMuted}
+                  maxLength={512}
+                />
+              )}
             </>
           )}
 
@@ -277,6 +318,12 @@ const makeStyles = (th: Theme) => StyleSheet.create({
     marginTop: spacing.xl,
     marginBottom: spacing.m,
   },
+  requiredHint: {
+    fontFamily: th.font.medium,
+    fontSize: 12.5,
+    color: th.risk,
+    marginTop: spacing.s,
+  },
   subLabel: {
     fontFamily: th.font.medium,
     fontSize: 13,
@@ -318,6 +365,18 @@ const makeStyles = (th: Theme) => StyleSheet.create({
     marginTop: spacing.l,
   },
   toggleLabel: { fontFamily: th.font.semibold, fontSize: 18, color: th.text },
+  detailsInput: {
+    backgroundColor: th.surface2,
+    borderWidth: 1,
+    borderColor: th.border,
+    borderRadius: th.radius.control,
+    minHeight: 48,
+    marginTop: spacing.s,
+    paddingHorizontal: spacing.l,
+    color: th.text,
+    fontFamily: th.font.regular,
+    fontSize: 15,
+  },
   commentInput: {
     backgroundColor: th.surface2,
     borderWidth: 1,

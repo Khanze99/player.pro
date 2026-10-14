@@ -90,6 +90,20 @@ export const useAthleteRpeHistory = (athleteId: string | undefined, days = 28) =
       ),
   });
 
+/** Полный опрос другого игрока за день — экран «День целиком» (athlete/[id]/day/[date].tsx).
+ * В отличие от useAthleteRpeHistory выше, это НЕ урезано: карта боли, комментарий,
+ * структурные injury/symptom — тренер и врач видят одинаково (ensure_can_view_athlete
+ * уже пускает обоих, схема на бэкенде не резалась никогда — резал только этот хук). */
+export const useAthleteWellnessHistory = (athleteId: string | undefined, days = 28) =>
+  useQuery({
+    queryKey: ['athlete-wellness', athleteId, days],
+    enabled: !!athleteId,
+    queryFn: () =>
+      api<WellnessEntry[]>(
+        `/wellness/athletes/${athleteId}?date_from=${daysAgoISO(days - 1)}&date_to=${todayISO()}`,
+      ),
+  });
+
 /** Разбивка Readiness за день — почему именно такой балл (раздел 6.4 ТЗ).
  * athleteId=undefined — свои данные (/me); задан — чужие, по правилам ensure_can_view_athlete.
  * retry:false — 404 «опроса в этот день не было» ожидаемое состояние, не сбой сети. */

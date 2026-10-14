@@ -40,6 +40,7 @@ function PlayerRow({ player, last }: { player: SquadPlayer; last: boolean }) {
   const flags: { label: string; color: string }[] = [];
   if (!player.wellness_filled) flags.push({ label: t('coach.noSurvey'), color: th.textMuted });
   if (player.active_injury) flags.push({ label: t('coach.injury'), color: th.risk });
+  if (player.has_pain_points) flags.push({ label: t('coach.painFlag'), color: th.caution });
   if (player.hr_flag) flags.push({ label: t('coach.hrFlag'), color: th.caution });
 
   return (

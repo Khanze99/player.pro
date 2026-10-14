@@ -120,7 +120,8 @@ export type SymptomType =
 export interface PainPoint {
   region: BodyRegion;
   side: BodySide;
-  severity: number; // 1–10
+  severity: number; // 1–10, своя для этой точки
+  note?: string | null; // что болит и как, необязательно, привязано к точке
 }
 
 export interface WellnessEntry {
@@ -135,8 +136,10 @@ export interface WellnessEntry {
   injury: boolean;
   injury_area: BodyRegion | null;
   injury_type: InjuryType | null;
+  injury_details: string | null;
   symptom: boolean;
   symptom_type: SymptomType | null;
+  symptom_details: string | null;
   resting_hr: number | null;
   comment: string | null;
   pain_points: PainPoint[];
@@ -246,6 +249,7 @@ export interface SquadPlayer {
   wellness_filled: boolean;
   active_injury: boolean;
   hr_flag: boolean;
+  has_pain_points: boolean;
 }
 
 export interface SquadStatus {
