@@ -20,6 +20,7 @@ class PainPoint(Base):
     entry_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("wellness_entries.id"), index=True)
     region: Mapped[BodyRegion] = mapped_column(String(16))
     side: Mapped[BodySide] = mapped_column(String(8))
-    severity: Mapped[int] = mapped_column()  # 1–10
+    severity: Mapped[int] = mapped_column()  # 1–10, своя для этой точки (не общий soreness)
+    note: Mapped[str | None] = mapped_column(String(256), default=None)
 
     entry: Mapped["WellnessEntry"] = relationship(back_populates="pain_points")  # noqa: F821

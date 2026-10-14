@@ -10,6 +10,7 @@ class PainPointIn(BaseModel):
     region: BodyRegion
     side: BodySide = BodySide.center
     severity: int = Field(ge=1, le=10)
+    note: str | None = Field(default=None, max_length=256)
 
 
 class PainPointOut(BaseModel):
@@ -18,6 +19,7 @@ class PainPointOut(BaseModel):
     region: BodyRegion
     side: BodySide
     severity: int
+    note: str | None
 
 
 class WellnessCreateIn(BaseModel):

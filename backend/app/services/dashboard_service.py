@@ -22,6 +22,7 @@ from app.models.enums import (
 from app.models.event import Attendance, Event
 from app.models.injury import InjuryRecord
 from app.models.metric import DailyMetric
+from app.models.pain_point import PainPoint
 from app.models.rpe import RpeEntry
 from app.models.team import Team, TeamMembership
 from app.models.user import AthleteProfile, User, display_name
@@ -80,6 +81,18 @@ async def _active_injuries(db: AsyncSession, athlete_ids: list[uuid.UUID]) -> se
     return set(rows.scalars())
 
 
+async def _pain_marked_today(db: AsyncSession, athlete_ids: list[uuid.UUID], day: date) -> set[uuid.UUID]:
+    """Кто отметил хоть одну точку на карте боли сегодня, независимо от того,
+    оформлена ли она как InjuryRecord (_active_injuries выше: другой, более
+    формальный источник)."""
+    rows = await db.execute(
+        select(WellnessEntry.athlete_id.distinct())
+        .join(PainPoint, PainPoint.entry_id == WellnessEntry.id)
+        .where(WellnessEntry.athlete_id.in_(athlete_ids), WellnessEntry.date == day)
+    )
+    return set(rows.scalars())
+
+
 async def _window_metrics(
     db: AsyncSession, athlete_ids: list[uuid.UUID], day: date, days: int
 ) -> dict[uuid.UUID, tuple[float, float | None]]:
@@ -122,6 +135,7 @@ async def squad_status(db: AsyncSession, team_id: uuid.UUID, day: date) -> Squad
 
     availability = await _current_availability(db, athlete_ids, day)
     injured = await _active_injuries(db, athlete_ids)
+    pain_marked = await _pain_marked_today(db, athlete_ids, day)
     window = await _window_metrics(db, athlete_ids, day, LOAD_WINDOW_DAYS)
 
     availability_pct: dict[uuid.UUID, float | None] = {}
@@ -150,6 +164,7 @@ async def squad_status(db: AsyncSession, team_id: uuid.UUID, day: date) -> Squad
                 wellness_filled=bool(metric and metric.readiness is not None),
                 active_injury=athlete_id in injured,
                 hr_flag=bool(metric and metric.hr_flag),
+                has_pain_points=athlete_id in pain_marked,
             )
         )
 

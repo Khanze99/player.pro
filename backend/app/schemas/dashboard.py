@@ -34,6 +34,9 @@ class SquadPlayerOut(BaseModel):
     wellness_filled: bool
     active_injury: bool
     hr_flag: bool
+    #: Отметил сегодня хоть одну точку на карте боли (wellness.pain_points),
+    #: необязательно оформлено как InjuryRecord (active_injury): просто «гляньте».
+    has_pain_points: bool
 
 
 class SquadStatusOut(BaseModel):

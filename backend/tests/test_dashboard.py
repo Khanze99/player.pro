@@ -23,6 +23,7 @@ from app.models.enums import (
 from app.models.event import Event
 from app.models.injury import InjuryRecord
 from app.models.organization import Organization
+from app.models.pain_point import PainPoint
 from app.models.rpe import RpeEntry
 from app.models.team import Team, TeamMembership
 from app.models.user import User
@@ -248,6 +249,35 @@ async def test_alerts_flag_risk_players(db):
     assert "low_sleep" in alert.reasons
     assert "low_readiness" not in alert.reasons
     assert "injury" in alert.reasons
+
+
+# ------------------------------------------------------------------ Squad Status
+
+
+async def test_squad_status_flags_athletes_with_pain_points(db):
+    """Отметил хоть одну точку на карте боли сегодня: has_pain_points=True,
+    независимо от того, оформлена ли она как InjuryRecord (другой флаг,
+    active_injury). Ровно то, что нужно тренеру/врачу в списке состава."""
+    today = date.today()
+    team_id, athletes = await _team_with_athletes(db, 2)
+
+    marked = WellnessEntry(
+        athlete_id=athletes[0], date=today, mood=6, energy=6, sleep_quality=6, stress=4, soreness=7
+    )
+    marked.pain_points.append(PainPoint(region=BodyRegion.quad, side=BodySide.right, severity=7))
+    db.add(marked)
+    db.add(
+        WellnessEntry(
+            athlete_id=athletes[1], date=today, mood=7, energy=7, sleep_quality=7, stress=3, soreness=2
+        )
+    )
+    await db.commit()
+
+    status = await dashboard_service.squad_status(db, team_id, today)
+
+    by_id = {p.athlete_id: p for p in status.players}
+    assert by_id[athletes[0]].has_pain_points is True
+    assert by_id[athletes[1]].has_pain_points is False
 
 
 # ------------------------------------------------------------------ травмы
