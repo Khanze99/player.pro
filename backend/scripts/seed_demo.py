@@ -45,10 +45,13 @@ from app.models.enums import (  # noqa: E402
 from app.models.event import Attendance, Event  # noqa: E402
 from app.models.injury import InjuryRecord  # noqa: E402
 from app.models.invitation import Invitation  # noqa: E402
+from app.models.medical_exam import MedicalExam  # noqa: E402
 from app.models.metric import DailyMetric, Streak  # noqa: E402
 from app.models.notification import Notification  # noqa: E402
 from app.models.nutrition import FoodItem, FoodLogEntry, NutritionTarget  # noqa: E402
 from app.models.organization import Organization  # noqa: E402
+from app.models.pain_point import PainPoint  # noqa: E402
+from app.models.policy_consent import PolicyConsent  # noqa: E402
 from app.models.rpe import RpeEntry  # noqa: E402
 from app.models.team import Team, TeamMembership  # noqa: E402
 from app.models.user import AthleteProfile, RefreshToken, User  # noqa: E402
@@ -205,6 +208,59 @@ SYMPTOMS: list[tuple[SymptomType, str]] = [
     (SymptomType.other, "Укус клеща, сдал анализы"),
 ]
 
+# Регионы, у которых реально есть зона на манекене (mobile/mannequinPaths.ts
+# MANNEQUIN_ZONES) и подпись (mobile/i18n *.ts wellness.bodyMap.region.*).
+# BodyRegion шире этого набора (knee/groin/ankle/… есть у InjuryRecord), но
+# карта боли умеет рисовать только эти: вне набора точка не найдёт зону и
+# подпись останется непереведённым ключом. Руками в синхроне с клиентом.
+MAPPED_PAIN_REGIONS: frozenset[BodyRegion] = frozenset(
+    {
+        BodyRegion.head,
+        BodyRegion.chest,
+        BodyRegion.forearm,
+        BodyRegion.hand,
+        BodyRegion.quad,
+        BodyRegion.shin,
+        BodyRegion.upper_back,
+        BodyRegion.lower_back,
+        BodyRegion.glute,
+        BodyRegion.hamstring,
+        BodyRegion.calf,
+    }
+)
+
+# Карта боли (pain_points): транзиентная мышечная боль без статуса InjuryRecord,
+# самые частые зоны у футболиста при высоком soreness, не привязанные к активной травме.
+SORENESS_POINTS: list[tuple[BodyRegion, BodySide]] = [
+    (BodyRegion.quad, BodySide.left),
+    (BodyRegion.quad, BodySide.right),
+    (BodyRegion.calf, BodySide.left),
+    (BodyRegion.calf, BodySide.right),
+    (BodyRegion.hamstring, BodySide.left),
+    (BodyRegion.hamstring, BodySide.right),
+    (BodyRegion.lower_back, BodySide.center),
+    (BodyRegion.upper_back, BodySide.center),
+]
+
+PAIN_NOTES: list[str | None] = [
+    "Тянет на ускорениях",
+    "Побаливает после вчерашней тренировки",
+    "Ноет к вечеру",
+    "После контакта в игре",
+    "Было и раньше, не впервые",
+    None,
+    None,  # половина точек, без комментария, это нормально
+]
+
+DAY_COMMENTS: list[str] = [
+    "Тяжело восстанавливаюсь после вчерашней нагрузки",
+    "Спал плохо, сосед шумел",
+    "Чувствую себя хорошо, готов к работе",
+    "Небольшая усталость в ногах, в остальном норм",
+    "Стресс из-за экзаменов, сплю мало",
+    "Долго разминался сегодня",
+]
+
 # Самооценка выступления привязана к самочувствию, а не к тяжести сессии:
 # тяжело ≠ плохо сыграл, иначе перфоманс просто дублирует RPE.
 PERFORMANCE_BASE: dict[str, float] = {"green": 8.0, "yellow": 6.0, "red": 4.0, "mixed": 6.5}
@@ -326,6 +382,9 @@ DEMO_OWNED: tuple[tuple[type, str], ...] = (
     (FoodItem, "created_by"),  # только custom-продукты автора, у curated created_by=NULL
     (NutritionTarget, "user_id"),
     (DataConsent, "athlete_id"),
+    (PolicyConsent, "user_id"),
+    (MedicalExam, "athlete_id"),
+    (MedicalExam, "created_by"),
     (Notification, "user_id"),
     (AuditLog, "actor_id"),
     (Invitation, "invited_by"),
@@ -358,6 +417,13 @@ async def wipe_demo(db) -> int:
     )
     if demo_cycle_logs:
         await db.execute(delete(CycleSymptomLog).where(CycleSymptomLog.log_id.in_(demo_cycle_logs)))
+
+    # Карта боли висит на wellness_entries, а не на игроке напрямую
+    demo_wellness = list(
+        (await db.execute(select(WellnessEntry.id).where(WellnessEntry.athlete_id.in_(demo_ids)))).scalars()
+    )
+    if demo_wellness:
+        await db.execute(delete(PainPoint).where(PainPoint.entry_id.in_(demo_wellness)))
 
     for model, column in DEMO_OWNED:
         await db.execute(delete(model).where(getattr(model, column).in_(demo_ids)))
@@ -504,6 +570,9 @@ async def seed(days: int, reset: bool, seed_value: int) -> None:
         wellness_count = 0
         for user, archetype in athletes:
             band_for_athlete = archetype.wellness
+            # Выбираем травму один раз на игрока (не на день), чтобы карта боли
+            # за разные дни указывала на ту же зону, что и итоговый InjuryRecord.
+            injury_choice = rng.choice(ACTIVE_INJURIES) if archetype.injured else None
             for offset in range(days):
                 day = start + timedelta(days=offset)
                 event = events.get(day)
@@ -563,23 +632,49 @@ async def seed(days: int, reset: bool, seed_value: int) -> None:
                 baseline = profile.baseline_resting_hr if profile else 55
                 has_symptom = rng.random() < 0.03
                 symptom_type, symptom_details = rng.choice(SYMPTOMS) if has_symptom else (None, None)
-                db.add(
-                    WellnessEntry(
-                        athlete_id=user.id,
-                        date=day,
-                        mood=rng.randint(*band["mood"]),
-                        energy=rng.randint(*band["energy"]),
-                        sleep_quality=rng.randint(*band["sleep_quality"]),
-                        sleep_hours=round(rng.uniform(5.5, 9.0), 1),
-                        stress=rng.randint(*band["stress"]),
-                        soreness=rng.randint(*band["soreness"]),
-                        injury=archetype.injured and (today - day).days <= 16,
-                        symptom=has_symptom,
-                        symptom_type=symptom_type,
-                        symptom_details=symptom_details,
-                        resting_hr=baseline + rng.randint(-4, 9),
-                    )
+                soreness_val = rng.randint(*band["soreness"])
+                is_injury_day = archetype.injured and (today - day).days <= 16
+                entry = WellnessEntry(
+                    athlete_id=user.id,
+                    date=day,
+                    mood=rng.randint(*band["mood"]),
+                    energy=rng.randint(*band["energy"]),
+                    sleep_quality=rng.randint(*band["sleep_quality"]),
+                    sleep_hours=round(rng.uniform(5.5, 9.0), 1),
+                    stress=rng.randint(*band["stress"]),
+                    soreness=soreness_val,
+                    injury=is_injury_day,
+                    injury_area=injury_choice[1] if is_injury_day and injury_choice else None,
+                    injury_type=injury_choice[3] if is_injury_day and injury_choice else None,
+                    # Тот же заголовок, что уйдёт в InjuryRecord.type ниже: иначе
+                    # enum «Другое» в отчёте ничего не объясняет (см. Укус клеща).
+                    injury_details=injury_choice[0] if is_injury_day and injury_choice else None,
+                    symptom=has_symptom,
+                    symptom_type=symptom_type,
+                    symptom_details=symptom_details,
+                    resting_hr=baseline + rng.randint(-4, 9),
+                    comment=rng.choice(DAY_COMMENTS) if rng.random() < 0.15 else None,
                 )
+                # Карта боли: точка на зоне активной травмы, либо (при высоком
+                # soreness, без травмы) транзиентная мышечная боль, деталь для
+                # medic/coach, в Readiness не участвует (см. PainPoint docstring).
+                if is_injury_day and injury_choice and injury_choice[1] in MAPPED_PAIN_REGIONS:
+                    entry.pain_points.append(
+                        PainPoint(
+                            region=injury_choice[1],
+                            side=injury_choice[2],
+                            severity=min(10, soreness_val + rng.randint(0, 2)),
+                            note=rng.choice(PAIN_NOTES),
+                        )
+                    )
+                elif soreness_val >= 7 and rng.random() < 0.6:
+                    region, side = rng.choice(SORENESS_POINTS)
+                    entry.pain_points.append(
+                        PainPoint(
+                            region=region, side=side, severity=soreness_val, note=rng.choice(PAIN_NOTES)
+                        )
+                    )
+                db.add(entry)
                 wellness_count += 1
 
             # Доступность: пишем точки смены статуса за всё окно. summary_90d наследует
@@ -589,8 +684,8 @@ async def seed(days: int, reset: bool, seed_value: int) -> None:
                 db.add(
                     AvailabilityRecord(athlete_id=user.id, date=change_day, status=status, set_by=coach.id)
                 )
-            if archetype.injured:
-                title, region, side, injury_type, severity = rng.choice(ACTIVE_INJURIES)
+            if archetype.injured and injury_choice:
+                title, region, side, injury_type, severity = injury_choice
                 db.add(
                     InjuryRecord(
                         athlete_id=user.id,

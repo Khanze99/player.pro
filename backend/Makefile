@@ -76,6 +76,18 @@ delete-user: ## Удалить юзера со всеми данными: make d
 	@test -n "$(identifier)" || (echo 'Нужно: make delete-user identifier="a@b.com" [yes=1]'; exit 1)
 	$(PYTHON) scripts/delete_user.py --identifier "$(identifier)" $(if $(filter 1,$(yes)),--yes,)
 
+invite: ## Пригласить email в демо-организацию тестовой ролью: make invite org="ФK РУБИН" team="Основа" email="a@b.com" role=head_coach
+	@test -n "$(org)" -a -n "$(team)" -a -n "$(email)" -a -n "$(role)" || (echo 'Нужно: make invite org="ФK РУБИН" team="Основа" email="a@b.com" role=head_coach'; exit 1)
+	$(PYTHON) scripts/invite_staff.py --org "$(org)" --team "$(team)" --email "$(email)" --role "$(role)"
+
+seed-player: ## Довключить реальный email в демо-команду с историей опросов/RPE (игрок уже должен существовать): make seed-player email="a@b.com" org="ФK РУБИН" team="Основа" [days=21] [load=steady] [wellness=mixed] [injured=1]
+	@test -n "$(email)" -a -n "$(org)" -a -n "$(team)" || (echo 'Нужно: make seed-player email="a@b.com" org="ФK РУБИН" team="Основа"'; exit 1)
+	$(PYTHON) scripts/seed_player.py --email "$(email)" --org "$(org)" --team "$(team)" $(if $(days),--days $(days),) $(if $(load),--load $(load),) $(if $(wellness),--wellness $(wellness),) $(if $(filter 1,$(injured)),--injured,)
+
+set-role: ## Сменить роль уже состоящего в организации участника (global_role + team_role разом): make set-role email="a@b.com" org="ФK РУБИН" team="Основа" role=coach
+	@test -n "$(email)" -a -n "$(org)" -a -n "$(team)" -a -n "$(role)" || (echo 'Нужно: make set-role email="a@b.com" org="ФK РУБИН" team="Основа" role=coach'; exit 1)
+	$(PYTHON) scripts/set_role.py --email "$(email)" --org "$(org)" --team "$(team)" --role "$(role)"
+
 infra-up: ## Поднять PostgreSQL + Redis
 	$(COMPOSE) up -d postgres redis
 

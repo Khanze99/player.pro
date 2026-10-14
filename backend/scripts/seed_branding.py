@@ -23,6 +23,7 @@ from sqlalchemy import select  # noqa: E402
 
 from app.core.contrast import contrast_ratio, delta_e  # noqa: E402
 from app.database import AsyncSessionLocal  # noqa: E402
+from app.models.branding import OrganizationBranding  # noqa: E402
 from app.models.organization import Organization  # noqa: E402
 from app.schemas.branding import ThemeTokens  # noqa: E402
 from app.services.branding_service import set_branding  # noqa: E402
@@ -87,7 +88,15 @@ async def seed(org_name: str, theme_path: Path, logo_url: str | None, logo_file:
         ).scalar_one_or_none()
         if org is None:
             raise SystemExit(f"Организация «{org_name}» не найдена")
-        url = place_logo(org.id, logo_file) if logo_file else logo_url
+        if logo_file:
+            url = place_logo(org.id, logo_file)
+        elif logo_url:
+            url = logo_url
+        else:
+            # Перекраска без --logo/--logo-file не должна молча стирать герб,
+            # заведённый прошлым запуском — set_branding пишет logo_url как есть.
+            existing = await db.get(OrganizationBranding, org.id)
+            url = existing.logo_url if existing else None
         branding = await set_branding(db, org.id, tokens, url)
         if url:
             print(f"Герб: {url}")
