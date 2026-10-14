@@ -21,26 +21,53 @@ export interface Zone {
 // буквально делили одну и ту же кривую, тогда дивайдер и заливка совпадают
 // по построению, без ручной подгонки на глаз. Геометрия проверена рендером
 // через qlmanage (растеризация SVG → PNG) перед тем, как попасть в код.
+//
+// Детализация руки/ноги (shoulder/elbow/knee/foot — обсуждение концепта, см.
+// docs): «рука» и «бедро+голень» разрезаны на дополнительные зоны прямыми
+// резами по уже существующим координатам, без нового трейса.
+//   - рука: плечо (верх до локтя) / локоть / предплечье (как раньше, но короче).
+//     Медиальный край «плеча» — НЕ старый контур руки (он уходил в «грудь» на
+//     7px у основания шеи), а кусок кривой Безье самой зоны chest, подрезанный
+//     подразбиением (De Casteljau) ровно в точке пересечения с резом y=150 —
+//     так шов с chest общий по построению, а не подогнан на глаз.
+//   - нога: бедро / колено / голень (как раньше, но короче снизу и сверху) / стопа.
+//     Колено и стопа — одна и та же зона что на виде спереди, что сзади
+//     (в BodyRegion у них нет отдельных front/back значений, в отличие от
+//     quad/hamstring и shin/calf), поэтому geometry на обоих видах идентична.
+//     Лодыжка отдельным хитбоксом не выделена — полоска вышла бы слишком узкой,
+//     стопа покрывает ankle+foot одной зоной.
 export const MANNEQUIN_ZONES: Zone[] = [
   { region: 'head', side: 'center', view: 'front', d: 'M108,0 L108,99 Q147,91 188,99 L188,0 Z' },
   { region: 'chest', side: 'center', view: 'front', d: 'M100,99 Q147,90 194,99 Q206,175 198,255 Q147,263 96,255 Q88,175 100,99 Z' },
-  { region: 'forearm', side: 'left', view: 'front', d: 'M108,90 L60,96 L44,150 L34,214 L12,262 L52,270 Q82,212 96,158 Q106,114 108,90 Z' },
+  { region: 'shoulder', side: 'left', view: 'front', d: 'M108,90 L60,96 L44,150 L94.2,150 Q96,124 100,99 Z' },
+  { region: 'elbow', side: 'left', view: 'front', d: 'M44,150 L34,214 L77.6,214 L94.2,150 Z' },
+  { region: 'forearm', side: 'left', view: 'front', d: 'M34,214 L12,262 L52,270 Q70,245 77.6,214 Z' },
   { region: 'hand', side: 'left', view: 'front', d: 'M12,258 Q33,272 52,268 L56,306 L0,306 L2,256 Z' },
-  { region: 'quad', side: 'left', view: 'front', d: 'M147,250 Q120,257 92,250 L78,318 L80,414 Q115,419 147,414 Z' },
-  { region: 'shin', side: 'left', view: 'front', d: 'M147,412 Q115,418 80,410 L70,580 L147,580 Z' },
-  { region: 'forearm', side: 'right', view: 'front', d: 'M186,90 L234,96 L250,150 L260,214 L282,262 L242,270 Q212,212 198,158 Q188,114 186,90 Z' },
+  { region: 'quad', side: 'left', view: 'front', d: 'M147,250 Q120,257 92,250 L78,318 L78.7,350 L147,350 Z' },
+  { region: 'knee', side: 'left', view: 'front', d: 'M78.7,350 L80,412 Q115,418 147,412 L147,350 Z' },
+  { region: 'shin', side: 'left', view: 'front', d: 'M147,412 Q115,418 80,410 L71.5,555 L147,555 Z' },
+  { region: 'foot', side: 'left', view: 'front', d: 'M71.5,555 L70,580 L147,580 L147,555 Z' },
+  { region: 'shoulder', side: 'right', view: 'front', d: 'M186,90 L234,96 L250,150 L199.8,150 Q198,124 194,99 Z' },
+  { region: 'elbow', side: 'right', view: 'front', d: 'M250,150 L260,214 L216.4,214 L199.8,150 Z' },
+  { region: 'forearm', side: 'right', view: 'front', d: 'M260,214 L282,262 L242,270 Q224,245 216.4,214 Z' },
   { region: 'hand', side: 'right', view: 'front', d: 'M282,258 Q261,272 242,268 L238,306 L294,306 L292,256 Z' },
-  { region: 'quad', side: 'right', view: 'front', d: 'M147,250 Q174,257 202,250 L216,318 L214,414 Q179,419 147,414 Z' },
-  { region: 'shin', side: 'right', view: 'front', d: 'M147,412 Q179,418 214,410 L224,580 L147,580 Z' },
+  { region: 'quad', side: 'right', view: 'front', d: 'M147,250 Q174,257 202,250 L216,318 L215.3,350 L147,350 Z' },
+  { region: 'knee', side: 'right', view: 'front', d: 'M215.3,350 L214,412 Q179,418 147,412 L147,350 Z' },
+  { region: 'shin', side: 'right', view: 'front', d: 'M147,412 Q179,418 214,410 L222.5,555 L147,555 Z' },
+  { region: 'foot', side: 'right', view: 'front', d: 'M222.5,555 L224,580 L147,580 L147,555 Z' },
 
   { region: 'upper_back', side: 'center', view: 'back', d: 'M100,99 Q147,90 194,99 Q198,143 196,185 Q147,193 98,185 Q96,143 100,99 Z' },
   { region: 'lower_back', side: 'center', view: 'back', d: 'M98,185 Q147,193 196,185 Q199,220 197,250 Q172,258 147,254 Q122,258 97,250 Q95,220 98,185 Z' },
   { region: 'glute', side: 'left', view: 'back', d: 'M97,250 Q122,258 147,254 L147,292 Q118,299 90,292 Q89,270 97,250 Z' },
   { region: 'glute', side: 'right', view: 'back', d: 'M197,250 Q172,258 147,254 L147,292 Q176,299 204,292 Q205,270 197,250 Z' },
-  { region: 'hamstring', side: 'left', view: 'back', d: 'M90,292 Q118,299 147,292 L147,412 Q115,418 80,410 L78,318 Q82,302 90,292 Z' },
-  { region: 'hamstring', side: 'right', view: 'back', d: 'M204,292 Q176,299 147,292 L147,412 Q179,418 214,410 L216,318 Q212,302 204,292 Z' },
-  { region: 'calf', side: 'left', view: 'back', d: 'M147,412 Q115,418 80,410 L70,580 L147,580 Z' },
-  { region: 'calf', side: 'right', view: 'back', d: 'M147,412 Q179,418 214,410 L224,580 L147,580 Z' },
+  { region: 'hamstring', side: 'left', view: 'back', d: 'M90,292 Q118,299 147,292 L147,350 L78.7,350 Q82,302 90,292 Z' },
+  { region: 'knee', side: 'left', view: 'back', d: 'M78.7,350 L80,412 Q115,418 147,412 L147,350 Z' },
+  { region: 'calf', side: 'left', view: 'back', d: 'M147,412 Q115,418 80,410 L71.5,555 L147,555 Z' },
+  { region: 'foot', side: 'left', view: 'back', d: 'M71.5,555 L70,580 L147,580 L147,555 Z' },
+  { region: 'hamstring', side: 'right', view: 'back', d: 'M204,292 Q176,299 147,292 L147,350 L215.3,350 Q212,302 204,292 Z' },
+  { region: 'knee', side: 'right', view: 'back', d: 'M215.3,350 L214,412 Q179,418 147,412 L147,350 Z' },
+  { region: 'calf', side: 'right', view: 'back', d: 'M147,412 Q179,418 214,410 L222.5,555 L147,555 Z' },
+  { region: 'foot', side: 'right', view: 'back', d: 'M222.5,555 L224,580 L147,580 L147,555 Z' },
 ];
 
 export const MANNEQUIN_DIVIDERS_FRONT: string[] = [
@@ -53,6 +80,14 @@ export const MANNEQUIN_DIVIDERS_FRONT: string[] = [
   'M194,102 Q204,178 197,251',
   'M279,261 Q261,271 245,268',
   'M212,411 Q179,417 147,413',
+  'M44,150 L94.2,150',
+  'M250,150 L199.8,150',
+  'M34,214 L77.6,214',
+  'M260,214 L216.4,214',
+  'M78.7,350 L147,350',
+  'M215.3,350 L147,350',
+  'M71.5,555 L147,555',
+  'M222.5,555 L147,555',
 ];
 
 // Координаты: ровно границы зон выше (см. комментарий к MANNEQUIN_ZONES).
@@ -68,4 +103,8 @@ export const MANNEQUIN_DIVIDERS_BACK: string[] = [
   'M204,292 Q176,299 147,292',
   'M80,410 Q115,418 147,412',
   'M214,410 Q179,418 147,412',
+  'M78.7,350 L147,350',
+  'M215.3,350 L147,350',
+  'M71.5,555 L147,555',
+  'M222.5,555 L147,555',
 ];
