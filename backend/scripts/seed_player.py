@@ -29,19 +29,21 @@ import seed_demo as demo  # noqa: E402
 from sqlalchemy import delete, select  # noqa: E402
 
 from app.database import AsyncSessionLocal  # noqa: E402
-from app.models.enums import AttendanceStatus, GlobalRole, TeamRole  # noqa: E402
+from app.models.consent import DataConsent  # noqa: E402
+from app.models.cycle import CycleLog  # noqa: E402
+from app.models.enums import AttendanceStatus, ConsentScope, GlobalRole, Sex, TeamRole  # noqa: E402
 from app.models.event import Attendance, Event  # noqa: E402
 from app.models.metric import DailyMetric, Streak  # noqa: E402
 from app.models.organization import Organization  # noqa: E402
 from app.models.pain_point import PainPoint  # noqa: E402
 from app.models.rpe import RpeEntry  # noqa: E402
 from app.models.team import Team, TeamMembership  # noqa: E402
-from app.models.user import User  # noqa: E402
+from app.models.user import AthleteProfile, User  # noqa: E402
 from app.models.wellness import WellnessEntry  # noqa: E402
 from app.services import analytics_service  # noqa: E402
 
 
-async def wipe_own_history(db, athlete_id) -> None:
+async def wipe_own_history(db, athlete_id, *, cycle: bool = False) -> None:
     """Своя история только: не трогает других игроков команды, безопасно перезапускать."""
     own_wellness = list(
         (await db.execute(select(WellnessEntry.id).where(WellnessEntry.athlete_id == athlete_id))).scalars()
@@ -59,9 +61,26 @@ async def wipe_own_history(db, athlete_id) -> None:
     await db.execute(delete(DailyMetric).where(DailyMetric.athlete_id == athlete_id))
     await db.execute(delete(Streak).where(Streak.athlete_id == athlete_id))
 
+    if cycle:
+        # CycleSettings не трогаем (seed_cycle_for_athlete сам идемпотентен на неё) —
+        # только логи/согласие, чтобы --cycle можно было перезапускать.
+        await db.execute(delete(CycleLog).where(CycleLog.athlete_id == athlete_id))
+        await db.execute(
+            delete(DataConsent).where(
+                DataConsent.athlete_id == athlete_id, DataConsent.scope == ConsentScope.cycle
+            )
+        )
+
 
 async def seed_player(
-    email: str, org_name: str, team_name: str, days: int, archetype: demo.Archetype
+    email: str,
+    org_name: str,
+    team_name: str,
+    days: int,
+    archetype: demo.Archetype,
+    *,
+    sex: Sex | None = None,
+    cycle: bool = False,
 ) -> None:
     async with AsyncSessionLocal() as db:
         user = (await db.execute(select(User).where(User.email == email))).scalar_one_or_none()
@@ -85,11 +104,22 @@ async def seed_player(
         user.org_id = org.id
         user.global_role = GlobalRole.player
 
+        # Если аккаунт уже состоял в этой команде с другой ролью (coach/head_coach/
+        # medic — например, переводим реальный тренерский логин в игрока для теста)
+        # — переводим её в athlete, а не молча пропускаем.
         membership = await db.get(TeamMembership, (user.id, team.id))
         if membership is None:
             db.add(TeamMembership(user_id=user.id, team_id=team.id, team_role=TeamRole.athlete))
+        else:
+            membership.team_role = TeamRole.athlete
 
-        await wipe_own_history(db, user.id)
+        profile = await db.get(AthleteProfile, user.id)
+        if profile is None:
+            db.add(AthleteProfile(user_id=user.id, sex=sex or Sex.not_specified))
+        elif sex is not None:
+            profile.sex = sex
+
+        await wipe_own_history(db, user.id, cycle=cycle)
         await db.flush()
 
         rng = random.Random(hash(email) & 0xFFFFFFFF)
@@ -186,8 +216,17 @@ async def seed_player(
         await analytics_service.recalc_athlete(db, user.id, end_date=today, commit=False)
         await db.commit()
 
-        print(f"{email} -> {org_name} / {team_name}, роль athlete")
-        print(f"wellness: {wellness_count}, rpe: {rpe_count}, окно: {days} дн.")
+        if cycle:
+            # Та же функция, что у демо-женщин в seed_demo.py: сейчас 3-й день
+            # менструации, 4 якоря за 86 дней, симптом и болевой порог сегодня,
+            # согласие audience=coach (видно и coach, и medic демо-команды).
+            await demo.seed_cycle_for_athlete(db, user, today)
+
+        print(f"{email} -> {org_name} / {team_name}, роль athlete" + (", пол=" + sex.value if sex else ""))
+        print(
+            f"wellness: {wellness_count}, rpe: {rpe_count}, окно: {days} дн."
+            + (", цикл: да" if cycle else "")
+        )
 
 
 def main() -> None:
@@ -201,10 +240,24 @@ def main() -> None:
     )
     parser.add_argument("--wellness", default="mixed", choices=["green", "yellow", "red", "mixed"])
     parser.add_argument("--injured", action="store_true")
+    parser.add_argument("--sex", choices=[s.value for s in Sex], default=None)
+    parser.add_argument(
+        "--cycle", action="store_true", help="насыпать историю цикла (месячные) — для --sex female"
+    )
     args = parser.parse_args()
 
     archetype = demo.Archetype(load=args.load, wellness=args.wellness, injured=args.injured)
-    asyncio.run(seed_player(args.email, args.org, args.team, args.days, archetype))
+    asyncio.run(
+        seed_player(
+            args.email,
+            args.org,
+            args.team,
+            args.days,
+            archetype,
+            sex=Sex(args.sex) if args.sex else None,
+            cycle=args.cycle,
+        )
+    )
 
 
 if __name__ == "__main__":

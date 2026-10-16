@@ -78,6 +78,7 @@ export function DailyReportTable({ teamId, players, breakdowns }: Props) {
                 )}
                 {!player.wellness_filled && <Tag color="var(--no-data)">{reasonLabel.no_survey}</Tag>}
                 {player.active_injury && <Tag color="var(--risk)">{reasonLabel.injury}</Tag>}
+                {player.on_period && <Tag color="var(--risk)">Месячные</Tag>}
                 {player.availability === "unavailable" && (
                   <Tag color="var(--risk)">{reasonLabel.unavailable}</Tag>
                 )}

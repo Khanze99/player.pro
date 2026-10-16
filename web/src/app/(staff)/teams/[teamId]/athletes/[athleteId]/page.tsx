@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { CycleCard } from "@/components/CycleCard";
 import { DayDetailPanel } from "@/components/DayDetailPanel";
 import { LoadChart, ReadinessTrendChart } from "@/components/LoadChart";
 import { MedicalExamsCard } from "@/components/MedicalExamsCard";
@@ -11,7 +12,15 @@ import { WellnessHistoryTable } from "@/components/WellnessHistoryTable";
 import { api, ApiError } from "@/lib/api";
 import { requireSession } from "@/lib/session";
 import { zoneColorVar } from "@/lib/zone";
-import type { DailyMetric, MedicalExams, Me, RpeEntry, SquadStatus, WellnessEntry } from "@/types";
+import type {
+  CycleStaffView,
+  DailyMetric,
+  MedicalExams,
+  Me,
+  RpeEntry,
+  SquadStatus,
+  WellnessEntry,
+} from "@/types";
 
 const HISTORY_DAYS = 90;
 
@@ -31,14 +40,16 @@ export default async function AthletePage({
   let rpeHistory: RpeEntry[];
   let medicalExams: MedicalExams;
   let me: Me;
+  let cycleState: CycleStaffView | null;
   try {
-    [squad, metrics, wellnessHistory, rpeHistory, medicalExams, me] = await Promise.all([
+    [squad, metrics, wellnessHistory, rpeHistory, medicalExams, me, cycleState] = await Promise.all([
       api.squadStatus(teamId, token),
       api.athleteMetrics(athleteId, token, 28),
       api.wellnessHistory(athleteId, token, HISTORY_DAYS),
       api.rpeHistory(athleteId, token, HISTORY_DAYS),
       api.medicalExams(athleteId, token),
       api.me(token),
+      api.cycleAthleteState(athleteId, token),
     ]);
   } catch (err) {
     // Игрок мог быть удалён/выведен из состава (или ссылка просто устарела —
@@ -79,6 +90,8 @@ export default async function AthletePage({
       </div>
 
       <ReadinessBreakdownPanel athleteId={athleteId} latestDate={latestWithReadiness?.date ?? null} />
+
+      <CycleCard data={cycleState} />
 
       <DayDetailPanel entries={wellnessHistory} initialDate={latestWithReadiness?.date ?? null} />
 

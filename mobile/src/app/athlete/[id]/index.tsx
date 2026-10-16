@@ -9,7 +9,12 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
-import { useAthleteMetrics, useAthleteRpeHistory, useAthleteWellnessHistory } from '@/api/hooks';
+import {
+  useAthleteCycleState,
+  useAthleteMetrics,
+  useAthleteRpeHistory,
+  useAthleteWellnessHistory,
+} from '@/api/hooks';
 import { BodyMap } from '@/components/BodyMap';
 import { Chip } from '@/components/Chip';
 import { CloseIcon } from '@/components/Icons';
@@ -22,6 +27,35 @@ import { ScaleRow } from '@/components/ScaleRow';
 import { Screen } from '@/components/Screen';
 import { MicroLabel, ScreenTitle } from '@/components/Typography';
 import { loadZoneColor, readinessColor, spacing, type Theme, useStyles, useTheme } from '@/theme';
+
+/** Цикл — спецкатегория, доступ по согласию игрока (ensure_can_view_sensitive).
+ * Без согласия хук получает 403 и секция просто не рисуется — без тоста с ошибкой,
+ * как и остальные данные, закрытые согласием (body_metrics и т.п.). Витрина одна
+ * для coach и medic — минимальный трекинг (решение 2026-10-16), детализации не
+ * осталось скрывать. */
+function CycleSection({ athleteId }: { athleteId: string }) {
+  const th = useTheme();
+  const styles = useStyles(makeStyles);
+  const { t } = useTranslation();
+  const cycle = useAthleteCycleState(athleteId);
+  if (!cycle.data || !cycle.data.on_period) return null;
+
+  return (
+    <View style={styles.card}>
+      <View style={styles.cardHead}>
+        <Text style={styles.cardHeadText}>{t('athleteReport.cycle.title')}</Text>
+      </View>
+      <View style={styles.cardBody}>
+        <Chip label={t('cycle.onPeriod')} dotColor={th.risk} />
+        {cycle.data.pain_level !== null && (
+          <Text style={styles.hint}>
+            {t('athleteReport.cycle.painLevelValue', { n: cycle.data.pain_level })}
+          </Text>
+        )}
+      </View>
+    </View>
+  );
+}
 
 export default function AthleteReport() {
   const th = useTheme();
@@ -117,6 +151,8 @@ export default function AthleteReport() {
         </View>
 
         <ReadinessBreakdownSection metrics={data} athleteId={params.id} />
+
+        <CycleSection athleteId={params.id} />
 
         {dayEntry && (
           <>

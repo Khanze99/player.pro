@@ -13,11 +13,21 @@ interface Props {
   month: Date; // любой день нужного месяца
   selected: string; // локальная ISO-дата
   marks: Record<string, string[]>; // дата → цвета точек (до 3 рисуем)
+  // Дни месячных (отмечаются в опросе, cycle.on_period) — неяркая красная
+  // подложка ячейки, без точки и без тапа: просто видно, без взаимодействия.
+  periodDays?: Set<string>;
   onSelectDay: (iso: string) => void;
   onChangeMonth: (delta: 1 | -1) => void;
 }
 
-export function MonthCalendar({ month, selected, marks, onSelectDay, onChangeMonth }: Props) {
+export function MonthCalendar({
+  month,
+  selected,
+  marks,
+  periodDays,
+  onSelectDay,
+  onChangeMonth,
+}: Props) {
   const th = useTheme();
   const styles = useStyles(makeStyles);
   const { i18n } = useTranslation();
@@ -91,6 +101,7 @@ export function MonthCalendar({ month, selected, marks, onSelectDay, onChangeMon
           if (!cell) return <View key={i} style={styles.cell} />;
           const isSelected = cell.iso === selected;
           const isToday = cell.iso === todayIso;
+          const isPeriod = periodDays?.has(cell.iso) ?? false;
           const dots = marks[cell.iso]?.slice(0, 3) ?? [];
           return (
             <Pressable
@@ -100,7 +111,13 @@ export function MonthCalendar({ month, selected, marks, onSelectDay, onChangeMon
               accessibilityRole="button"
               accessibilityState={{ selected: isSelected }}
             >
-              <View style={[styles.dayWrap, isSelected && styles.daySelected]}>
+              <View
+                style={[
+                  styles.dayWrap,
+                  isPeriod && !isSelected && { backgroundColor: `${th.risk}26` },
+                  isSelected && styles.daySelected,
+                ]}
+              >
                 <Text
                   style={[
                     styles.day,

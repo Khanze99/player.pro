@@ -11,11 +11,16 @@ from datetime import UTC, date, datetime, time, timedelta
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.core import calculations as calc
 from app.models.availability import AvailabilityRecord
+from app.models.consent import DataConsent
+from app.models.cycle import CycleLog
 from app.models.enums import (
     AttendanceStatus,
     AvailabilityStatus,
+    ConsentAudience,
+    ConsentScope,
     InjuryStatus,
     TeamRole,
 )
@@ -93,6 +98,27 @@ async def _pain_marked_today(db: AsyncSession, athlete_ids: list[uuid.UUID], day
     return set(rows.scalars())
 
 
+async def _on_period_today(db: AsyncSession, athlete_ids: list[uuid.UUID], day: date) -> set[uuid.UUID]:
+    """Кто сегодня отметил у себя месячные — пользователю дать знать об этом в
+    составе. Согласие уровня coach — иначе не входит в множество (выглядит как
+    игрок без данных, тот же принцип, что у остальных спецкатегорий). Один
+    батч-запрос с join — без N+1, в отличие от `_on_period_today` до упрощения
+    цикла (там фаза считалась отдельным вызовом на каждого)."""
+    rows = await db.execute(
+        select(CycleLog.athlete_id)
+        .join(
+            DataConsent,
+            (DataConsent.athlete_id == CycleLog.athlete_id)
+            & (DataConsent.scope == ConsentScope.cycle)
+            & (DataConsent.audience == ConsentAudience.coach)
+            & (DataConsent.revoked_at.is_(None))
+            & (DataConsent.policy_version == settings.consent_policy_version),
+        )
+        .where(CycleLog.athlete_id.in_(athlete_ids), CycleLog.date == day, CycleLog.on_period.is_(True))
+    )
+    return set(rows.scalars())
+
+
 async def _window_metrics(
     db: AsyncSession, athlete_ids: list[uuid.UUID], day: date, days: int
 ) -> dict[uuid.UUID, tuple[float, float | None]]:
@@ -136,6 +162,7 @@ async def squad_status(db: AsyncSession, team_id: uuid.UUID, day: date) -> Squad
     availability = await _current_availability(db, athlete_ids, day)
     injured = await _active_injuries(db, athlete_ids)
     pain_marked = await _pain_marked_today(db, athlete_ids, day)
+    on_period = await _on_period_today(db, athlete_ids, day)
     window = await _window_metrics(db, athlete_ids, day, LOAD_WINDOW_DAYS)
 
     availability_pct: dict[uuid.UUID, float | None] = {}
@@ -165,6 +192,7 @@ async def squad_status(db: AsyncSession, team_id: uuid.UUID, day: date) -> Squad
                 active_injury=athlete_id in injured,
                 hr_flag=bool(metric and metric.hr_flag),
                 has_pain_points=athlete_id in pain_marked,
+                on_period=athlete_id in on_period,
             )
         )
 

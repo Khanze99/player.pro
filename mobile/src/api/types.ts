@@ -201,6 +201,10 @@ export interface WellnessPayload {
   comment?: string | null;
   pain_points?: PainPoint[];
   recovery_methods?: RecoveryMethod[];
+  // Цикл: уходит прямо в cycle_logs на backend, не хранится в WellnessEntry
+  // и не возвращается обратно (см. docs/plan-women-health-nutrition.md).
+  period_day?: boolean | null;
+  period_pain_level?: number | null;
 }
 
 // События расписания: командные (team_id задан) и индивидуальные (backend/app/schemas/event.py)
@@ -256,6 +260,9 @@ export interface SquadPlayer {
   active_injury: boolean;
   hr_flag: boolean;
   has_pain_points: boolean;
+  // Только если дано согласие уровня coach — иначе всегда false, как и у
+  // игроков без цикл-трекинга (см. docs/plan-women-health-nutrition.md).
+  on_period: boolean;
 }
 
 export interface SquadStatus {
@@ -427,31 +434,6 @@ export interface PolicyConsents {
   health_data: PolicyConsentStatus;
 }
 
-// Цикл (backend/app/schemas/cycle.py). Спецкатегория — доступ только по согласию.
-export type CyclePhase = 'menstrual' | 'follicular' | 'ovulation' | 'luteal' | 'suppressed' | 'unknown';
-export type FlowIntensity = 'spotting' | 'light' | 'medium' | 'heavy';
-export type CycleSymptomKey =
-  | 'cramps'
-  | 'headache'
-  | 'back_pain'
-  | 'bloating'
-  | 'fatigue'
-  | 'mood_swings'
-  | 'nausea'
-  | 'breast_tenderness'
-  | 'insomnia'
-  | 'other';
-export type Contraception =
-  | 'none'
-  | 'combined_oc'
-  | 'progestin_only'
-  | 'hormonal_iud'
-  | 'copper_iud'
-  | 'implant'
-  | 'injection'
-  | 'other'
-  | 'not_specified';
-
 export interface AthleteProfile {
   user_id: string;
   position: string | null;
@@ -464,64 +446,28 @@ export interface AthleteProfile {
   weight_kg: number | null;
 }
 
+// Цикл (backend/app/schemas/cycle.py) — минимальный трекинг (решение 2026-10-16):
+// только отметка дня и болевой порог. Спецкатегория — доступ только по согласию.
 export interface CycleSettings {
   tracking_enabled: boolean;
   average_cycle_length: number;
   average_period_length: number;
-  contraception: Contraception;
-}
-
-export interface CycleSymptomEntry {
-  symptom: CycleSymptomKey;
-  severity: number;
 }
 
 export interface CycleLog {
   id: string;
   date: string;
-  period_start: boolean;
-  period_end: boolean;
-  flow: FlowIntensity | null;
-  note: string | null;
-  symptoms: CycleSymptomEntry[];
+  on_period: boolean;
+  pain_level: number | null;
 }
 
-export interface CycleLogPayload {
+// Отчёт штаба (GET /cycle/athletes/{id}/state) — одна витрина для coach и medic,
+// детализации не осталось скрывать, видимость решает согласие.
+export interface CycleStaffView {
+  athlete_id: string;
   date: string;
-  period_start?: boolean;
-  period_end?: boolean;
-  flow?: FlowIntensity | null;
-  note?: string | null;
-  symptoms?: CycleSymptomEntry[];
-}
-
-export interface CycleState {
-  date: string;
-  tracking_enabled: boolean;
-  cycle_day: number | null;
-  phase: CyclePhase;
-  last_period_start: string | null;
-  next_period_predicted: string | null;
-  average_cycle_length: number;
-  observed_cycle_length: number | null;
-  days_since_last_period: number | null;
-  amenorrhea_flag: boolean;
-  contraception: Contraception;
-}
-
-export interface PhaseInsight {
-  phase: CyclePhase;
-  days: number;
-  avg_readiness: number | null;
-  avg_load: number | null;
-}
-
-export interface CycleInsights {
-  window_days: number;
-  cycles_recorded: number;
-  covered_days: number;
-  enough_data: boolean;
-  phases: PhaseInsight[];
+  on_period: boolean;
+  pain_level: number | null;
 }
 
 // Питание (backend/app/schemas/nutrition.py). Спецкатегория — scope=nutrition.

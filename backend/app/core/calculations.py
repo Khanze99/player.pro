@@ -1,8 +1,6 @@
 """Формулы аналитики — раздел 6 ТЗ. Чистые функции, покрыты юнит-тестами."""
 
 from dataclasses import dataclass
-from datetime import date as date_type
-from datetime import timedelta
 
 LAMBDA_ACUTE = 2 / (7 + 1)  # 0.25
 LAMBDA_CHRONIC = 2 / (28 + 1)  # ≈ 0.0690
@@ -296,82 +294,3 @@ def availability_zone(percent: float | None) -> str:
 def mean(values: list[float]) -> float | None:
     """Среднее по непустому списку, иначе None — агрегаты дашборда не делят на ноль."""
     return sum(values) / len(values) if values else None
-
-
-# ------------------------------------------------------------------ цикл
-
-# Лютеиновая фаза стабильна (~14 дней) независимо от длины цикла — овуляцию
-# отсчитываем от конца, а не от начала.
-LUTEAL_LENGTH_DAYS = 14
-OVULATION_WINDOW_DAYS = 1  # ±1 день вокруг расчётной овуляции
-AMENORRHEA_DAYS = 90  # 3 месяца без менструации — красный флаг RED-S
-CYCLE_LENGTH_MIN = 21
-CYCLE_LENGTH_MAX = 45
-
-
-def cycle_day(day: "date_type", last_period_start: "date_type | None") -> int | None:
-    """День цикла, считая от первого дня последней менструации (день 1)."""
-    if last_period_start is None or day < last_period_start:
-        return None
-    return (day - last_period_start).days + 1
-
-
-def predict_next_period(
-    last_period_start: "date_type | None", average_cycle_length: int
-) -> "date_type | None":
-    if last_period_start is None:
-        return None
-    return last_period_start + timedelta(days=average_cycle_length)
-
-
-def cycle_phase(
-    day_of_cycle: int | None,
-    average_cycle_length: int,
-    average_period_length: int,
-    suppressed: bool = False,
-) -> str:
-    """Фаза по дню цикла.
-
-    Прогноз, а не факт: без измерения гормонов или базальной температуры точную
-    овуляцию не определить. Годится, чтобы показать игроку её собственный паттерн,
-    и не годится, чтобы что-то ей предписывать.
-    """
-    if suppressed:
-        return "suppressed"
-    if day_of_cycle is None or day_of_cycle < 1:
-        return "unknown"
-    # Цикл затянулся сверх правдоподобного — вероятно, пропущена отметка
-    if day_of_cycle > CYCLE_LENGTH_MAX:
-        return "unknown"
-    if day_of_cycle <= average_period_length:
-        return "menstrual"
-
-    ovulation_day = average_cycle_length - LUTEAL_LENGTH_DAYS
-    if abs(day_of_cycle - ovulation_day) <= OVULATION_WINDOW_DAYS:
-        return "ovulation"
-    if day_of_cycle < ovulation_day:
-        return "follicular"
-    return "luteal"
-
-
-def is_amenorrhea(day: "date_type", last_period_start: "date_type | None") -> bool:
-    """Нет менструации 90+ дней. Клинический флаг для врача, не для тренера."""
-    if last_period_start is None:
-        return False
-    return (day - last_period_start).days >= AMENORRHEA_DAYS
-
-
-def average_cycle_length(period_starts: list["date_type"]) -> int | None:
-    """Средняя длина по фактическим интервалам. Выбросы отбрасываем: пропущенная
-    отметка даёт «цикл» в 60 дней и испортила бы среднее."""
-    if len(period_starts) < 2:
-        return None
-    ordered = sorted(period_starts)
-    gaps = [
-        (later - earlier).days
-        for earlier, later in zip(ordered, ordered[1:], strict=False)
-        if CYCLE_LENGTH_MIN <= (later - earlier).days <= CYCLE_LENGTH_MAX
-    ]
-    if not gaps:
-        return None
-    return round(sum(gaps) / len(gaps))

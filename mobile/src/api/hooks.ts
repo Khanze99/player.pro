@@ -4,11 +4,9 @@ import { api, apiBlobUri, patch, post, upload } from './client';
 import type {
   AthleteProfile,
   Attendance,
-  CycleInsights,
   CycleLog,
-  CycleLogPayload,
   CycleSettings,
-  CycleState,
+  CycleStaffView,
   Features,
   FoodItem,
   FoodItemPayload,
@@ -102,6 +100,17 @@ export const useAthleteWellnessHistory = (athleteId: string | undefined, days = 
       api<WellnessEntry[]>(
         `/wellness/athletes/${athleteId}?date_from=${daysAgoISO(days - 1)}&date_to=${todayISO()}`,
       ),
+  });
+
+/** Цикл в отчёте штаба — спецкатегория, доступ по согласию (ensure_can_view_sensitive).
+ * Нет согласия → 403, секция просто не рисуется, поэтому retry:false, без тоста с
+ * ошибкой. Витрина одна для coach и medic — детализации не осталось скрывать. */
+export const useAthleteCycleState = (athleteId: string | undefined) =>
+  useQuery({
+    queryKey: ['athlete-cycle-state', athleteId],
+    enabled: !!athleteId,
+    retry: false,
+    queryFn: () => api<CycleStaffView>(`/cycle/athletes/${athleteId}/state`),
   });
 
 /** Разбивка Readiness за день — почему именно такой балл (раздел 6.4 ТЗ).
@@ -244,23 +253,21 @@ export function useDeleteAvatar() {
   });
 }
 
-export const useCycleSettings = () =>
-  useQuery({ queryKey: ['cycle-settings'], queryFn: () => api<CycleSettings>('/cycle/me/settings') });
+export const useCycleSettings = (enabled = true) =>
+  useQuery({
+    queryKey: ['cycle-settings'],
+    enabled,
+    queryFn: () => api<CycleSettings>('/cycle/me/settings'),
+  });
 
 export function useUpdateCycleSettings() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (body: Partial<CycleSettings>) =>
       api<CycleSettings>('/cycle/me/settings', { method: 'PUT', body: JSON.stringify(body) }),
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ['cycle-settings'] });
-      void qc.invalidateQueries({ queryKey: ['cycle-state'] });
-    },
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['cycle-settings'] }),
   });
 }
-
-export const useCycleState = (enabled = true) =>
-  useQuery({ queryKey: ['cycle-state'], enabled, queryFn: () => api<CycleState>('/cycle/me/state') });
 
 export const useCycleLogs = (days = 90, enabled = true) =>
   useQuery({
@@ -269,26 +276,6 @@ export const useCycleLogs = (days = 90, enabled = true) =>
     queryFn: () =>
       api<CycleLog[]>(`/cycle/me/logs?date_from=${daysAgoISO(days - 1)}&date_to=${todayISO()}`),
   });
-
-export const useCycleInsights = (enabled = true) =>
-  useQuery({
-    queryKey: ['cycle-insights'],
-    enabled,
-    queryFn: () => api<CycleInsights>('/cycle/me/insights'),
-  });
-
-export function useUpsertCycleLog() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (body: CycleLogPayload) =>
-      api<CycleLog>('/cycle/me/logs', { method: 'PUT', body: JSON.stringify(body) }),
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ['cycle-logs'] });
-      void qc.invalidateQueries({ queryKey: ['cycle-state'] });
-      void qc.invalidateQueries({ queryKey: ['cycle-insights'] });
-    },
-  });
-}
 
 /** Гейтить по активной сессии обязательно: эндпоинт требует токена, а закэшенная
  *  ошибка 401 до логина оставила бы фича-вкладки скрытыми после входа. */

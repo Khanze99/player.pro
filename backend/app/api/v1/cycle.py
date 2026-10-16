@@ -1,9 +1,10 @@
 """Менструальный цикл — спецкатегория персданных (152-ФЗ, ст. 10).
 
-Записывать может только сама спортсменка: эндпоинтов «записать за игрока» нет
-и не должно появиться. Чтение чужих данных идёт исключительно через
-ensure_can_view_sensitive(scope=cycle), и форма ответа зависит от роли —
-тренер и врач получают принципиально разные витрины.
+Минимальный трекинг (решение 2026-10-16): отметка дня + болевой порог, без фазы/
+прогноза/симптомов. Записывать может только сама спортсменка: эндпоинтов
+«записать за игрока» нет и не должно появиться. Чтение чужих данных — только
+через ensure_can_view_sensitive(scope=cycle); витрина одна для coach и medic,
+отдельных форм ответа по ролям больше нет, детализации не осталось скрывать.
 """
 
 import uuid
@@ -13,15 +14,8 @@ from fastapi import APIRouter
 
 from app.api.deps import CurrentUser, DbSession
 from app.core import authz
-from app.models.enums import ConsentScope, TeamRole
-from app.schemas.cycle import (
-    CycleInsightOut,
-    CycleLogIn,
-    CycleLogOut,
-    CycleSettingsIn,
-    CycleSettingsOut,
-    CycleStateOut,
-)
+from app.models.enums import ConsentScope
+from app.schemas.cycle import CycleLogIn, CycleLogOut, CycleSettingsIn, CycleSettingsOut, CycleStaffOut
 from app.services import cycle_service
 
 router = APIRouter(prefix="/cycle", tags=["cycle"])
@@ -56,31 +50,8 @@ async def delete_log(day: date, user: CurrentUser, db: DbSession):
     await cycle_service.delete_log(db, user.id, day)
 
 
-@router.get("/me/state", response_model=CycleStateOut)
-async def my_state(user: CurrentUser, db: DbSession, day: date | None = None):
-    return await cycle_service.current_state(db, user.id, day or date.today())
-
-
-@router.get("/me/insights", response_model=CycleInsightOut)
-async def my_insights(user: CurrentUser, db: DbSession, day: date | None = None):
-    return await cycle_service.insights(db, user.id, day or date.today())
-
-
-@router.get("/athletes/{athlete_id}/state")
+@router.get("/athletes/{athlete_id}/state", response_model=CycleStaffOut)
 async def athlete_state(athlete_id: uuid.UUID, user: CurrentUser, db: DbSession, day: date | None = None):
-    """Форма ответа зависит от роли: тренеру — фаза и флаг, врачу — детали.
-
-    Response-модель не фиксируем намеренно: две разные витрины по одному адресу
-    исключают ситуацию, когда клиент запросил «врачебный» URL и получил больше,
-    чем ему положено.
-    """
+    """Доступ (свой/чужой, согласие) — ensure_can_view_sensitive; сам игрок — всегда."""
     await authz.ensure_can_view_sensitive(db, user, athlete_id, ConsentScope.cycle)
-    day = day or date.today()
-
-    if user.id == athlete_id:
-        return await cycle_service.current_state(db, athlete_id, day)
-
-    role = await authz.shared_team_staff_role(db, user.id, athlete_id)
-    if role == TeamRole.medic:
-        return await cycle_service.staff_view_for_medic(db, athlete_id, day)
-    return await cycle_service.staff_view_for_coach(db, athlete_id, day)
+    return await cycle_service.staff_view(db, athlete_id, day or date.today())

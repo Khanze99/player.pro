@@ -17,11 +17,12 @@ import {
 import { useTranslation } from 'react-i18next';
 
 import { ApiError } from '@/api/client';
-import { todayISO, useSubmitWellness } from '@/api/hooks';
+import { todayISO, useCycleLogs, useCycleSettings, useFeatures, useSubmitWellness } from '@/api/hooks';
 import type { InjuryType, PainPoint, RecoveryMethod, SymptomType } from '@/api/types';
 import { BodyMap } from '@/components/BodyMap';
 import { Button } from '@/components/Button';
 import { OptionChips } from '@/components/OptionChips';
+import { PainLevelScale } from '@/components/PainLevelScale';
 import { RecoveryMethods } from '@/components/RecoveryMethods';
 import { ScaleBar } from '@/components/ScaleBar';
 import { Screen } from '@/components/Screen';
@@ -62,6 +63,10 @@ export default function Wellness() {
   const router = useRouter();
   const toast = useToast((s) => s.show);
   const submit = useSubmitWellness();
+  const features = useFeatures();
+  const cycleSettings = useCycleSettings(features.data?.cycle === true);
+  const cycleEnabled = cycleSettings.data?.tracking_enabled === true;
+  const cycleLogs = useCycleLogs(1, cycleEnabled);
 
   const [sleep, setSleep] = useState<number | null>(null);
   const [energy, setEnergy] = useState<number | null>(null);
@@ -79,6 +84,17 @@ export default function Wellness() {
   const [symptomDetails, setSymptomDetails] = useState('');
   const [recoveryMethods, setRecoveryMethods] = useState<RecoveryMethod[]>([]);
   const [comment, setComment] = useState('');
+  const [periodDay, setPeriodDay] = useState(false);
+  const [periodPainLevel, setPeriodPainLevel] = useState<number | null>(null);
+  const [periodSeeded, setPeriodSeeded] = useState(false);
+
+  // Предзаполняем из уже стоящей за сегодня отметки (если она есть) — спортсменка
+  // может поправить руками.
+  if (cycleEnabled && cycleLogs.data && !periodSeeded) {
+    setPeriodSeeded(true);
+    const todayLog = cycleLogs.data.find((l) => l.date === todayISO());
+    setPeriodDay(todayLog?.on_period ?? false);
+  }
 
   const scales = [sleep, energy, soreness, stress, mood];
   const done = scales.filter((v) => v !== null).length + (sleepHours !== null ? 1 : 0);
@@ -112,6 +128,8 @@ export default function Wellness() {
         comment: comment.trim() ? comment.trim() : null,
         pain_points: painPoints,
         recovery_methods: recoveryMethods,
+        period_day: cycleEnabled ? periodDay : null,
+        period_pain_level: cycleEnabled && periodDay ? periodPainLevel : null,
       });
       toast(t('common.saved'));
       router.back();
@@ -259,6 +277,26 @@ export default function Wellness() {
                   placeholder={t('wellness.details')}
                   placeholderTextColor={th.textMuted}
                   maxLength={512}
+                />
+              )}
+            </>
+          )}
+
+          {cycleEnabled && (
+            <>
+              <View style={styles.toggleRow}>
+                <Text style={styles.toggleLabel}>{t('wellness.periodDay')}</Text>
+                <Switch
+                  value={periodDay}
+                  onValueChange={setPeriodDay}
+                  trackColor={{ true: th.risk, false: th.surface2 }}
+                />
+              </View>
+              {periodDay && (
+                <PainLevelScale
+                  label={t('cycle.painLevel')}
+                  value={periodPainLevel}
+                  onChange={setPeriodPainLevel}
                 />
               )}
             </>

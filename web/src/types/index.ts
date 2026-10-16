@@ -57,6 +57,9 @@ export interface SquadPlayer {
   wellness_filled: boolean;
   active_injury: boolean;
   hr_flag: boolean;
+  // Только если дано согласие уровня coach — иначе всегда false (как и у
+  // игроков без цикл-трекинга), см. docs/plan-women-health-nutrition.md.
+  on_period: boolean;
 }
 
 export interface SquadStatus {
@@ -262,6 +265,17 @@ export interface WellnessEntry {
   comment: string | null;
   pain_points: PainPoint[];
   recovery_methods: RecoveryMethod[];
+}
+
+// Цикл (docs/plan-women-health-nutrition.md) — минимальный трекинг (решение
+// 2026-10-16): только отметка дня и болевой порог. Спецкатегория персданных,
+// доступ по согласию игрока (ensure_can_view_sensitive). Витрина одна для coach
+// и medic — детализации не осталось скрывать.
+export interface CycleStaffView {
+  athlete_id: string;
+  date: string;
+  on_period: boolean;
+  pain_level: number | null;
 }
 
 export interface RpeEntry {

@@ -7,6 +7,7 @@
 
 import { API_URL } from "@/lib/env";
 import type {
+  CycleStaffView,
   DailyMetric,
   Me,
   MedicalExamKind,
@@ -100,6 +101,16 @@ export const api = {
       `/analytics/athletes/${athleteId}/readiness-breakdown/average${qs({ date_from: daysAgoISO(days) })}`,
       token,
     ),
+
+  // Цикл — спецкатегория (ensure_can_view_sensitive), а не ensure_can_view_athlete,
+  // как у остального wellness: нет согласия → 403, секция молча не рисуется (не
+  // вызов notFound() и не проброс ошибки на всю страницу), см. docs/
+  // plan-women-health-nutrition.md. Форма ответа зависит от роли смотрящего.
+  cycleAthleteState: (athleteId: string, token: string) =>
+    request<CycleStaffView>(`/cycle/athletes/${athleteId}/state`, token).catch((err) => {
+      if (err instanceof ApiError && err.status === 403) return null;
+      throw err;
+    }),
 
   medicalExams: (athleteId: string, token: string) =>
     request<MedicalExams>(`/medical-exams/athletes/${athleteId}`, token),

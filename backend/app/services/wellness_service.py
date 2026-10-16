@@ -12,7 +12,7 @@ from app.models.pain_point import PainPoint
 from app.models.recovery_method import RecoveryMethodLog
 from app.models.wellness import WellnessEntry
 from app.schemas.wellness import WellnessCreateIn
-from app.services import analytics_service, streaks_service
+from app.services import analytics_service, cycle_service, streaks_service
 
 
 async def create_entry(
@@ -30,6 +30,9 @@ async def create_entry(
     payload = data.model_dump()
     pain_points = payload.pop("pain_points", [])
     recovery_methods = payload.pop("recovery_methods", [])
+    # Цикл не хранится в WellnessEntry (см. схему) — переложим отдельно, в cycle_logs.
+    period_day = payload.pop("period_day", None)
+    period_pain_level = payload.pop("period_pain_level", None)
     entry = WellnessEntry(athlete_id=athlete_id, **payload)
     # Карта боли — деталь; на Readiness не влияет (см. analytics: score считает soreness).
     entry.pain_points = [PainPoint(**pp) for pp in pain_points]
@@ -40,6 +43,7 @@ async def create_entry(
     streak = await streaks_service.bump_streak(db, athlete_id, StreakType.wellness, data.date)
     await db.flush()
     await db.commit()
+    await cycle_service.record_from_wellness(db, athlete_id, data.date, period_day, period_pain_level)
     # expire_on_commit=False → объект и загруженная коллекция pain_points остаются доступны
     # DailyMetric пересчитывает Celery-задача после коммита (ночной прогон — страховка).
     analytics_service.enqueue_recalc_athlete(athlete_id, max(data.date, date.today()))

@@ -37,6 +37,10 @@ class SquadPlayerOut(BaseModel):
     #: Отметил сегодня хоть одну точку на карте боли (wellness.pain_points),
     #: необязательно оформлено как InjuryRecord (active_injury): просто «гляньте».
     has_pain_points: bool
+    #: Сегодня менструация — только если дано согласие уровня coach, иначе всегда
+    #: False (как и у остальных спецкатегорий: нет согласия выглядит так же, как
+    #: нет данных, см. docs/plan-women-health-nutrition.md). Детали — в отчёте игрока.
+    on_period: bool
 
 
 class SquadStatusOut(BaseModel):

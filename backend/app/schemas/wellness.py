@@ -41,6 +41,12 @@ class WellnessCreateIn(BaseModel):
     comment: str | None = Field(default=None, max_length=1000)
     pain_points: list[PainPointIn] = Field(default_factory=list, max_length=40)
     recovery_methods: list[RecoveryMethod] = Field(default_factory=list, max_length=4)
+    # Цикл: не хранятся в WellnessEntry и не возвращаются в WellnessOut — сразу
+    # уходят в cycle_logs через cycle_service.record_from_wellness (см. docs/
+    # plan-women-health-nutrition.md, "Права доступа": иначе согласие на цикл
+    # обходилось бы через опрос, который coach/medic видят без него).
+    period_day: bool | None = None
+    period_pain_level: int | None = Field(default=None, ge=0, le=10)
 
 
 class WellnessOut(BaseModel):

@@ -23,21 +23,25 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from sqlalchemy import delete, select  # noqa: E402
 
+from app.config import settings as app_settings  # noqa: E402
 from app.database import AsyncSessionLocal  # noqa: E402
 from app.models.audit import AuditLog  # noqa: E402
 from app.models.availability import AvailabilityRecord  # noqa: E402
 from app.models.consent import DataConsent  # noqa: E402
-from app.models.cycle import CycleLog, CycleSettings, CycleSymptomLog  # noqa: E402
+from app.models.cycle import CycleLog, CycleSettings  # noqa: E402
 from app.models.enums import (  # noqa: E402
     AttendanceStatus,
     AvailabilityStatus,
     BodyRegion,
     BodySide,
+    ConsentAudience,
+    ConsentScope,
     EventType,
     GlobalRole,
     InjurySeverity,
     InjuryStatus,
     InjuryType,
+    Sex,
     SymptomType,
     TeamRole,
     UserStatus,
@@ -65,6 +69,10 @@ FUTURE_DAYS = 7  # события вперёд, чтобы на дашборде
 ORG_NAME = "ФK РУБИН"
 TEAM_NAME = "Основа"
 COACH_EMAIL = f"coach@{DEMO_DOMAIN}"
+# Нужен отдельный логин с team_role=medic: без него audience=medic в демо-команде
+# просто некому посмотреть — такое согласие не покрывает coach/head_coach
+# (см. seed_cycle_demo() и consent_service._AUDIENCE_RANK).
+MEDIC_EMAIL = f"medic@{DEMO_DOMAIN}"
 
 # 25 игроков: имя + амплуа. Амплуа кладём в AthleteProfile.position — это его место.
 ROSTER: list[tuple[str, str]] = [
@@ -94,6 +102,19 @@ ROSTER: list[tuple[str, str]] = [
     ("Алексей Дроздов", "нападающий"),
     ("Виктор Самойлов", "нападающий"),
 ]
+
+# Женская часть состава — исключительно чтобы на дашборде/в отчёте было что
+# смотреть по docs/plan-women-health-nutrition.md (цикл). FEMALE_NAMES ниже
+# помечает их sex=female в AthleteProfile; цикл-данные сеются отдельно,
+# seed_cycle_demo(), с разными состояниями доступа, чтобы сразу видно обе ветки:
+# видно (есть согласие, coach или medic) / скрыто (согласия вообще нет).
+ROSTER += [
+    ("Алина Соколова", "центральный защитник"),
+    ("Виктория Орлова", "атакующий полузащитник"),
+    ("Екатерина Громова", "нападающий"),
+    ("Марина Беляева", "левый вингер"),
+]
+FEMALE_NAMES: frozenset[str] = frozenset(name for name, _ in ROSTER[-4:])
 
 
 @dataclass(frozen=True)
@@ -131,6 +152,12 @@ ARCHETYPES: list[Archetype] = [
     Archetype("returning", "yellow", injured=True),  # активная травма
     Archetype("returning", "red", injured=True),
     Archetype("steady", "red"),
+    Archetype("steady", "green"),
+    # Женская часть состава (см. ROSTER/FEMALE_NAMES выше) — обычная нагрузка,
+    # ничего специфичного в архетипе: цикл задаётся отдельно, seed_cycle_demo().
+    Archetype("steady", "yellow"),
+    Archetype("steady", "mixed"),
+    Archetype("steady", "green"),
     Archetype("steady", "green"),
 ]
 
@@ -364,6 +391,90 @@ def wellness_band(kind: str, rng: random.Random) -> str:
     return rng.choices(["green", "yellow", "red"], weights=[6, 3, 1])[0]
 
 
+def _cycle_log(
+    athlete_id: uuid.UUID, day: date, *, on_period: bool = False, pain_level: int | None = None
+) -> CycleLog:
+    return CycleLog(athlete_id=athlete_id, date=day, on_period=on_period, pain_level=pain_level)
+
+
+async def seed_cycle_for_athlete(
+    db, athlete: User, today: date, *, pain_level: int = 7, audience: ConsentAudience = ConsentAudience.coach
+) -> None:
+    """Минимальный трекинг цикла (решение 2026-10-16) для ОДНОГО аккаунта: сегодня
+    и два предыдущих дня отмечены как месячные, болевой порог сегодня, согласие
+    на цикл (`audience` по умолчанию coach — её видят и coach, и medic, см.
+    consent_service._AUDIENCE_RANK).
+
+    Переиспользуется и `seed_cycle_demo()` ниже (демо-женщины в составе), и
+    `seed_player.py --cycle` (реальный аккаунт, довключённый в демо-команду).
+    """
+    if await db.get(CycleSettings, athlete.id) is None:
+        db.add(
+            CycleSettings(
+                user_id=athlete.id, tracking_enabled=True, average_cycle_length=28, average_period_length=5
+            )
+        )
+    for offset in (1, 2):
+        db.add(_cycle_log(athlete.id, today - timedelta(days=offset), on_period=True))
+    db.add(_cycle_log(athlete.id, today, on_period=True, pain_level=pain_level))
+    await db.flush()
+    db.add(
+        DataConsent(
+            athlete_id=athlete.id,
+            scope=ConsentScope.cycle,
+            audience=audience,
+            policy_version=app_settings.consent_policy_version,
+        )
+    )
+    await db.commit()
+
+
+async def seed_cycle_demo(db, women: dict[str, User], today: date) -> None:
+    """Цикл — отдельный блок от основного опроса (docs/plan-women-health-nutrition.md).
+
+    audience=coach видит и coach, и medic (coach — старшая роль, см. consent_service.
+    _AUDIENCE_RANK); audience=medic видит только medic. Под coach@demo.playerpro.local
+    это даёт ровно одну видимую женщину, под medic@demo.playerpro.local — троих:
+    · Соколова — месячные сегодня, болевой порог 7, audience=coach (видна обоим);
+    · Орлова — месячные сегодня, болевой порог 4, audience=medic (видна только medic);
+    · Громова — месячные сегодня, болевой порог 9, audience=medic (видна только medic);
+    · Беляева — месячные отмечены, но согласия вообще НЕТ — скрыта и от coach, и от
+      medic (проверка, что ensure_can_view_sensitive реально режет).
+    """
+    belyaeva = women["Марина Беляева"]
+
+    for user in women.values():
+        if await db.get(CycleSettings, user.id) is None:
+            db.add(
+                CycleSettings(
+                    user_id=user.id,
+                    tracking_enabled=True,
+                    average_cycle_length=28,
+                    average_period_length=5,
+                )
+            )
+    await db.flush()
+
+    # Общая функция, переиспользуется и seed_player.py --cycle
+    await seed_cycle_for_athlete(
+        db, women["Алина Соколова"], today, pain_level=7, audience=ConsentAudience.coach
+    )
+    await seed_cycle_for_athlete(
+        db, women["Виктория Орлова"], today, pain_level=4, audience=ConsentAudience.medic
+    )
+    await seed_cycle_for_athlete(
+        db, women["Екатерина Громова"], today, pain_level=9, audience=ConsentAudience.medic
+    )
+
+    # Беляева: месячные отмечены, но согласия не будет вообще
+    for offset in (1, 2):
+        db.add(_cycle_log(belyaeva.id, today - timedelta(days=offset), on_period=True))
+    db.add(_cycle_log(belyaeva.id, today, on_period=True, pain_level=6))
+
+    await db.commit()
+    print(f"  Цикл: {len(women)} женщин в составе, согласие дано 3/{len(women)}")
+
+
 # Всё, что ссылается на пользователя: (модель, колонка). Список обязан покрывать
 # каждый FK на `users` — иначе --reset падает на ForeignKeyViolation. Добавил новую
 # таблицу с user_id — допиши сюда, иначе сид перестанет пересоздаваться.
@@ -410,13 +521,6 @@ async def wipe_demo(db) -> int:
         await db.execute(delete(Attendance).where(Attendance.event_id.in_(demo_events)))
         await db.execute(delete(RpeEntry).where(RpeEntry.event_id.in_(demo_events)))
         await db.execute(delete(Event).where(Event.id.in_(demo_events)))
-
-    # Симптомы цикла висят на cycle_logs, а не на игроке напрямую
-    demo_cycle_logs = list(
-        (await db.execute(select(CycleLog.id).where(CycleLog.athlete_id.in_(demo_ids)))).scalars()
-    )
-    if demo_cycle_logs:
-        await db.execute(delete(CycleSymptomLog).where(CycleSymptomLog.log_id.in_(demo_cycle_logs)))
 
     # Карта боли висит на wellness_entries, а не на игроке напрямую
     demo_wellness = list(
@@ -489,6 +593,27 @@ async def ensure_coach(db, org: Organization, team: Team) -> User:
     return coach
 
 
+async def ensure_medic(db, org: Organization, team: Team) -> User:
+    """Демо-врач — отдельный логин с team_role=medic (ensure_coach выше заводит
+    всех admin/staff как head_coach, этой роли там взяться не может)."""
+    medic = (await db.execute(select(User).where(User.email == MEDIC_EMAIL))).scalar_one_or_none()
+    if medic is None:
+        medic = User(
+            org_id=org.id,
+            **name_parts("Ольга Киреева"),
+            email=MEDIC_EMAIL,
+            global_role=GlobalRole.staff,
+            status=UserStatus.active,
+            email_verified=True,
+        )
+        db.add(medic)
+        await db.flush()
+    if await db.get(TeamMembership, (medic.id, team.id)) is None:
+        db.add(TeamMembership(user_id=medic.id, team_id=team.id, team_role=TeamRole.medic))
+    await db.flush()
+    return medic
+
+
 def slugify(name: str, index: int) -> str:
     table = str.maketrans(
         "абвгдеёжзийклмнопрстуфхцчшщъыьэюя",
@@ -509,11 +634,13 @@ async def seed(days: int, reset: bool, seed_value: int) -> None:
 
         org, team = await get_or_create_org_team(db)
         coach = await ensure_coach(db, org, team)
+        await ensure_medic(db, org, team)
         print(f"  Организация: {org.name} ({org.id})")
         print(f"  Команда:     {team.name} ({team.id})")
 
         # --- Игроки ---
         athletes: list[tuple[User, Archetype]] = []
+        women: dict[str, User] = {}  # имя → User, для seed_cycle_demo() ниже
         for index, ((name, position), archetype) in enumerate(zip(ROSTER, ARCHETYPES, strict=True)):
             email = f"{slugify(name, index)}@{DEMO_DOMAIN}"
             user = (await db.execute(select(User).where(User.email == email))).scalar_one_or_none()
@@ -531,18 +658,27 @@ async def seed(days: int, reset: bool, seed_value: int) -> None:
                 await db.flush()
             if await db.get(TeamMembership, (user.id, team.id)) is None:
                 db.add(TeamMembership(user_id=user.id, team_id=team.id, team_role=TeamRole.athlete))
-            if await db.get(AthleteProfile, user.id) is None:
+            profile = await db.get(AthleteProfile, user.id)
+            sex = Sex.female if name in FEMALE_NAMES else Sex.not_specified
+            if profile is None:
                 db.add(
                     AthleteProfile(
                         user_id=user.id,
                         position=position,
+                        sex=sex,
                         baseline_resting_hr=rng.randint(48, 60),
                         birthdate=date(rng.randint(1994, 2006), rng.randint(1, 12), rng.randint(1, 28)),
                     )
                 )
+            elif profile.sex != sex and name in FEMALE_NAMES:
+                # Профиль уже существовал из сида до этого изменения — довключаем
+                # sex=female, не трогая остальные поля и не плодя дубль профиля.
+                profile.sex = sex
+            if name in FEMALE_NAMES:
+                women[name] = user
             athletes.append((user, archetype))
         await db.flush()
-        print(f"  Игроков в составе: {len(athletes)}")
+        print(f"  Игроков в составе: {len(athletes)} (из них женщин: {len(women)})")
 
         # --- Командные события: вся история + ближайшая неделя вперёд ---
         events: dict[date, Event] = {}
@@ -722,6 +858,8 @@ async def seed(days: int, reset: bool, seed_value: int) -> None:
         await db.commit()
         print(f"  RPE-записей: {rpe_count}, wellness-записей: {wellness_count}")
 
+        await seed_cycle_demo(db, women, today)
+
         # --- Пересчёт DailyMetric (та же функция, что и в ночном пересчёте) ---
         total = 0
         for user, _ in athletes:
@@ -766,6 +904,7 @@ def main() -> None:
     print(f"Сид демо-данных: {args.days} дн., reset={args.reset}")
     asyncio.run(seed(days=args.days, reset=args.reset, seed_value=args.seed))
     print(f"\nГотово. Вход тренером: {COACH_EMAIL} (код придёт в ответе /auth/otp/request, DEBUG=true)")
+    print(f"       Вход врачом:   {MEDIC_EMAIL} — только под ним видна полная витрина цикла")
 
 
 if __name__ == "__main__":
