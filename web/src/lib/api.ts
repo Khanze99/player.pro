@@ -80,9 +80,9 @@ export const api = {
   rpeHistory: (athleteId: string, token: string, days = 30) =>
     request<RpeEntry[]>(`/rpe/athletes/${athleteId}${qs({ date_from: daysAgoISO(days) })}`, token),
 
-  // Тип WellnessEntry сознательно уже, чем реальный ответ (см. types/index.ts) —
-  // мед. деталь (описания травм, карта боли, комментарий) бэкенд всё равно отдаёт,
-  // но этот клиент её не типизирует и, соответственно, не рендерит.
+  // WellnessEntry зеркалит WellnessOut целиком, включая мед. деталь (карта боли,
+  // описания травмы/недомогания, комментарий) — docs/plan-web-day-detail.md,
+  // доступ не разграничен по роли (как и в мобилке).
   wellnessHistory: (athleteId: string, token: string, days = 30) =>
     request<WellnessEntry[]>(`/wellness/athletes/${athleteId}${qs({ date_from: daysAgoISO(days) })}`, token),
 

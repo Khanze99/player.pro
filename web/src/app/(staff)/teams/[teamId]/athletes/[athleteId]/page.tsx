@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { DayDetailPanel } from "@/components/DayDetailPanel";
 import { LoadChart, ReadinessTrendChart } from "@/components/LoadChart";
 import { MedicalExamsCard } from "@/components/MedicalExamsCard";
 import { ReadinessBreakdownPanel } from "@/components/ReadinessBreakdownPanel";
@@ -78,6 +79,8 @@ export default async function AthletePage({
       </div>
 
       <ReadinessBreakdownPanel athleteId={athleteId} latestDate={latestWithReadiness?.date ?? null} />
+
+      <DayDetailPanel entries={wellnessHistory} initialDate={latestWithReadiness?.date ?? null} />
 
       <div>
         <h2 className="font-medium text-[var(--text)] mb-3">История записей · {HISTORY_DAYS} дн.</h2>

@@ -186,11 +186,61 @@ export interface ReadinessBreakdownAverage {
   avg_score: number | null;
 }
 
-// Полная форма WellnessOut (backend/app/schemas/wellness.py) — но injury_details/
-// symptom_details/comment/pain_points сюда намеренно НЕ включены: это мед. деталь,
-// которую тренерский веб-кабинет не показывает (см. docs/plan-web-admin.md,
-// «Персональные и медицинские данные» — тот же принцип, что и у readiness-breakdown,
-// которая эти поля тоже не отдаёт). Здесь — минимум, нужный для истории вводов.
+// Зоны тела карты боли и структурированной травмы/симптома — буквально
+// backend/app/models/enums.py (BodyRegion/BodySide/InjuryType/SymptomType/
+// RecoveryMethod), см. docs/plan-web-day-detail.md.
+export type BodyRegion =
+  | "head"
+  | "neck"
+  | "shoulder"
+  | "upper_back"
+  | "lower_back"
+  | "chest"
+  | "abdomen"
+  | "elbow"
+  | "forearm"
+  | "wrist"
+  | "hand"
+  | "hip"
+  | "glute"
+  | "groin"
+  | "quad"
+  | "hamstring"
+  | "knee"
+  | "calf"
+  | "shin"
+  | "ankle"
+  | "foot";
+
+export type BodySide = "left" | "right" | "center";
+
+export type InjuryType = "muscle" | "joint" | "ligament" | "tendon" | "bone" | "bruise" | "other";
+
+export type SymptomType =
+  | "illness"
+  | "fever"
+  | "cough"
+  | "sore_throat"
+  | "headache"
+  | "gastro"
+  | "fatigue"
+  | "other";
+
+export type RecoveryMethod = "massage" | "compression" | "cryo_compression" | "physio";
+
+export interface PainPoint {
+  region: BodyRegion;
+  side: BodySide;
+  severity: number;
+  note: string | null;
+}
+
+// Полная форма WellnessOut (backend/app/schemas/wellness.py). До
+// docs/plan-web-day-detail.md (2026-10-15) injury_details/symptom_details/comment/
+// pain_points сюда намеренно не включались — тренерский веб-кабинет их не показывал
+// (см. docs/plan-web-admin.md, «Персональные и медицинские данные»). Решение
+// отменено по запросу пользователя: доступ — паритет с мобилкой, без разграничения
+// coach/medic (ensure_can_view_athlete, без изменений в core/authz.py).
 export interface WellnessEntry {
   id: string;
   athlete_id: string;
@@ -202,8 +252,16 @@ export interface WellnessEntry {
   stress: number;
   soreness: number;
   injury: boolean;
+  injury_details: string | null;
+  injury_area: BodyRegion | null;
+  injury_type: InjuryType | null;
   symptom: boolean;
+  symptom_details: string | null;
+  symptom_type: SymptomType | null;
   resting_hr: number | null;
+  comment: string | null;
+  pain_points: PainPoint[];
+  recovery_methods: RecoveryMethod[];
 }
 
 export interface RpeEntry {
