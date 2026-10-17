@@ -8,7 +8,7 @@ import type { ReadinessBreakdown } from "@/types";
 
 export default async function TeamPage({ params }: { params: Promise<{ teamId: string }> }) {
   const { teamId } = await params;
-  const { token } = await requireSession();
+  const { token, user } = await requireSession();
 
   const squad = await api.squadStatus(teamId, token);
 
@@ -32,9 +32,19 @@ export default async function TeamPage({ params }: { params: Promise<{ teamId: s
           <p className="text-xs text-[var(--text-faint)] uppercase tracking-wide">{summary.team_name}</p>
           <h1 className="text-xl font-semibold text-[var(--text)]">Состав на сегодня</h1>
         </div>
-        <Link href="/teams" className="text-sm text-[var(--accent)] hover:text-[var(--accent-hover)]">
-          Сменить команду
-        </Link>
+        <div className="flex items-center gap-4">
+          {user.role === "admin" && (
+            <Link
+              href={`/teams/${teamId}/roster`}
+              className="text-sm text-[var(--accent)] hover:text-[var(--accent-hover)]"
+            >
+              Состав и переводы
+            </Link>
+          )}
+          <Link href="/teams" className="text-sm text-[var(--accent)] hover:text-[var(--accent-hover)]">
+            Сменить команду
+          </Link>
+        </div>
       </div>
 
       <DailyReportTable teamId={teamId} players={squad.players} breakdowns={breakdowns} />

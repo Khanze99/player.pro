@@ -7,6 +7,9 @@
 Упрощено до минимума (решение 2026-10-16): только отметка дня и болевой порог.
 Фазы цикла, прогноз, аменорея, детальные симптомы и контрацепция убраны из кода —
 если понадобятся, возвращать отдельным решением, не восстанавливать по памяти.
+
+Отдельного «включить трекинг» больше нет (решение 2026-10-17): трекинг всегда
+доступен игроку-женщине, день либо отмечается, либо нет — включать нечего.
 """
 
 import uuid
@@ -24,8 +27,6 @@ class CycleSettings(Base):
     __tablename__ = "cycle_settings"
 
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), primary_key=True)
-    # Трекинг всегда включается вручную: наличие профиля не означает согласия вести его
-    tracking_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
     average_cycle_length: Mapped[int] = mapped_column(default=28)
     average_period_length: Mapped[int] = mapped_column(default=5)
     updated_at: Mapped[datetime] = mapped_column(

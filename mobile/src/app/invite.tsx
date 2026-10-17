@@ -27,12 +27,13 @@ import { useToast } from '@/components/Toast';
 import { MicroLabel, ScreenTitle } from '@/components/Typography';
 import { spacing, type Theme, useStyles, useTheme } from '@/theme';
 
-type InviteRole = 'player' | 'coach' | 'medic' | 'admin';
+type InviteRole = 'player' | 'head_coach' | 'coach' | 'medic' | 'admin';
 
-const ROLES: readonly InviteRole[] = ['player', 'coach', 'medic', 'admin'];
+const ROLES: readonly InviteRole[] = ['player', 'head_coach', 'coach', 'medic', 'admin'];
 
 const ROLE_MAP: Record<InviteRole, { global_role: GlobalRole; team_role: TeamRole | null }> = {
   player: { global_role: 'player', team_role: 'athlete' },
+  head_coach: { global_role: 'staff', team_role: 'head_coach' },
   coach: { global_role: 'staff', team_role: 'coach' },
   medic: { global_role: 'staff', team_role: 'medic' },
   admin: { global_role: 'admin', team_role: null },

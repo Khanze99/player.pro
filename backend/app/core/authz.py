@@ -79,6 +79,24 @@ async def require_org_admin(user: User) -> None:
         raise _forbidden("Требуется роль администратора организации")
 
 
+async def require_org_admin_for_teams(db: AsyncSession, user: User, *team_ids: uuid.UUID) -> list[Team]:
+    """Admin организации, и каждая из команд — его собственной организации.
+
+    Для перевода игрока между командами (docs/plan-player-transfer.md): без сверки
+    org_id у ОБЕИХ команд админ одной организации мог бы перевести игрока в команду
+    чужой организации (IDOR — утечка игрока в чужой тенант). 404, а не 403, на чужую
+    команду — не подтверждаем даже её существование.
+    """
+    await require_org_admin(user)
+    teams = []
+    for team_id in team_ids:
+        team = await get_team(db, team_id)
+        if team.org_id != user.org_id:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Команда не найдена")
+        teams.append(team)
+    return teams
+
+
 async def _shared_team_staff_role(
     db: AsyncSession, viewer_id: uuid.UUID, athlete_id: uuid.UUID
 ) -> TeamRole | None:

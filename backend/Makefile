@@ -4,7 +4,7 @@ PYTHON := $(VENV)/bin/python
 PIP := $(VENV)/bin/pip
 COMPOSE := docker compose -f ../infra/docker-compose.yml
 
-.PHONY: help install dev worker beat test lint format migration upgrade downgrade seed seed-reset branding foods foods-off delete-user infra-up infra-celery infra-down clean
+.PHONY: help install dev worker beat test lint format migration upgrade downgrade seed seed-reset seed-second-team set-admin add-member branding foods foods-off delete-user infra-up infra-celery infra-down clean
 
 help: ## Список команд
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-12s\033[0m %s\n", $$1, $$2}'
@@ -53,6 +53,10 @@ seed: ## Демо-данные: команда 25 игроков + месяц н
 seed-reset: ## Пересоздать демо-данные с нуля
 	$(PYTHON) scripts/seed_demo.py --reset
 
+seed-second-team: ## Вторая команда в организации — проверка перевода игрока: make seed-second-team org="ФK РУБИН" team="Молодёжка" [count=4]
+	@test -n "$(org)" -a -n "$(team)" || (echo 'Нужно: make seed-second-team org="ФK РУБИН" team="Молодёжка"'; exit 1)
+	$(PYTHON) scripts/seed_second_team.py --org "$(org)" --team "$(team)" $(if $(count),--count $(count),)
+
 branding: ## Тема организации: make branding org="ФК Рубин" f=themes/rubin.json [logo_file=герб.png]
 	@test -n "$(org)" -a -n "$(f)" || (echo 'Нужно: make branding org="ФК Рубин" f=themes/rubin.json'; exit 1)
 	$(PYTHON) scripts/seed_branding.py --org "$(org)" --file $(f) $(if $(logo),--logo $(logo),) $(if $(logo_file),--logo-file $(logo_file),)
@@ -87,6 +91,14 @@ seed-player: ## Довключить реальный email в демо-кома
 set-role: ## Сменить роль уже состоящего в организации участника (global_role + team_role разом): make set-role email="a@b.com" org="ФK РУБИН" team="Основа" role=coach
 	@test -n "$(email)" -a -n "$(org)" -a -n "$(team)" -a -n "$(role)" || (echo 'Нужно: make set-role email="a@b.com" org="ФK РУБИН" team="Основа" role=coach'; exit 1)
 	$(PYTHON) scripts/set_role.py --email "$(email)" --org "$(org)" --team "$(team)" --role "$(role)"
+
+set-admin: ## Сделать уже существующего участника глобальным админом его организации: make set-admin email="a@b.com" org="ФK РУБИН"
+	@test -n "$(email)" -a -n "$(org)" || (echo 'Нужно: make set-admin email="a@b.com" org="ФK РУБИН"'; exit 1)
+	$(PYTHON) scripts/set_global_admin.py --email "$(email)" --org "$(org)"
+
+add-member: ## Добавить в ещё одну команду без смены global_role: make add-member email="a@b.com" org="ФK РУБИН" team="Молодёжка" role=athlete
+	@test -n "$(email)" -a -n "$(org)" -a -n "$(team)" -a -n "$(role)" || (echo 'Нужно: make add-member email="a@b.com" org="ФK РУБИН" team="Молодёжка" role=athlete'; exit 1)
+	$(PYTHON) scripts/add_team_member.py --email "$(email)" --org "$(org)" --team "$(team)" --role "$(role)"
 
 infra-up: ## Поднять PostgreSQL + Redis
 	$(COMPOSE) up -d postgres redis

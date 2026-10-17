@@ -1,4 +1,5 @@
 import uuid
+from datetime import date
 
 from pydantic import BaseModel, Field
 
@@ -28,6 +29,19 @@ class MemberOut(BaseModel):
     user_id: uuid.UUID
     name: str
     team_role: TeamRole
+    since: date
+
+
+class TransferIn(BaseModel):
+    """Перевод игрока между командами одной организации (docs/plan-player-transfer.md).
+
+    team_role не обязателен: по умолчанию сохраняется роль, которая была в команде-
+    источнике — обычный перевод игрока не требует явного выбора роли.
+    """
+
+    to_team_id: uuid.UUID
+    team_role: TeamRole | None = None
+    reason: str | None = Field(default=None, max_length=500)
 
 
 class MembershipOut(BaseModel):

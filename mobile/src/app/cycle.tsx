@@ -4,13 +4,15 @@
 // (wellness.tsx), а не здесь — отдельного календаря на этом экране больше нет:
 // отмеченные дни видны в основном календаре (неяркая красная подложка ячейки,
 // см. MonthCalendar.periodDays), решение той же датой.
+//
+// Отдельного шага «включить трекинг» больше нет (решение 2026-10-17): трекинг
+// всегда доступен, настройки показываются сразу — день либо отмечается, либо нет.
 
 import { useRouter } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { useCycleSettings, useUpdateCycleSettings } from '@/api/hooks';
-import { Button } from '@/components/Button';
 import { CloseIcon } from '@/components/Icons';
 import { Screen } from '@/components/Screen';
 import { Stepper } from '@/components/Stepper';
@@ -58,10 +60,6 @@ export default function Cycle() {
   const styles = useStyles(makeStyles);
   const { t } = useTranslation();
   const router = useRouter();
-  const settings = useCycleSettings();
-  const update = useUpdateCycleSettings();
-
-  const enabled = settings.data?.tracking_enabled ?? false;
 
   return (
     <Screen edges={['top', 'bottom']}>
@@ -79,22 +77,7 @@ export default function Cycle() {
           </Pressable>
         </View>
 
-        {!settings.isLoading && !enabled ? (
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>{t('cycle.enableTitle')}</Text>
-            <Text style={styles.cardHint}>{t('cycle.enableHint')}</Text>
-            <Button
-              title={t('cycle.enable')}
-              onPress={() => update.mutate({ tracking_enabled: true })}
-              loading={update.isPending}
-            />
-            <Pressable style={styles.privacyLink} onPress={() => router.push('/privacy')}>
-              <Text style={styles.privacyText}>{t('cycle.whoSees')}</Text>
-            </Pressable>
-          </View>
-        ) : null}
-
-        {enabled ? <SettingsCard /> : null}
+        <SettingsCard />
       </ScrollView>
     </Screen>
   );
@@ -113,7 +96,6 @@ const makeStyles = (th: Theme) => StyleSheet.create({
     padding: spacing.l,
     gap: spacing.m,
   },
-  cardTitle: { fontFamily: th.font.bold, fontSize: 17, color: th.text },
   cardHint: { fontFamily: th.font.regular, fontSize: 13, color: th.textMuted, lineHeight: 18 },
 
   privacyLink: { paddingVertical: spacing.s },

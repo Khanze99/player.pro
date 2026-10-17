@@ -6,7 +6,7 @@ import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
-import { useCycleLogs, useCycleSettings, useFeatures, useMyEvents } from '@/api/hooks';
+import { useCycleLogs, useFeatures, useMyEvents, useMyProfile } from '@/api/hooks';
 import type { CalendarEvent } from '@/api/types';
 import { TeamBadge } from '@/components/TeamBadge';
 import { PlusIcon } from '@/components/Icons';
@@ -40,10 +40,12 @@ export default function Calendar() {
   const events = useMyEvents(fromISO, toISO);
 
   // Дни месячных — неяркая красная подложка, см. MonthCalendar.periodDays.
-  // Гейт по фиче+трекингу: нет смысла дёргать /cycle/me/logs для всех подряд.
+  // Гейт по фиче+полу: нет смысла дёргать /cycle/me/logs для всех подряд, а
+  // трекинг всегда доступен игроку-женщине, отдельного «включить» нет
+  // (решение 2026-10-17).
   const features = useFeatures();
-  const cycleSettings = useCycleSettings(features.data?.cycle === true);
-  const cycleEnabled = cycleSettings.data?.tracking_enabled === true;
+  const profile = useMyProfile();
+  const cycleEnabled = features.data?.cycle === true && profile.data?.sex === 'female';
   const cycleLogs = useCycleLogs(90, cycleEnabled);
   const periodDays = useMemo(() => {
     const set = new Set<string>();

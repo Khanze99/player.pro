@@ -4,7 +4,15 @@ from fastapi import APIRouter
 
 from app.api.deps import CurrentUser, DbSession
 from app.core import authz
-from app.schemas.team import LocationIn, LocationOut, MemberIn, MemberOut, TeamCreateIn, TeamOut
+from app.schemas.team import (
+    LocationIn,
+    LocationOut,
+    MemberIn,
+    MemberOut,
+    TeamCreateIn,
+    TeamOut,
+    TransferIn,
+)
 from app.services import teams_service
 
 router = APIRouter(prefix="/teams", tags=["teams"])
@@ -42,6 +50,15 @@ async def remove_member(team_id: uuid.UUID, user_id: uuid.UUID, user: CurrentUse
     if not authz.is_org_admin(user, team.org_id):
         await authz.require_team_role(db, user, team_id, {authz.TeamRole.head_coach})
     await teams_service.remove_member(db, team_id, user_id)
+
+
+@router.post("/{from_team_id}/members/{user_id}/transfer", response_model=MemberOut)
+async def transfer_member(
+    from_team_id: uuid.UUID, user_id: uuid.UUID, data: TransferIn, user: CurrentUser, db: DbSession
+):
+    """Перевод игрока между командами организации — только admin (docs/plan-player-transfer.md)."""
+    from_team, to_team = await authz.require_org_admin_for_teams(db, user, from_team_id, data.to_team_id)
+    return await teams_service.transfer_member(db, user, from_team, to_team, user_id, data)
 
 
 @router.post("/{team_id}/locations", response_model=LocationOut, status_code=201)

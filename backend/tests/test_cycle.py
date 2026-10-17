@@ -103,10 +103,9 @@ async def test_delete_log(db):
 # ------------------------------------------------------------------ настройки
 
 
-async def test_settings_default_is_tracking_disabled(db):
+async def test_settings_defaults(db):
     world = await _team_with_female_athlete(db)
     settings = await cycle_service.get_settings(db, world["athlete"].id)
-    assert settings.tracking_enabled is False
     assert settings.average_cycle_length == 28
     assert settings.average_period_length == 5
 
@@ -115,11 +114,9 @@ async def test_settings_upsert_partial(db):
     world = await _team_with_female_athlete(db)
     athlete_id = world["athlete"].id
 
-    await cycle_service.upsert_settings(db, athlete_id, CycleSettingsIn(tracking_enabled=True))
     await cycle_service.upsert_settings(db, athlete_id, CycleSettingsIn(average_cycle_length=30))
 
     settings = await cycle_service.get_settings(db, athlete_id)
-    assert settings.tracking_enabled is True
     assert settings.average_cycle_length == 30
     assert settings.average_period_length == 5  # не тронуто частичным обновлением
 
@@ -190,12 +187,6 @@ async def test_cycle_api_is_self_only(client):
 async def test_cycle_api_roundtrip(client):
     user = await register_user(client, "cycle2@example.com")
     today = date.today().isoformat()
-
-    resp = await client.put(
-        "/api/v1/cycle/me/settings", json={"tracking_enabled": True}, headers=user["headers"]
-    )
-    assert resp.status_code == 200, resp.text
-    assert resp.json()["tracking_enabled"] is True
 
     resp = await client.put(
         "/api/v1/cycle/me/logs",

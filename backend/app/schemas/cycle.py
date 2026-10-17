@@ -8,7 +8,6 @@ from pydantic import BaseModel, Field
 
 
 class CycleSettingsIn(BaseModel):
-    tracking_enabled: bool | None = None
     average_cycle_length: int | None = Field(default=None, ge=21, le=45)
     average_period_length: int | None = Field(default=None, ge=1, le=10)
 
@@ -16,7 +15,6 @@ class CycleSettingsIn(BaseModel):
 class CycleSettingsOut(BaseModel):
     model_config = {"from_attributes": True}
 
-    tracking_enabled: bool
     average_cycle_length: int
     average_period_length: int
 

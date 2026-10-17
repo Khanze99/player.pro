@@ -280,7 +280,7 @@ const es: typeof ru = {
     orgHint: 'Organización: {{org}}',
     roleLabel: 'Rol',
     teamLabel: 'Equipo',
-    roles: { player: 'Jugador', coach: 'Entrenador', medic: 'Médico', admin: 'Admin' },
+    roles: { player: 'Jugador', head_coach: 'Entrenador principal', coach: 'Entrenador', medic: 'Médico', admin: 'Admin' },
     send: 'Enviar invitación',
     sent: 'Invitación creada — entrará con este teléfono/email',
     noTeams: 'Crea un equipo primero',
@@ -361,9 +361,6 @@ const es: typeof ru = {
   },
   cycle: {
     title: 'Ciclo',
-    enableTitle: 'Seguimiento del ciclo',
-    enableHint: 'Registra los días de menstruación y el nivel de dolor. Por defecto nadie ve estos datos — tú concedes el acceso y puedes cerrarlo cuando quieras.',
-    enable: 'Activar',
     whoSees: 'Quién ve estos datos →',
     onPeriod: 'Hoy tengo la menstruación',
     painLevel: 'Nivel de dolor',
@@ -466,14 +463,13 @@ const es: typeof ru = {
   },
   privacy: {
     title: 'Privacidad',
-    intro: 'Tú decides quién ve estos datos. Por defecto no los ve nadie. Puedes cambiar o retirar el acceso en cualquier momento — de inmediato y sin explicaciones.',
     scope: {
       cycle: 'Ciclo menstrual',
       nutrition: 'Nutrición y calorías',
       body_metrics: 'Peso y composición corporal',
     },
     scopeHint: {
-      cycle: 'Fechas, síntomas, fases del ciclo',
+      cycle: 'Días de menstruación y nivel de dolor',
       nutrition: 'Diario de comidas, calorías y macros',
       body_metrics: 'Peso, composición corporal, medidas',
     },

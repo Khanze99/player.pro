@@ -17,7 +17,9 @@ import type {
   RpeEntry,
   SquadStatus,
   Team,
+  TeamMember,
   TeamSummary,
+  TransferPayload,
   WellnessEntry,
 } from "@/types";
 
@@ -68,6 +70,14 @@ export const api = {
   me: (token: string) => request<Me>("/auth/me", token),
 
   teams: (token: string) => request<Team[]>("/teams", token),
+
+  // Состав + перевод (docs/plan-player-transfer.md) — пишущие ручки доступны
+  // только admin, бэкенд сам отдаёт 403/404 остальным и на чужую организацию.
+  teamMembers: (teamId: string, token: string) =>
+    request<TeamMember[]>(`/teams/${teamId}/members`, token),
+
+  transferMember: (fromTeamId: string, userId: string, token: string, data: TransferPayload) =>
+    post<TeamMember>(`/teams/${fromTeamId}/members/${userId}/transfer`, token, data),
 
   squadStatus: (teamId: string, token: string) =>
     request<SquadStatus>(`/dashboard/teams/${teamId}/squad-status`, token),

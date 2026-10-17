@@ -17,7 +17,13 @@ import {
 import { useTranslation } from 'react-i18next';
 
 import { ApiError } from '@/api/client';
-import { todayISO, useCycleLogs, useCycleSettings, useFeatures, useSubmitWellness } from '@/api/hooks';
+import {
+  todayISO,
+  useCycleLogs,
+  useFeatures,
+  useMyProfile,
+  useSubmitWellness,
+} from '@/api/hooks';
 import type { InjuryType, PainPoint, RecoveryMethod, SymptomType } from '@/api/types';
 import { BodyMap } from '@/components/BodyMap';
 import { Button } from '@/components/Button';
@@ -64,8 +70,10 @@ export default function Wellness() {
   const toast = useToast((s) => s.show);
   const submit = useSubmitWellness();
   const features = useFeatures();
-  const cycleSettings = useCycleSettings(features.data?.cycle === true);
-  const cycleEnabled = cycleSettings.data?.tracking_enabled === true;
+  const profile = useMyProfile();
+  // Цикл — всегда доступен игроку-женщине, без отдельного «включить» (решение
+  // 2026-10-17): день либо отмечается в опросе, либо нет.
+  const cycleEnabled = features.data?.cycle === true && profile.data?.sex === 'female';
   const cycleLogs = useCycleLogs(1, cycleEnabled);
 
   const [sleep, setSleep] = useState<number | null>(null);

@@ -24,7 +24,7 @@ DEFAULT_PERIOD_LENGTH = 5
 
 
 async def get_settings(db: AsyncSession, user_id: uuid.UUID) -> CycleSettings:
-    """Настройки создаются лениво: отсутствие записи — это выключенный трекинг.
+    """Настройки создаются лениво — отсутствие записи просто значит «дефолты».
 
     Значения задаём явно: default= у mapped_column срабатывает только при INSERT,
     а этот объект в БД не попадает — иначе все поля были бы None.
@@ -33,7 +33,6 @@ async def get_settings(db: AsyncSession, user_id: uuid.UUID) -> CycleSettings:
     if settings is None:
         settings = CycleSettings(
             user_id=user_id,
-            tracking_enabled=False,
             average_cycle_length=DEFAULT_CYCLE_LENGTH,
             average_period_length=DEFAULT_PERIOD_LENGTH,
         )
@@ -102,10 +101,10 @@ async def record_from_wellness(
     него (ensure_can_view_athlete).
 
     Запись, поставленная вручную на экране цикла, не трогается: только дозаполняем
-    `pain_level`, если он там ещё не был задан.
+    `pain_level`, если он там ещё не был задан. on_period=None — поля цикла в опросе
+    не заполнялись (не женщина/клиент их не прислал) — писать нечего.
     """
-    settings = await get_settings(db, athlete_id)
-    if not settings.tracking_enabled or on_period is None:
+    if on_period is None:
         return
 
     row = await db.execute(select(CycleLog).where(CycleLog.athlete_id == athlete_id, CycleLog.date == day))

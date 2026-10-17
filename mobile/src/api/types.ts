@@ -448,8 +448,9 @@ export interface AthleteProfile {
 
 // Цикл (backend/app/schemas/cycle.py) — минимальный трекинг (решение 2026-10-16):
 // только отметка дня и болевой порог. Спецкатегория — доступ только по согласию.
+// Отдельного «включить трекинг» нет (решение 2026-10-17) — всегда доступен
+// игроку-женщине, день либо отмечается, либо нет.
 export interface CycleSettings {
-  tracking_enabled: boolean;
   average_cycle_length: number;
   average_period_length: number;
 }

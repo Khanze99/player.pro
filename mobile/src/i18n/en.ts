@@ -280,7 +280,7 @@ const en: typeof ru = {
     orgHint: 'Organization: {{org}}',
     roleLabel: 'Role',
     teamLabel: 'Team',
-    roles: { player: 'Player', coach: 'Coach', medic: 'Medic', admin: 'Admin' },
+    roles: { player: 'Player', head_coach: 'Head coach', coach: 'Coach', medic: 'Medic', admin: 'Admin' },
     send: 'Send invitation',
     sent: 'Invitation created — they sign in with this phone/email',
     noTeams: 'Create a team first',
@@ -361,9 +361,6 @@ const en: typeof ru = {
   },
   cycle: {
     title: 'Cycle',
-    enableTitle: 'Cycle tracking',
-    enableHint: 'Log period days and pain level. By default nobody sees this data — you grant access yourself and can close it at any time.',
-    enable: 'Turn on',
     whoSees: 'Who sees this data →',
     onPeriod: 'On period today',
     painLevel: 'Pain level',
@@ -466,14 +463,13 @@ const en: typeof ru = {
   },
   privacy: {
     title: 'Privacy',
-    intro: 'You decide who sees this data. By default nobody does. You can change or withdraw access at any moment — immediately and without explanation.',
     scope: {
       cycle: 'Menstrual cycle',
       nutrition: 'Nutrition and calories',
       body_metrics: 'Weight and body composition',
     },
     scopeHint: {
-      cycle: 'Dates, symptoms, cycle phases',
+      cycle: 'Period days and pain level',
       nutrition: 'Food log, calories and macros',
       body_metrics: 'Weight, body composition, measurements',
     },

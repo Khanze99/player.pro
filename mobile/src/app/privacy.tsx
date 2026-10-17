@@ -58,8 +58,6 @@ export default function Privacy() {
             </Pressable>
           </View>
 
-          <Text style={styles.intro}>{t('privacy.intro')}</Text>
-
           {SCOPES.map((scope) => (
             <View key={scope} style={styles.card}>
               <MicroLabel>{t(`privacy.scope.${scope}`)}</MicroLabel>
@@ -93,7 +91,6 @@ const makeStyles = (th: Theme) => StyleSheet.create({
   content: { padding: spacing.screen, gap: spacing.l, paddingBottom: 40 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   close: { padding: spacing.xs },
-  intro: { fontFamily: th.font.regular, fontSize: 14, color: th.textMuted, lineHeight: 20 },
   card: {
     backgroundColor: th.surface,
     borderWidth: 1,

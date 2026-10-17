@@ -444,9 +444,10 @@ export default function Profile() {
             <Text style={styles.rowText}>{t('profile.changePin')}</Text>
             <ChevronIcon color={th.textMuted} />
           </Pressable>
-          {/* Цикл скрыт фича-флагом с бэкенда и показывается только указавшим
-              женский пол: иначе это шум в меню. Пол — самодекларация. */}
-          {features.data?.cycle && p?.sex === 'female' ? (
+          {/* Цикл скрыт фича-флагом с бэкенда и показывается только игрокам,
+              указавшим женский пол: у штаба (админ/тренер/врач) своего цикла
+              не бывает — это их собственный профиль, не игрока. Пол — самодекларация. */}
+          {isPlayer && features.data?.cycle && p?.sex === 'female' ? (
             <Pressable style={styles.row} accessibilityRole="button" onPress={() => router.push('/cycle')}>
               <Text style={styles.rowText}>{t('profile.cycle')}</Text>
               <ChevronIcon color={th.textMuted} />

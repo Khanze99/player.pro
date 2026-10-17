@@ -16,6 +16,21 @@ export interface Team {
   sport: string | null;
 }
 
+// Состав команды + перевод между командами (docs/plan-player-transfer.md).
+// Только admin: эндпоинты требуют require_org_admin_for_teams на бэкенде.
+export interface TeamMember {
+  user_id: string;
+  name: string;
+  team_role: TeamRole;
+  since: string;
+}
+
+export interface TransferPayload {
+  to_team_id: string;
+  team_role?: TeamRole;
+  reason?: string;
+}
+
 export interface Membership {
   team_id: string;
   team_name: string;

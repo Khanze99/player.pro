@@ -19,7 +19,7 @@ from app.models.organization import Organization
 from app.models.team import Team, TeamMembership
 from app.models.user import User
 from app.schemas.organization import InvitationCreateIn
-from app.services import notify_service, users_service
+from app.services import notify_service, teams_service, users_service
 from app.services.auth_service import _find_user, normalize_identifier
 from app.services.notify_service import NotifyError
 
@@ -65,6 +65,13 @@ async def create_invitation(db: AsyncSession, admin: User, data: InvitationCreat
     if existing_user is not None and existing_user.org_id not in (None, admin.org_id):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT, detail="Пользователь состоит в другой организации"
+        )
+    # Аккаунт — либо игрок, либо штаб, не разом (teams_service.ensure_single_role_category):
+    # приглашение существующего игрока тренером в другую команду (и наоборот) —
+    # явная ошибка в выборе роли/идентификатора, проверяем сразу, не на входе.
+    if existing_user is not None and data.team_role is not None:
+        await teams_service.ensure_single_role_category(
+            db, existing_user.id, data.team_role, exclude_team_id=data.team_id
         )
 
     # Инвайт one-time: прежние pending на этот identifier в эту орг гасим, оставляя один свежий
@@ -128,6 +135,15 @@ async def consume_for_user(db: AsyncSession, user: User) -> None:
 
     # Пользователь уже в другой организации — приглашение не применяем (оставляем pending)
     if user.org_id is not None and user.org_id != invitation.org_id:
+        return
+
+    # Аккаунт — либо игрок, либо штаб (teams_service.ensure_single_role_category):
+    # если к моменту входа пользователь уже в другой категории в другой команде
+    # (создано приглашение раньше, роль поменялась позже) — не применяем ничего,
+    # приглашение остаётся pending, админ разберётся вручную, как и с чужой орг.
+    if invitation.team_id is not None and await teams_service.has_role_category_conflict(
+        db, user.id, invitation.team_role, exclude_team_id=invitation.team_id
+    ):
         return
 
     user.org_id = invitation.org_id

@@ -15,6 +15,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from fastapi import HTTPException  # noqa: E402
 from sqlalchemy import select  # noqa: E402
 
 from app.database import AsyncSessionLocal  # noqa: E402
@@ -68,7 +69,10 @@ async def invite(org_name: str, team_name: str, email: str, role: TeamRole) -> N
             team_id=team.id,
             team_role=role,
         )
-        await invitations_service.create_invitation(db, admin, data)
+        try:
+            await invitations_service.create_invitation(db, admin, data)
+        except HTTPException as exc:
+            raise SystemExit(exc.detail) from None
 
         print(f"Приглашение создано: {email} -> {org_name} / {team_name}, роль {role.value}")
         print("Вход: POST /auth/otp/request с этим identifier, код — в ответе при DEBUG=true")

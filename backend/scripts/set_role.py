@@ -19,6 +19,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from fastapi import HTTPException  # noqa: E402
 from sqlalchemy import select  # noqa: E402
 
 from app.database import AsyncSessionLocal  # noqa: E402
@@ -58,7 +59,10 @@ async def set_role(email: str, org_name: str, team_name: str, role: TeamRole) ->
 
         user.global_role = GLOBAL_ROLE_FOR[role]
         await db.flush()
-        await teams_service.upsert_member(db, team, user.id, role)  # сам коммитит, та же транзакция
+        try:
+            await teams_service.upsert_member(db, team, user.id, role)  # сам коммитит, та же транзакция
+        except HTTPException as exc:
+            raise SystemExit(exc.detail) from None
 
         print(
             f"{email}: global_role={user.global_role.value}, team_role={role.value} в {org_name}/{team_name}"

@@ -409,11 +409,7 @@ async def seed_cycle_for_athlete(
     `seed_player.py --cycle` (реальный аккаунт, довключённый в демо-команду).
     """
     if await db.get(CycleSettings, athlete.id) is None:
-        db.add(
-            CycleSettings(
-                user_id=athlete.id, tracking_enabled=True, average_cycle_length=28, average_period_length=5
-            )
-        )
+        db.add(CycleSettings(user_id=athlete.id, average_cycle_length=28, average_period_length=5))
     for offset in (1, 2):
         db.add(_cycle_log(athlete.id, today - timedelta(days=offset), on_period=True))
     db.add(_cycle_log(athlete.id, today, on_period=True, pain_level=pain_level))
@@ -445,14 +441,7 @@ async def seed_cycle_demo(db, women: dict[str, User], today: date) -> None:
 
     for user in women.values():
         if await db.get(CycleSettings, user.id) is None:
-            db.add(
-                CycleSettings(
-                    user_id=user.id,
-                    tracking_enabled=True,
-                    average_cycle_length=28,
-                    average_period_length=5,
-                )
-            )
+            db.add(CycleSettings(user_id=user.id, average_cycle_length=28, average_period_length=5))
     await db.flush()
 
     # Общая функция, переиспользуется и seed_player.py --cycle

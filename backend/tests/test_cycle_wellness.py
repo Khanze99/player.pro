@@ -9,7 +9,7 @@
 from datetime import date
 
 from app.models.enums import ConsentAudience, ConsentScope
-from app.schemas.cycle import CycleLogIn, CycleSettingsIn
+from app.schemas.cycle import CycleLogIn
 from app.services import consent_service, cycle_service
 from tests.test_authz import WELLNESS, build_org
 from tests.test_cycle import _team_with_female_athlete
@@ -21,7 +21,6 @@ async def test_record_from_wellness_creates_log(db):
     world = await _team_with_female_athlete(db)
     athlete_id = world["athlete"].id
     today = date(2026, 8, 8)
-    await cycle_service.upsert_settings(db, athlete_id, CycleSettingsIn(tracking_enabled=True))
 
     await cycle_service.record_from_wellness(db, athlete_id, today, True, 6)
 
@@ -37,7 +36,6 @@ async def test_record_from_wellness_does_not_override_manual_entry(db):
     world = await _team_with_female_athlete(db)
     athlete_id = world["athlete"].id
     today = date(2026, 8, 8)
-    await cycle_service.upsert_settings(db, athlete_id, CycleSettingsIn(tracking_enabled=True))
     await cycle_service.upsert_log(db, athlete_id, CycleLogIn(date=today, on_period=False))
 
     await cycle_service.record_from_wellness(db, athlete_id, today, True, 7)
@@ -48,13 +46,13 @@ async def test_record_from_wellness_does_not_override_manual_entry(db):
     assert logs[0].pain_level == 7  # дозаполнили, было пусто
 
 
-async def test_record_from_wellness_noop_without_tracking(db):
+async def test_record_from_wellness_noop_without_period_flag(db):
+    """on_period=None — опрос цикл-поля не прислал (не женщина/опрос без них) — нечего писать."""
     world = await _team_with_female_athlete(db)
     athlete_id = world["athlete"].id
     today = date(2026, 8, 8)
-    # tracking_enabled остаётся False по умолчанию
 
-    await cycle_service.record_from_wellness(db, athlete_id, today, True, 8)
+    await cycle_service.record_from_wellness(db, athlete_id, today, None, 8)
 
     logs = await cycle_service.get_logs(db, athlete_id, today, today)
     assert logs == []
@@ -66,10 +64,6 @@ async def test_record_from_wellness_noop_without_tracking(db):
 async def test_wellness_period_fields_not_leaked_in_response(client):
     org = await build_org(client)
     a1 = org["athlete1"]
-    resp = await client.put(
-        "/api/v1/cycle/me/settings", json={"tracking_enabled": True}, headers=a1["headers"]
-    )
-    assert resp.status_code == 200, resp.text
 
     payload = {**WELLNESS, "period_day": True, "period_pain_level": 6}
     resp = await client.post("/api/v1/wellness", json=payload, headers=a1["headers"])
@@ -95,10 +89,6 @@ async def test_wellness_period_fields_do_not_bypass_cycle_consent(client, db):
     ensure_can_view_sensitive — согласия на это никто не давал."""
     org = await build_org(client)
     a1 = org["athlete1"]
-    resp = await client.put(
-        "/api/v1/cycle/me/settings", json={"tracking_enabled": True}, headers=a1["headers"]
-    )
-    assert resp.status_code == 200, resp.text
 
     payload = {**WELLNESS, "period_day": True, "period_pain_level": 5}
     resp = await client.post("/api/v1/wellness", json=payload, headers=a1["headers"])
