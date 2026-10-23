@@ -1,6 +1,35 @@
 """Auth-флоу (раздел 5 ТЗ): OTP → access + refresh, привязка к устройству."""
 
+import pytest
+
+from app.services.auth_service import normalize_identifier
 from tests.conftest import register_user
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        ("Ivan@Example.com", "ivan@example.com"),
+        ("mailto:ivan@example.com", "ivan@example.com"),
+        ("MAILTO:ivan@example.com", "ivan@example.com"),
+        ("<mailto:ivan@example.com>", "ivan@example.com"),
+        ("<ivan@example.com>", "ivan@example.com"),
+        ("mailto:ivan@example.com?subject=Hi&body=Привет", "ivan@example.com"),
+    ],
+)
+def test_normalize_identifier_unwraps_mailto_link(raw, expected):
+    """Скопированная mailto-ссылка из письма не должна мешать матчингу почты
+    (баг: инвайт/вход сохраняли identifier буквально с mailto: и не матчились
+    с реальной почтой пользователя)."""
+    kind, value = normalize_identifier(raw)
+    assert kind == "email"
+    assert value == expected
+
+
+def test_normalize_identifier_phone_unaffected():
+    kind, value = normalize_identifier("+7 (912) 345-67-89")
+    assert kind == "phone"
+    assert value == "+79123456789"
 
 
 async def test_otp_register_and_me(client):

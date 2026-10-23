@@ -29,9 +29,23 @@ _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 _PHONE_RE = re.compile(r"^\+?\d{10,15}$")
 
 
+def _strip_mailto_link(value: str) -> str:
+    """Разворачивает mailto-ссылку в чистый адрес.
+
+    Если почту не набрали вручную, а скопировали саму ссылку из письма, в поле
+    попадает `<mailto:ivan@example.com?subject=...>` или `mailto:ivan@example.com`
+    вместо `ivan@example.com` — такое значение не матчится с реальной почтой
+    пользователя при входе/консюме приглашения.
+    """
+    stripped = value.strip("<>")
+    if stripped.startswith("mailto:"):
+        stripped = stripped[len("mailto:") :]
+    return stripped.split("?", 1)[0]
+
+
 def normalize_identifier(identifier: str) -> tuple[str, str]:
     """Возвращает ("email"|"phone", нормализованное значение) или бросает 422."""
-    value = identifier.strip().lower()
+    value = _strip_mailto_link(identifier.strip().lower())
     if _EMAIL_RE.match(value):
         return "email", value
     phone = re.sub(r"[\s\-()]", "", value)

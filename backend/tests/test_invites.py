@@ -88,6 +88,31 @@ async def test_invite_consumed_on_verify_attaches_user(client, db):
     assert invitation.status == InvitationStatus.accepted
 
 
+async def test_invite_with_mailto_link_still_consumed(client, db):
+    """Админ вставил не почту, а скопированную mailto-ссылку — приглашение всё равно
+    матчится с реальным адресом при входе (баг: раньше сохранялось буквально
+    mailto:..., и consume_for_user не находил совпадение)."""
+    admin, org, team = await _make_admin_with_team(client)
+    inv = await client.post(
+        "/api/v1/organizations/invites",
+        json={
+            "identifier": "<mailto:athlete2@example.com?subject=Welcome>",
+            "global_role": "player",
+            "team_id": team["id"],
+            "team_role": "athlete",
+        },
+        headers=admin["headers"],
+    )
+    assert inv.status_code == 201, inv.text
+
+    athlete = await register_user(client, "athlete2@example.com", device_id="dev-athlete2")
+    me = await client.get("/api/v1/auth/me", headers=athlete["headers"])
+    assert me.json()["org_id"] == org["id"]
+
+    invitation = (await db.execute(select(Invitation))).scalar_one()
+    assert invitation.status == InvitationStatus.accepted
+
+
 async def test_non_admin_cannot_invite(client):
     user = await register_user(client, "plain@example.com")
     resp = await client.post(
