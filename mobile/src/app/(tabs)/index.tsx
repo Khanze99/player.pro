@@ -137,7 +137,10 @@ function PlayerHome() {
   const streaks = useStreaks();
   const wellnessToday = useWellnessHistory(1);
   const rpeToday = useRpeHistory(1);
-  const weightHistory = useWellnessHistory(30);
+  // 90 дней (3 месяца) — под месячную разметку WeightSparkline, шире, чем
+  // остальные карточки экрана: вес меняется медленно, короткое окно мало
+  // покажет на графике.
+  const weightHistory = useWellnessHistory(90);
   const profile = useMyProfile();
 
   const today = todayISO();

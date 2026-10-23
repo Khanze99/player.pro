@@ -136,7 +136,9 @@ export function WeightCard({
               </span>
             </div>
           )}
-          {points.length >= 2 && <WeightSparkline points={points} />}
+          {points.length >= 2 && (
+            <WeightSparkline points={points} color={bmiZoneColorVar(profile?.bmi_zone)} />
+          )}
           {profile && BMI_ZONE_NOTE[profile.bmi_zone] && (
             <p className="text-xs text-[var(--text-muted)] mt-2">{BMI_ZONE_NOTE[profile.bmi_zone]}</p>
           )}
@@ -146,31 +148,137 @@ export function WeightCard({
   );
 }
 
-function WeightSparkline({ points }: { points: (WellnessEntry & { weight_kg: number })[] }) {
+// Шкала X — по реальной дате, не по индексу точки (ряд разреженный, вес
+// отмечают не каждый день), шкала Y — динамическая по min/max видимых точек.
+// Точки — видимые кружки + значение рядом, где есть место (иначе подписи
+// налезают при частых отметках); по оси — подписи месяцев с разделителями,
+// не просто первая/последняя дата. Все подписи — явный fill, у SVG-текста он
+// по умолчанию чёрный, если не задать явно.
+function WeightSparkline({
+  points,
+  color,
+}: {
+  points: (WellnessEntry & { weight_kg: number })[];
+  color: string;
+}) {
   const W = 560;
-  const H = 70;
+  const H = 110;
+  const PAD_LEFT = 36;
   const PAD_Y = 10;
+  const PAD_BOTTOM = 20;
+  const MIN_LABEL_GAP = 48;
+  const plotW = W - PAD_LEFT;
+  const plotH = H - PAD_BOTTOM;
 
-  const values = points.map((p) => p.weight_kg);
+  const series = points
+    .map((p) => ({ ts: new Date(`${p.date}T12:00:00`).getTime(), weight: p.weight_kg }))
+    .sort((a, b) => a.ts - b.ts);
+  const minTs = series[0].ts;
+  const maxTs = series[series.length - 1].ts;
+  const tsSpan = maxTs - minTs || 1;
+  const values = series.map((p) => p.weight);
   const min = Math.min(...values);
   const max = Math.max(...values);
   const span = max - min || 1;
 
-  const xOf = (i: number) => (i / (points.length - 1)) * W;
-  const yOf = (v: number) => H - PAD_Y - ((v - min) / span) * (H - PAD_Y * 2);
-  const coords = points.map((p, i) => `${xOf(i)},${yOf(p.weight_kg)}`).join(" ");
-  const last = points[points.length - 1];
-  const color = "var(--accent)";
+  const xOf = (ts: number) => PAD_LEFT + ((ts - minTs) / tsSpan) * plotW;
+  const yOf = (v: number) => PAD_Y + (plotH - PAD_Y * 2) * (1 - (v - min) / span);
+  const coords = series.map((p) => `${xOf(p.ts)},${yOf(p.weight)}`).join(" ");
+
+  const months = monthTicks(minTs, maxTs);
+  const pointLabels = series
+    .map((p) => ({ x: xOf(p.ts), y: yOf(p.weight), weight: p.weight }))
+    .reduce<{ x: number; y: number; weight: number }[]>((acc, p) => {
+      const prev = acc[acc.length - 1];
+      if (prev && p.x - prev.x < MIN_LABEL_GAP) return acc;
+      acc.push(p);
+      return acc;
+    }, []);
 
   return (
-    <div>
-      <svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`}>
-        <polyline points={coords} fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-      <div className="flex justify-between text-[11px] text-[var(--text-faint)] mt-1">
-        <span>{formatDate(points[0].date)}</span>
-        <span>{formatDate(last.date)}</span>
-      </div>
-    </div>
+    <svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`}>
+      {months.map((m, i) =>
+        i === 0 ? null : (
+          <line
+            key={`div-${m.startTs}`}
+            x1={xOf(m.startTs)}
+            y1={PAD_Y - 4}
+            x2={xOf(m.startTs)}
+            y2={plotH}
+            stroke="var(--border)"
+            strokeWidth={1}
+            strokeDasharray="3 3"
+          />
+        ),
+      )}
+      <polyline
+        points={coords}
+        fill="none"
+        stroke={color}
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      {series.map((p) => (
+        <circle key={p.ts} cx={xOf(p.ts)} cy={yOf(p.weight)} r={2.6} fill={color} />
+      ))}
+      {pointLabels.map((p) => (
+        <text
+          key={`lbl-${p.x}`}
+          x={p.x}
+          y={Math.max(p.y - 7, PAD_Y)}
+          fontSize={9}
+          fontWeight={600}
+          fill={color}
+          textAnchor="middle"
+        >
+          {p.weight}
+        </text>
+      ))}
+      <text x={2} y={yOf(max) + 3} fontSize={10} fill="var(--text-faint)">
+        {max}
+      </text>
+      <text x={2} y={yOf(min) + 3} fontSize={10} fill="var(--text-faint)">
+        {min}
+      </text>
+      {months.map((m) => (
+        <text
+          key={`mo-${m.startTs}`}
+          x={xOf(m.midTs)}
+          y={H - 5}
+          fontSize={10.5}
+          fill="var(--text-faint)"
+          textAnchor="middle"
+        >
+          {m.label}
+        </text>
+      ))}
+    </svg>
   );
+}
+
+interface MonthTick {
+  startTs: number;
+  midTs: number;
+  label: string;
+}
+
+function monthTicks(minTs: number, maxTs: number): MonthTick[] {
+  const ticks: MonthTick[] = [];
+  const cursor = new Date(minTs);
+  cursor.setDate(1);
+  cursor.setHours(0, 0, 0, 0);
+  while (cursor.getTime() <= maxTs) {
+    const startTs = Math.max(cursor.getTime(), minTs);
+    const next = new Date(cursor);
+    next.setMonth(next.getMonth() + 1);
+    const endTs = Math.min(next.getTime() - 1, maxTs);
+    ticks.push({
+      startTs,
+      midTs: (startTs + endTs) / 2,
+      label: cursor.toLocaleDateString("ru-RU", { month: "short", year: "numeric" }),
+    });
+    cursor.setMonth(cursor.getMonth() + 1);
+  }
+  return ticks;
 }

@@ -123,6 +123,10 @@ export default function AthleteReport() {
   const metrics = useAthleteMetrics(params.id, 28);
   const rpe = useAthleteRpeHistory(params.id, 28);
   const wellness = useAthleteWellnessHistory(params.id, 28);
+  // Отдельное окно шире остального отчёта — вес меняется медленно, под
+  // месячную разметку WeightSparkline (3 месяца), не привязано к 28-дневному
+  // окну готовности/нагрузки выше.
+  const weightHistory = useAthleteWellnessHistory(params.id, 90);
   const data = metrics.data ?? [];
   const latestWithLoad = [...data].reverse().find((m) => m.load_zone !== 'no_data');
   const accumulating = !latestWithLoad || latestWithLoad.acwr === null;
@@ -206,7 +210,7 @@ export default function AthleteReport() {
           </View>
         </View>
 
-        <WeightSection athleteId={params.id} wellness={wellness.data ?? []} />
+        <WeightSection athleteId={params.id} wellness={weightHistory.data ?? []} />
 
         <ReadinessBreakdownSection metrics={data} athleteId={params.id} />
 
