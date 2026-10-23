@@ -89,6 +89,9 @@ export default {
       overreaching: 'Перегруз',
       high_risk: 'Риск',
     },
+    weightTitle: 'Вес',
+    weightEmptyNudge: 'Отметь вес в опросе — здесь появится график и ИМТ',
+    weightNeedMore: 'Ещё одна отметка — и появится график',
   },
   wellness: {
     title: 'Как ты сегодня?',
@@ -110,6 +113,7 @@ export default {
     moodHigh: 'Отличное',
     sleepHours: 'Часы сна',
     restingHr: 'Пульс покоя (необязательно)',
+    weightLabel: 'Вес, кг (необязательно)',
     injury: 'Травма',
     symptom: 'Недомогание',
     periodDay: 'Сегодня месячные',
@@ -234,6 +238,27 @@ export default {
       title: 'Цикл',
       painLevelValue: 'Болевой порог: {{n}} / 10',
     },
+    weight: {
+      title: 'Вес и ИМТ',
+      current: 'Сейчас',
+      bmi: 'ИМТ',
+      noData: 'Недостаточно данных',
+    },
+  },
+  bmi: {
+    zone: {
+      no_data: 'Нет данных',
+      underweight: 'Дефицит массы',
+      normal: 'Норма',
+      overweight: 'Избыток',
+      obese: 'Ожирение',
+    },
+    note: {
+      underweight: 'Низкий ИМТ. Есть смысл обсудить с врачом команды.',
+      overweight:
+        'Повышенный ИМТ. Для спортсмена с развитой мышечной массой ИМТ может завышать риск — ориентир, а не диагноз. Есть смысл обсудить с врачом команды.',
+      obese: 'Высокий ИМТ. Рекомендуем консультацию врача команды.',
+    },
   },
   dayDetail: {
     title: 'День целиком',
@@ -251,6 +276,7 @@ export default {
     rpe: 'RPE',
     sleepHours: 'Сон, ч',
     restingHr: 'Пульс покоя',
+    weightLabel: 'Вес',
     noEntry: 'Опрос за этот день не заполнен',
   },
   coach: {

@@ -1,8 +1,18 @@
 import uuid
 from datetime import date as date_type
 from datetime import datetime
+from decimal import Decimal
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Numeric, String, Text, UniqueConstraint
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    DateTime,
+    ForeignKey,
+    Numeric,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
@@ -19,7 +29,10 @@ class WellnessEntry(Base):
     """
 
     __tablename__ = "wellness_entries"
-    __table_args__ = (UniqueConstraint("athlete_id", "date", name="uq_wellness_athlete_date"),)
+    __table_args__ = (
+        UniqueConstraint("athlete_id", "date", name="uq_wellness_athlete_date"),
+        CheckConstraint("weight_kg BETWEEN 30 AND 250", name="ck_wellness_weight_kg"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     athlete_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), index=True)
@@ -38,6 +51,12 @@ class WellnessEntry(Base):
     symptom_details: Mapped[str | None] = mapped_column(String(512), nullable=True)
     symptom_type: Mapped[SymptomType | None] = mapped_column(String(16), nullable=True)
     resting_hr: Mapped[int | None] = mapped_column(nullable=True)
+    # Необязательно, как sleep_hours/resting_hr. Границы — те же, что у
+    # athlete_profiles.weight_kg (ck_athlete_weight_kg): сознательно одно и то же
+    # поле физически, значение синхронизируется в AthleteProfile.weight_kg при
+    # сабмите (wellness_service.create_entry) — профиль держит «последнее известное».
+    # Спецкатегория body_metrics (docs/plan-weight-tracking.md): штабу — по согласию.
+    weight_kg: Mapped[Decimal | None] = mapped_column(Numeric(4, 1), nullable=True)
     comment: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 

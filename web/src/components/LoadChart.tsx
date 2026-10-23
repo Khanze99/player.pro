@@ -1,6 +1,22 @@
 import { Card } from "@/components/ui/Card";
 import { formatDate } from "@/lib/format";
-import type { DailyMetric } from "@/types";
+import { bmiZoneColorVar } from "@/lib/zone";
+import type { AthleteProfile, DailyMetric, WellnessEntry } from "@/types";
+
+const BMI_ZONE_LABEL: Record<AthleteProfile["bmi_zone"], string> = {
+  no_data: "Нет данных",
+  underweight: "Дефицит массы",
+  normal: "Норма",
+  overweight: "Избыток",
+  obese: "Ожирение",
+};
+
+const BMI_ZONE_NOTE: Partial<Record<AthleteProfile["bmi_zone"], string>> = {
+  underweight: "Низкий ИМТ. Есть смысл обсудить с врачом команды.",
+  overweight:
+    "Повышенный ИМТ. Для спортсмена с развитой мышечной массой ИМТ может завышать риск — ориентир, а не диагноз. Есть смысл обсудить с врачом команды.",
+  obese: "Высокий ИМТ. Рекомендуем консультацию врача команды.",
+};
 
 // Веб-версия mobile/src/components/LoadBars.tsx — те же уроки ясности (единицы AU,
 // значение над каждым столбцом), белая палитра.
@@ -74,6 +90,82 @@ function Sparkline({ points }: { points: DailyMetric[] }) {
         <text x={lastX + 5} y={Math.min(Math.max(lastY + 4, 12), H - 4)} fontSize={13} fontWeight={600} fill={color}>
           {last.readiness}
         </text>
+      </svg>
+      <div className="flex justify-between text-[11px] text-[var(--text-faint)] mt-1">
+        <span>{formatDate(points[0].date)}</span>
+        <span>{formatDate(last.date)}</span>
+      </div>
+    </div>
+  );
+}
+
+// Вес и ИМТ (docs/plan-weight-tracking.md) — спецкатегория body_metrics, та же
+// видимость, что рост/вес профиля: по согласию игрока. «Недостаточно данных» —
+// одна формулировка для «нет согласия» и «правда нечего показывать» (тренер не
+// должен видеть, кто отказался делиться), ровно как у CycleCard.
+export function WeightCard({
+  profile,
+  wellness,
+}: {
+  profile: AthleteProfile | null;
+  wellness: WellnessEntry[];
+}) {
+  const points = wellness
+    .filter((w): w is WellnessEntry & { weight_kg: number } => w.weight_kg !== null)
+    .sort((a, b) => a.date.localeCompare(b.date));
+  const bmi = profile?.bmi ?? null;
+
+  return (
+    <Card>
+      <h2 className="font-medium text-[var(--text)] mb-1">Вес и ИМТ</h2>
+      <p className="text-xs text-[var(--text-faint)] mb-4">по согласию игрока (body_metrics)</p>
+      {bmi == null && points.length < 2 ? (
+        <p className="text-sm text-[var(--text-muted)]">Недостаточно данных</p>
+      ) : (
+        <>
+          {bmi != null && profile && (
+            <div className="flex items-baseline gap-3 mb-2">
+              <span className="text-2xl font-semibold text-[var(--text)] tabular-nums">
+                {profile.weight_kg} <span className="text-xs text-[var(--text-muted)]">кг</span>
+              </span>
+              <span
+                className="text-xs font-medium px-2 py-0.5 rounded-full"
+                style={{ backgroundColor: `${bmiZoneColorVar(profile.bmi_zone)}1a`, color: bmiZoneColorVar(profile.bmi_zone) }}
+              >
+                ИМТ {bmi.toFixed(1)} · {BMI_ZONE_LABEL[profile.bmi_zone]}
+              </span>
+            </div>
+          )}
+          {points.length >= 2 && <WeightSparkline points={points} />}
+          {profile && BMI_ZONE_NOTE[profile.bmi_zone] && (
+            <p className="text-xs text-[var(--text-muted)] mt-2">{BMI_ZONE_NOTE[profile.bmi_zone]}</p>
+          )}
+        </>
+      )}
+    </Card>
+  );
+}
+
+function WeightSparkline({ points }: { points: (WellnessEntry & { weight_kg: number })[] }) {
+  const W = 560;
+  const H = 70;
+  const PAD_Y = 10;
+
+  const values = points.map((p) => p.weight_kg);
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const span = max - min || 1;
+
+  const xOf = (i: number) => (i / (points.length - 1)) * W;
+  const yOf = (v: number) => H - PAD_Y - ((v - min) / span) * (H - PAD_Y * 2);
+  const coords = points.map((p, i) => `${xOf(i)},${yOf(p.weight_kg)}`).join(" ");
+  const last = points[points.length - 1];
+  const color = "var(--accent)";
+
+  return (
+    <div>
+      <svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`}>
+        <polyline points={coords} fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
       </svg>
       <div className="flex justify-between text-[11px] text-[var(--text-faint)] mt-1">
         <span>{formatDate(points[0].date)}</span>

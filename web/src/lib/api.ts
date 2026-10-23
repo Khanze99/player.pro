@@ -7,6 +7,7 @@
 
 import { API_URL } from "@/lib/env";
 import type {
+  AthleteProfile,
   CycleStaffView,
   DailyMetric,
   Me,
@@ -119,6 +120,16 @@ export const api = {
   cycleAthleteState: (athleteId: string, token: string) =>
     request<CycleStaffView>(`/cycle/athletes/${athleteId}/state`, token).catch((err) => {
       if (err instanceof ApiError && err.status === 403) return null;
+      throw err;
+    }),
+
+  // Вес/ИМТ (docs/plan-weight-tracking.md) — height_cm/weight_kg/bmi уже null
+  // в ответе, если нет согласия body_metrics (ensure_can_view_sensitive внутри
+  // роута). 404 — профиль ещё не заполнен, нормальное состояние нового игрока,
+  // не ошибка страницы (как cycleAthleteState молча не рисует секцию на 403).
+  athleteProfile: (athleteId: string, token: string) =>
+    request<AthleteProfile>(`/users/athletes/${athleteId}/profile`, token).catch((err) => {
+      if (err instanceof ApiError && err.status === 404) return null;
       throw err;
     }),
 

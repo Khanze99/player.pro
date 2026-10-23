@@ -129,3 +129,34 @@ def test_readiness_breakdown_average_empty_is_no_data():
 def test_availability_percent():
     assert calc.availability_percent(45, 90) == pytest.approx(50.0)
     assert calc.availability_percent(0, 0) is None
+
+
+# --------------------------------------------------------------- ИМТ (вес)
+
+
+def test_bmi_matches_known_example():
+    # 190 см, 106 кг — пример из docs/plan-weight-tracking.md
+    assert calc.bmi(190, 106) == pytest.approx(29.36, abs=0.01)
+
+
+def test_bmi_none_without_height_or_weight():
+    assert calc.bmi(None, 80) is None
+    assert calc.bmi(180, None) is None
+    assert calc.bmi(None, None) is None
+
+
+@pytest.mark.parametrize(
+    ("value", "zone"),
+    [
+        (None, "no_data"),
+        (18.0, "underweight"),
+        (18.5, "normal"),  # граница включительно
+        (24.9, "normal"),
+        (25.0, "overweight"),  # граница включительно
+        (29.9, "overweight"),
+        (30.0, "obese"),  # граница включительно
+        (35.0, "obese"),
+    ],
+)
+def test_bmi_zone_boundaries(value, zone):
+    assert calc.bmi_zone(value) == zone

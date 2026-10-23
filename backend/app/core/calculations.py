@@ -1,6 +1,7 @@
 """Формулы аналитики — раздел 6 ТЗ. Чистые функции, покрыты юнит-тестами."""
 
 from dataclasses import dataclass
+from decimal import Decimal
 
 LAMBDA_ACUTE = 2 / (7 + 1)  # 0.25
 LAMBDA_CHRONIC = 2 / (28 + 1)  # ≈ 0.0690
@@ -9,6 +10,13 @@ LAMBDA_CHRONIC = 2 / (28 + 1)  # ≈ 0.0690
 ACWR_UNDER = 0.8
 ACWR_UPPER_NORMAL = 1.3
 ACWR_UPPER_WARNING = 1.5
+
+# Категории ИМТ (ВОЗ). docs/plan-weight-tracking.md: ориентир, не диагноз — метод
+# слаб для мускулистых спортсменов, предупреждение показывается рядом в UI, не
+# здесь. Не входит в Readiness/ACWR/DailyMetric, считается на лету.
+BMI_UNDERWEIGHT = 18.5
+BMI_OVERWEIGHT = 25.0
+BMI_OBESE = 30.0
 
 READINESS_GREEN = 75
 READINESS_YELLOW = 55
@@ -66,6 +74,27 @@ def load_zone(ratio: float | None) -> str:
     if ratio <= ACWR_UPPER_WARNING:
         return "overreaching"  # жёлтый
     return "high_risk"  # красный
+
+
+def bmi(height_cm: int | None, weight_kg: Decimal | float | None) -> float | None:
+    """ИМТ = вес(кг) / рост(м)². None, если рост или вес не заполнены."""
+    if height_cm is None or weight_kg is None:
+        return None
+    height_m = height_cm / 100
+    return float(weight_kg) / (height_m * height_m)
+
+
+def bmi_zone(value: float | None) -> str:
+    """underweight | normal | overweight | obese | no_data (категории ВОЗ)."""
+    if value is None:
+        return "no_data"
+    if value < BMI_UNDERWEIGHT:
+        return "underweight"
+    if value < BMI_OVERWEIGHT:
+        return "normal"
+    if value < BMI_OBESE:
+        return "overweight"
+    return "obese"
 
 
 def normalize_positive(value: int) -> float:

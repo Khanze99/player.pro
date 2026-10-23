@@ -214,6 +214,16 @@ export function useSetPolicyConsent() {
 export const useMyProfile = () =>
   useQuery({ queryKey: ['profile'], queryFn: () => api<AthleteProfile>('/users/me/profile') });
 
+/** Профиль другого игрока — отчёт тренера/врача (вес/ИМТ, docs/plan-weight-tracking.md).
+ * height_cm/weight_kg/bmi уже null на бэкенде, если нет согласия body_metrics —
+ * здесь это не разводится отдельно, та же схема, что у себя. */
+export const useAthleteProfile = (athleteId: string | undefined) =>
+  useQuery({
+    queryKey: ['athlete-profile', athleteId],
+    enabled: !!athleteId,
+    queryFn: () => api<AthleteProfile>(`/users/athletes/${athleteId}/profile`),
+  });
+
 export function useUpsertProfile() {
   const qc = useQueryClient();
   return useMutation({

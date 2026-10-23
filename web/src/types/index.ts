@@ -277,9 +277,26 @@ export interface WellnessEntry {
   symptom_details: string | null;
   symptom_type: SymptomType | null;
   resting_hr: number | null;
+  // Спецкатегория body_metrics (docs/plan-weight-tracking.md) — null либо не
+  // заполнено, либо нет согласия, как рост/вес профиля. Бэкенд уже нулит.
+  weight_kg: number | null;
   comment: string | null;
   pain_points: PainPoint[];
   recovery_methods: RecoveryMethod[];
+}
+
+export type BmiZone = "no_data" | "underweight" | "normal" | "overweight" | "obese";
+
+// GET /users/athletes/{id}/profile (docs/plan-weight-tracking.md) — height_cm/
+// weight_kg/bmi/bmi_zone нулятся бэкендом без согласия body_metrics, одна
+// формулировка для «не заполнено» и «нет согласия», как и у WellnessEntry.weight_kg.
+export interface AthleteProfile {
+  user_id: string;
+  position: string | null;
+  height_cm: number | null;
+  weight_kg: number | null;
+  bmi: number | null;
+  bmi_zone: BmiZone;
 }
 
 // Цикл (docs/plan-women-health-nutrition.md) — минимальный трекинг (решение

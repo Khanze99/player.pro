@@ -38,3 +38,8 @@ class AthleteProfileOut(BaseModel):
     # на body_metrics — формулировка ответа не должна их различать (см. роут).
     height_cm: int | None
     weight_kg: Decimal | None
+    # Не из БД — считаются роутом (calculations.bmi/bmi_zone) после финального
+    # height_cm/weight_kg, т.е. уже после гейта: при отсутствии согласия тоже null.
+    # bmi_zone как у load_zone/readiness_zone — всегда строка, "no_data" а не null.
+    bmi: float | None = None
+    bmi_zone: str = "no_data"

@@ -91,6 +91,9 @@ const en: typeof ru = {
       overreaching: 'Overreaching',
       high_risk: 'High risk',
     },
+    weightTitle: 'Weight',
+    weightEmptyNudge: 'Log your weight in the survey — a chart and BMI will show up here',
+    weightNeedMore: 'One more entry and the chart appears',
   },
   wellness: {
     title: 'How are you today?',
@@ -112,6 +115,7 @@ const en: typeof ru = {
     moodHigh: 'Great',
     sleepHours: 'Hours of sleep',
     restingHr: 'Resting HR (optional)',
+    weightLabel: 'Weight, kg (optional)',
     injury: 'Injury',
     symptom: 'Feeling unwell',
     periodDay: 'On period today',
@@ -236,6 +240,27 @@ const en: typeof ru = {
       title: 'Cycle',
       painLevelValue: 'Pain level: {{n}} / 10',
     },
+    weight: {
+      title: 'Weight and BMI',
+      current: 'Current',
+      bmi: 'BMI',
+      noData: 'Not enough data',
+    },
+  },
+  bmi: {
+    zone: {
+      no_data: 'No data',
+      underweight: 'Underweight',
+      normal: 'Normal',
+      overweight: 'Overweight',
+      obese: 'Obese',
+    },
+    note: {
+      underweight: 'Low BMI. Worth discussing with the team doctor.',
+      overweight:
+        'Elevated BMI. For an athlete with developed muscle mass, BMI can overstate the risk — a guide, not a diagnosis. Worth discussing with the team doctor.',
+      obese: 'High BMI. We recommend a consultation with the team doctor.',
+    },
   },
   dayDetail: {
     title: 'Full day',
@@ -253,6 +278,7 @@ const en: typeof ru = {
     rpe: 'RPE',
     sleepHours: 'Sleep, h',
     restingHr: 'Resting HR',
+    weightLabel: 'Weight',
     noEntry: 'No survey for this day',
   },
   coach: {

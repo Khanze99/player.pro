@@ -91,6 +91,9 @@ const es: typeof ru = {
       overreaching: 'Sobrecarga',
       high_risk: 'Riesgo alto',
     },
+    weightTitle: 'Peso',
+    weightEmptyNudge: 'Registra tu peso en la encuesta y aquí aparecerán el gráfico y el IMC',
+    weightNeedMore: 'Un registro más y aparece el gráfico',
   },
   wellness: {
     title: '¿Cómo estás hoy?',
@@ -112,6 +115,7 @@ const es: typeof ru = {
     moodHigh: 'Excelente',
     sleepHours: 'Horas de sueño',
     restingHr: 'Pulso en reposo (opcional)',
+    weightLabel: 'Peso, kg (opcional)',
     injury: 'Lesión',
     symptom: 'Malestar',
     periodDay: 'Hoy tengo la menstruación',
@@ -236,6 +240,27 @@ const es: typeof ru = {
       title: 'Ciclo',
       painLevelValue: 'Nivel de dolor: {{n}} / 10',
     },
+    weight: {
+      title: 'Peso e IMC',
+      current: 'Actual',
+      bmi: 'IMC',
+      noData: 'Datos insuficientes',
+    },
+  },
+  bmi: {
+    zone: {
+      no_data: 'Sin datos',
+      underweight: 'Peso insuficiente',
+      normal: 'Normal',
+      overweight: 'Sobrepeso',
+      obese: 'Obesidad',
+    },
+    note: {
+      underweight: 'IMC bajo. Conviene hablar con el médico del equipo.',
+      overweight:
+        'IMC elevado. En un deportista con masa muscular desarrollada, el IMC puede sobreestimar el riesgo: es una referencia, no un diagnóstico. Conviene hablar con el médico del equipo.',
+      obese: 'IMC alto. Se recomienda consultar con el médico del equipo.',
+    },
   },
   dayDetail: {
     title: 'Día completo',
@@ -253,6 +278,7 @@ const es: typeof ru = {
     rpe: 'RPE',
     sleepHours: 'Sueño, h',
     restingHr: 'FC en reposo',
+    weightLabel: 'Peso',
     noEntry: 'Sin encuesta ese día',
   },
   coach: {

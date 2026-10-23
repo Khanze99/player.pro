@@ -130,6 +130,22 @@ export function loadZoneColor(zone: string | null | undefined): string {
   }
 }
 
+/** ИМТ (docs/plan-weight-tracking.md) — дефицит/избыток тревожат одинаково
+ *  (caution), ожирение — risk, норма — good, как и остальной светофор. */
+export function bmiZoneColor(zone: string | null | undefined): string {
+  switch (zone) {
+    case 'normal':
+      return status.good;
+    case 'underweight':
+    case 'overweight':
+      return status.caution;
+    case 'obese':
+      return status.risk;
+    default:
+      return status.low; // no_data
+  }
+}
+
 /** Тип события — брендовый цвет, поэтому зависит от темы. */
 export function eventTypeColor(type: string, t: Theme): string {
   switch (type) {

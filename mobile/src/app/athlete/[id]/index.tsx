@@ -12,9 +12,11 @@ import { useTranslation } from 'react-i18next';
 import {
   useAthleteCycleState,
   useAthleteMetrics,
+  useAthleteProfile,
   useAthleteRpeHistory,
   useAthleteWellnessHistory,
 } from '@/api/hooks';
+import type { WellnessEntry } from '@/api/types';
 import { BodyMap } from '@/components/BodyMap';
 import { Chip } from '@/components/Chip';
 import { CloseIcon } from '@/components/Icons';
@@ -26,7 +28,61 @@ import { RpeDayCard } from '@/components/RpeDayCard';
 import { ScaleRow } from '@/components/ScaleRow';
 import { Screen } from '@/components/Screen';
 import { MicroLabel, ScreenTitle } from '@/components/Typography';
-import { loadZoneColor, readinessColor, spacing, type Theme, useStyles, useTheme } from '@/theme';
+import { WeightSparkline } from '@/components/WeightSparkline';
+import {
+  bmiZoneColor,
+  loadZoneColor,
+  readinessColor,
+  spacing,
+  type Theme,
+  useStyles,
+  useTheme,
+} from '@/theme';
+
+/** Вес и ИМТ (docs/plan-weight-tracking.md) — спецкатегория body_metrics, та же
+ * видимость, что рост/вес в профиле: по согласию игрока, формулировка «нет
+ * данных» одна и та же для «нет согласия» и «правда нечего показывать». */
+function WeightSection({ athleteId, wellness }: { athleteId: string; wellness: WellnessEntry[] }) {
+  const styles = useStyles(makeStyles);
+  const { t } = useTranslation();
+  const profile = useAthleteProfile(athleteId);
+  const weightPoints = wellness.filter((w) => w.weight_kg !== null).length;
+  const bmi = profile.data?.bmi ?? null;
+
+  return (
+    <View style={styles.card}>
+      <View style={styles.cardHead}>
+        <Text style={styles.cardHeadText}>{t('athleteReport.weight.title')}</Text>
+      </View>
+      <View style={styles.cardBody}>
+        {bmi == null && weightPoints < 2 ? (
+          <Text style={styles.hint}>{t('athleteReport.weight.noData')}</Text>
+        ) : (
+          <>
+            {bmi != null && (
+              <View style={styles.summaryRow}>
+                <View style={styles.summaryItem}>
+                  <MicroLabel>{t('athleteReport.weight.current')}</MicroLabel>
+                  <Text style={styles.summaryValue}>{profile.data?.weight_kg} кг</Text>
+                </View>
+                <Chip
+                  label={`${t('athleteReport.weight.bmi')} ${bmi.toFixed(1)} · ${t(`bmi.zone.${profile.data!.bmi_zone}`)}`}
+                  dotColor={bmiZoneColor(profile.data!.bmi_zone)}
+                />
+              </View>
+            )}
+            {weightPoints >= 2 ? (
+              <WeightSparkline entries={wellness} color={bmiZoneColor(profile.data?.bmi_zone)} />
+            ) : null}
+            {bmi != null && profile.data!.bmi_zone !== 'normal' && (
+              <Text style={styles.hint}>{t(`bmi.note.${profile.data!.bmi_zone}`)}</Text>
+            )}
+          </>
+        )}
+      </View>
+    </View>
+  );
+}
 
 /** Цикл — спецкатегория, доступ по согласию игрока (ensure_can_view_sensitive).
  * Без согласия хук получает 403 и секция просто не рисуется — без тоста с ошибкой,
@@ -150,6 +206,8 @@ export default function AthleteReport() {
           </View>
         </View>
 
+        <WeightSection athleteId={params.id} wellness={wellness.data ?? []} />
+
         <ReadinessBreakdownSection metrics={data} athleteId={params.id} />
 
         <CycleSection athleteId={params.id} />
@@ -174,6 +232,10 @@ export default function AthleteReport() {
                   <View style={styles.metaItem}>
                     <Text style={styles.metaCap}>{t('dayDetail.restingHr')}</Text>
                     <Text style={styles.metaValue}>{dayEntry.resting_hr ?? '—'}</Text>
+                  </View>
+                  <View style={styles.metaItem}>
+                    <Text style={styles.metaCap}>{t('dayDetail.weightLabel')}</Text>
+                    <Text style={styles.metaValue}>{dayEntry.weight_kg ?? '—'}</Text>
                   </View>
                 </View>
               </View>

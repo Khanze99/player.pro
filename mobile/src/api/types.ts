@@ -145,6 +145,9 @@ export interface WellnessEntry {
   symptom_type: SymptomType | null;
   symptom_details: string | null;
   resting_hr: number | null;
+  // Спецкатегория body_metrics (docs/plan-weight-tracking.md): null либо не
+  // заполнено, либо смотрящему нет согласия — не различаем, как рост/вес профиля.
+  weight_kg: number | null;
   comment: string | null;
   pain_points: PainPoint[];
   recovery_methods: RecoveryMethod[];
@@ -198,6 +201,7 @@ export interface WellnessPayload {
   symptom_details?: string | null;
   symptom_type?: SymptomType | null;
   resting_hr?: number | null;
+  weight_kg?: number | null;
   comment?: string | null;
   pain_points?: PainPoint[];
   recovery_methods?: RecoveryMethod[];
@@ -444,6 +448,10 @@ export interface AthleteProfile {
   // профиле всегда приходит фактическое значение.
   height_cm: number | null;
   weight_kg: number | null;
+  // ИМТ — не из БД, считается на лету на бэкенде из height_cm/weight_kg выше
+  // (docs/plan-weight-tracking.md), тот же null-или-"нет согласия" принцип.
+  bmi: number | null;
+  bmi_zone: 'no_data' | 'underweight' | 'normal' | 'overweight' | 'obese';
 }
 
 // Цикл (backend/app/schemas/cycle.py) — минимальный трекинг (решение 2026-10-16):

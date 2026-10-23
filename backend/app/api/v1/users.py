@@ -4,7 +4,7 @@ from fastapi import APIRouter, HTTPException, UploadFile, status
 from fastapi.responses import FileResponse
 
 from app.api.deps import CurrentUser, DbSession
-from app.core import authz
+from app.core import authz, calculations
 from app.models.enums import ConsentScope, Sex
 from app.models.user import User
 from app.schemas.auth import MeOut
@@ -20,26 +20,38 @@ async def update_me(data: UserUpdateIn, user: CurrentUser, db: DbSession):
     return await auth_service.build_me_out(db, updated)
 
 
+def _with_bmi(out: AthleteProfileOut) -> AthleteProfileOut:
+    """ИМТ не хранится — считаем из уже итоговых height_cm/weight_kg (после
+    гейта body_metrics, если он применялся выше): при нулированном весе ИМТ
+    тоже уйдёт в no_data, не утечёт отдельно."""
+    out.bmi = calculations.bmi(out.height_cm, out.weight_kg)
+    out.bmi_zone = calculations.bmi_zone(out.bmi)
+    return out
+
+
 @router.get("/me/profile", response_model=AthleteProfileOut)
 async def my_profile(user: CurrentUser, db: DbSession):
     """Незаполненный профиль — нормальное состояние нового игрока, а не ошибка."""
     profile = await users_service.get_profile(db, user.id)
     if profile is None:
-        return AthleteProfileOut(
-            user_id=user.id,
-            position=None,
-            baseline_resting_hr=None,
-            birthdate=None,
-            sex=Sex.not_specified,
-            height_cm=None,
-            weight_kg=None,
+        return _with_bmi(
+            AthleteProfileOut(
+                user_id=user.id,
+                position=None,
+                baseline_resting_hr=None,
+                birthdate=None,
+                sex=Sex.not_specified,
+                height_cm=None,
+                weight_kg=None,
+            )
         )
-    return profile
+    return _with_bmi(AthleteProfileOut.model_validate(profile))
 
 
 @router.put("/me/profile", response_model=AthleteProfileOut)
 async def upsert_my_profile(data: AthleteProfileIn, user: CurrentUser, db: DbSession):
-    return await users_service.upsert_profile(db, user.id, data)
+    profile = await users_service.upsert_profile(db, user.id, data)
+    return _with_bmi(AthleteProfileOut.model_validate(profile))
 
 
 @router.put("/me/avatar", response_model=MeOut)
@@ -71,7 +83,7 @@ async def athlete_profile(athlete_id: uuid.UUID, user: CurrentUser, db: DbSessio
         except HTTPException:
             out.height_cm = None
             out.weight_kg = None
-    return out
+    return _with_bmi(out)
 
 
 @router.get("/{user_id}/avatar")

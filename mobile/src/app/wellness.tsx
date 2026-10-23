@@ -83,6 +83,7 @@ export default function Wellness() {
   const [mood, setMood] = useState<number | null>(null);
   const [sleepHours, setSleepHours] = useState<number | null>(null);
   const [restingHr, setRestingHr] = useState('');
+  const [weight, setWeight] = useState('');
   const [painPoints, setPainPoints] = useState<PainPoint[]>([]);
   const [injury, setInjury] = useState(false);
   const [injuryType, setInjuryType] = useState<InjuryType | null>(null);
@@ -133,6 +134,7 @@ export default function Wellness() {
         symptom_details:
           symptom && symptomType === 'other' && symptomDetails.trim() ? symptomDetails.trim() : null,
         resting_hr: restingHr ? Number(restingHr) : null,
+        weight_kg: weight ? Number(weight) : null,
         comment: comment.trim() ? comment.trim() : null,
         pain_points: painPoints,
         recovery_methods: recoveryMethods,
@@ -227,6 +229,19 @@ export default function Wellness() {
             placeholder="—"
             placeholderTextColor={th.textMuted}
             accessibilityLabel={t('wellness.restingHr')}
+          />
+
+          <Text style={styles.sectionLabel}>{t('wellness.weightLabel')}</Text>
+          <TextInput
+            style={styles.hrInput}
+            value={weight}
+            // decimal, одна точка, максимум 1 знак после — те же границы 30–250,
+            // что у ck_wellness_weight_kg/ck_athlete_weight_kg (бэкенд всё равно проверит)
+            onChangeText={(v) => setWeight(v.replace(/[^\d.]/g, '').replace(/^(\d*\.\d).*$/, '$1'))}
+            keyboardType="decimal-pad"
+            placeholder={profile.data?.weight_kg != null ? String(profile.data.weight_kg) : '—'}
+            placeholderTextColor={th.textMuted}
+            accessibilityLabel={t('wellness.weightLabel')}
           />
 
           <View style={styles.toggleRow}>

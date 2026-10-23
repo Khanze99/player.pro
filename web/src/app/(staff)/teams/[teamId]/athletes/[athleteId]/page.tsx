@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 
 import { CycleCard } from "@/components/CycleCard";
 import { DayDetailPanel } from "@/components/DayDetailPanel";
-import { LoadChart, ReadinessTrendChart } from "@/components/LoadChart";
+import { LoadChart, ReadinessTrendChart, WeightCard } from "@/components/LoadChart";
 import { MedicalExamsCard } from "@/components/MedicalExamsCard";
 import { ReadinessBreakdownPanel } from "@/components/ReadinessBreakdownPanel";
 import { RpeHistoryTable } from "@/components/RpeHistoryTable";
@@ -13,6 +13,7 @@ import { api, ApiError } from "@/lib/api";
 import { requireSession } from "@/lib/session";
 import { zoneColorVar } from "@/lib/zone";
 import type {
+  AthleteProfile,
   CycleStaffView,
   DailyMetric,
   MedicalExams,
@@ -41,16 +42,19 @@ export default async function AthletePage({
   let medicalExams: MedicalExams;
   let me: Me;
   let cycleState: CycleStaffView | null;
+  let profile: AthleteProfile | null;
   try {
-    [squad, metrics, wellnessHistory, rpeHistory, medicalExams, me, cycleState] = await Promise.all([
-      api.squadStatus(teamId, token),
-      api.athleteMetrics(athleteId, token, 28),
-      api.wellnessHistory(athleteId, token, HISTORY_DAYS),
-      api.rpeHistory(athleteId, token, HISTORY_DAYS),
-      api.medicalExams(athleteId, token),
-      api.me(token),
-      api.cycleAthleteState(athleteId, token),
-    ]);
+    [squad, metrics, wellnessHistory, rpeHistory, medicalExams, me, cycleState, profile] =
+      await Promise.all([
+        api.squadStatus(teamId, token),
+        api.athleteMetrics(athleteId, token, 28),
+        api.wellnessHistory(athleteId, token, HISTORY_DAYS),
+        api.rpeHistory(athleteId, token, HISTORY_DAYS),
+        api.medicalExams(athleteId, token),
+        api.me(token),
+        api.cycleAthleteState(athleteId, token),
+        api.athleteProfile(athleteId, token),
+      ]);
   } catch (err) {
     // Игрок мог быть удалён/выведен из состава (или ссылка просто устарела —
     // напр. после пересидирования демо-данных, ID меняются) — вежливое 404,
@@ -87,6 +91,7 @@ export default async function AthletePage({
       <div className="grid gap-6 lg:grid-cols-2">
         <LoadChart metrics={metrics} />
         <ReadinessTrendChart metrics={metrics} />
+        <WeightCard profile={profile} wellness={wellnessHistory} />
       </div>
 
       <ReadinessBreakdownPanel athleteId={athleteId} latestDate={latestWithReadiness?.date ?? null} />

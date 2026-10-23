@@ -12,13 +12,14 @@ import {
   todayISO,
   useMe,
   useMetrics,
+  useMyProfile,
   useRpeHistory,
   useRpeSessions,
   useStreaks,
   useWellnessHistory,
 } from '@/api/hooks';
 import { sessionEndTime, sessionLabel } from '@/api/sessions';
-import type { RpeSession } from '@/api/types';
+import type { AthleteProfile, RpeSession, WellnessEntry } from '@/api/types';
 import { ActionCard } from '@/components/ActionCard';
 import { TeamBadge } from '@/components/TeamBadge';
 import { CoachHome } from '@/components/CoachHome';
@@ -27,7 +28,16 @@ import { BoltIcon, SunIcon } from '@/components/Icons';
 import { ReadinessRing } from '@/components/ReadinessRing';
 import { Screen } from '@/components/Screen';
 import { StatTile } from '@/components/StatTile';
-import { loadZoneColor, readinessColor, spacing, type Theme, useStyles, useTheme } from '@/theme';
+import { WeightSparkline } from '@/components/WeightSparkline';
+import {
+  bmiZoneColor,
+  loadZoneColor,
+  readinessColor,
+  spacing,
+  type Theme,
+  useStyles,
+  useTheme,
+} from '@/theme';
 
 /** Подсказка карточки RPE: ждём конца тренировки / какую сессию оценить / сколько их. */
 function rpeCardHint({
@@ -53,6 +63,60 @@ function rpeCardHint({
   return t('home.rateLoadHint');
 }
 
+/** Карточка «Вес» (docs/plan-weight-tracking.md) — под карточками опроса/RPE.
+ * Пусто (ни одной отметки) — приглашение заполнить, не молчащая пустая карточка. */
+function WeightCard({
+  profile,
+  history,
+}: {
+  profile: AthleteProfile | undefined;
+  history: WellnessEntry[];
+}) {
+  const styles = useStyles(makeStyles);
+  const { t } = useTranslation();
+  const weightPoints = history.filter((w) => w.weight_kg !== null).length;
+  const bmi = profile?.bmi ?? null;
+
+  if (weightPoints === 0) {
+    return (
+      <View style={styles.weightCard}>
+        <Text style={styles.weightTitle}>{t('home.weightTitle')}</Text>
+        <View style={styles.weightEmpty}>
+          <Text style={styles.weightEmptyText}>{t('home.weightEmptyNudge')}</Text>
+        </View>
+      </View>
+    );
+  }
+
+  const color = bmiZoneColor(profile?.bmi_zone);
+  return (
+    <View style={styles.weightCard}>
+      <View style={styles.weightHead}>
+        <View>
+          <Text style={styles.weightTitle}>{t('home.weightTitle')}</Text>
+          <View style={styles.weightNow}>
+            <Text style={styles.weightValue}>{profile?.weight_kg ?? '—'}</Text>
+            <Text style={styles.weightUnit}>кг</Text>
+          </View>
+        </View>
+        {bmi != null && (
+          <Text style={[styles.bmiPill, { backgroundColor: `${color}24`, color }]}>
+            {t('athleteReport.weight.bmi')} {bmi.toFixed(1)} · {t(`bmi.zone.${profile!.bmi_zone}`)}
+          </Text>
+        )}
+      </View>
+      {weightPoints >= 2 ? (
+        <WeightSparkline entries={history} color={color} />
+      ) : (
+        <Text style={styles.weightEmptyText}>{t('home.weightNeedMore')}</Text>
+      )}
+      {bmi != null && profile!.bmi_zone !== 'normal' && (
+        <Text style={styles.weightNote}>{t(`bmi.note.${profile!.bmi_zone}`)}</Text>
+      )}
+    </View>
+  );
+}
+
 export default function Home() {
   const me = useMe();
   // Пока роль неизвестна (первый запрос) — показываем игровой «Дом» как основной случай
@@ -73,6 +137,8 @@ function PlayerHome() {
   const streaks = useStreaks();
   const wellnessToday = useWellnessHistory(1);
   const rpeToday = useRpeHistory(1);
+  const weightHistory = useWellnessHistory(30);
+  const profile = useMyProfile();
 
   const today = todayISO();
   const sessions = useRpeSessions(today);
@@ -175,6 +241,8 @@ function PlayerHome() {
             onPress={() => router.push('/rpe')}
           />
         </View>
+
+        <WeightCard profile={profile.data} history={weightHistory.data ?? []} />
       </ScrollView>
       <Guide />
     </Screen>
@@ -203,4 +271,55 @@ const makeStyles = (th: Theme) => StyleSheet.create({
   },
   tiles: { flexDirection: 'row', gap: spacing.s },
   actions: { gap: spacing.m, marginTop: spacing.xl },
+  weightCard: {
+    marginTop: spacing.m,
+    padding: spacing.l,
+    borderRadius: th.radius.card,
+    backgroundColor: th.surface,
+    borderWidth: 1,
+    borderColor: th.border,
+  },
+  weightHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+  weightTitle: {
+    fontFamily: th.font.semibold,
+    fontSize: 11,
+    color: th.textMuted,
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+    marginBottom: 4,
+  },
+  weightNow: { flexDirection: 'row', alignItems: 'baseline', gap: 4 },
+  weightValue: { fontFamily: th.font.display, fontSize: 24, color: th.text },
+  weightUnit: { fontFamily: th.font.regular, fontSize: 12, color: th.textMuted },
+  bmiPill: {
+    fontFamily: th.font.semibold,
+    fontSize: 11.5,
+    paddingHorizontal: spacing.s,
+    paddingVertical: 4,
+    borderRadius: th.radius.chip,
+    overflow: 'hidden',
+  },
+  weightEmpty: {
+    marginTop: spacing.s,
+    paddingVertical: spacing.l,
+    borderRadius: th.radius.control,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: th.border,
+    alignItems: 'center',
+  },
+  weightEmptyText: {
+    fontFamily: th.font.regular,
+    fontSize: 12.5,
+    color: th.textMuted,
+    textAlign: 'center',
+    maxWidth: 220,
+  },
+  weightNote: {
+    fontFamily: th.font.regular,
+    fontSize: 11.5,
+    color: th.textMuted,
+    marginTop: spacing.s,
+    lineHeight: 16,
+  },
 });
