@@ -692,6 +692,22 @@ async def seed(days: int, reset: bool, seed_value: int) -> None:
                         weight_kg=end_weight,
                     )
                 )
+                # body_metrics — спецкатегория (ensure_can_view_sensitive): без
+                # согласия вес/ИМТ останутся null и в профиле, и в отчёте, что
+                # бы мы сюда ни насыпали (docs/plan-weight-tracking.md). Не все
+                # дают согласие — оставляем ~15% без него, та же реалистичность,
+                # что у cycle (3 из 4 женщин, см. seed_cycle_demo). audience=coach
+                # — старший ранг, открывает и coach, и medic (consent_service.
+                # _AUDIENCE_RANK), иначе на демо-тренере ничего бы не было видно.
+                if rng.random() < 0.85:
+                    db.add(
+                        DataConsent(
+                            athlete_id=user.id,
+                            scope=ConsentScope.body_metrics,
+                            audience=ConsentAudience.coach,
+                            policy_version=app_settings.consent_policy_version,
+                        )
+                    )
             else:
                 if profile.sex != sex and name in FEMALE_NAMES:
                     # Профиль уже существовал из сида до этого изменения —
