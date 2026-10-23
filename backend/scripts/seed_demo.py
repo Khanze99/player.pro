@@ -257,6 +257,35 @@ MAPPED_PAIN_REGIONS: frozenset[BodyRegion] = frozenset(
     }
 )
 
+# Вес/рост (docs/plan-weight-tracking.md) — не из ТЗ, сид добавляет для
+# демонстрации отчёта тренеру/врачу. height_cm — на AthleteProfile (типичный
+# футбольный диапазон), weight_kg — дневная серия в WellnessEntry с трендом за
+# окно, разреженная (не каждый день, как и в жизни), последний день всегда
+# есть — он же уходит в AthleteProfile.weight_kg («последнее известное»,
+# wellness_service._sync_latest_weight делает то же самое на реальных сабмитах).
+# Целевой ИМТ привязан к архетипу нагрузки — не случайно: detrained (меньше
+# нагрузки) тянет к избытку, overreaching (перегруз без восстановления) — к
+# дефициту, остальным — норма с небольшим разбросом.
+_BMI_TARGET_BY_LOAD: dict[str, float] = {
+    "detrained": 30.5,  # центр чуть выше порога ожирения — для разнообразия демо-зон
+    "overreaching": 19.5,
+    "spike": 23.0,
+    "steady": 23.0,
+    "returning": 24.0,
+}
+
+
+def weight_plan_for_athlete(archetype: Archetype, rng: random.Random) -> tuple[int, float, float]:
+    """(height_cm, вес в начале окна, вес сегодня) — линейный тренд между ними."""
+    height_cm = rng.randint(168, 194)
+    bmi_target = _BMI_TARGET_BY_LOAD.get(archetype.load, 23.0) + rng.uniform(-1.5, 1.5)
+    height_m = height_cm / 100
+    end_weight = round(bmi_target * height_m * height_m, 1)
+    trend = rng.uniform(-3.0, 3.0)  # кг за всё окно — набор или сброс
+    start_weight = round(end_weight - trend, 1)
+    return height_cm, start_weight, end_weight
+
+
 # Карта боли (pain_points): транзиентная мышечная боль без статуса InjuryRecord,
 # самые частые зоны у футболиста при высоком soreness, не привязанные к активной травме.
 SORENESS_POINTS: list[tuple[BodyRegion, BodySide]] = [
@@ -629,7 +658,7 @@ async def seed(days: int, reset: bool, seed_value: int) -> None:
         print(f"  Команда:     {team.name} ({team.id})")
 
         # --- Игроки ---
-        athletes: list[tuple[User, Archetype]] = []
+        athletes: list[tuple[User, Archetype, int, float, float]] = []
         women: dict[str, User] = {}  # имя → User, для seed_cycle_demo() ниже
         for index, ((name, position), archetype) in enumerate(zip(ROSTER, ARCHETYPES, strict=True)):
             email = f"{slugify(name, index)}@{DEMO_DOMAIN}"
@@ -650,6 +679,7 @@ async def seed(days: int, reset: bool, seed_value: int) -> None:
                 db.add(TeamMembership(user_id=user.id, team_id=team.id, team_role=TeamRole.athlete))
             profile = await db.get(AthleteProfile, user.id)
             sex = Sex.female if name in FEMALE_NAMES else Sex.not_specified
+            height_cm, start_weight, end_weight = weight_plan_for_athlete(archetype, rng)
             if profile is None:
                 db.add(
                     AthleteProfile(
@@ -658,15 +688,21 @@ async def seed(days: int, reset: bool, seed_value: int) -> None:
                         sex=sex,
                         baseline_resting_hr=rng.randint(48, 60),
                         birthdate=date(rng.randint(1994, 2006), rng.randint(1, 12), rng.randint(1, 28)),
+                        height_cm=height_cm,
+                        weight_kg=end_weight,
                     )
                 )
-            elif profile.sex != sex and name in FEMALE_NAMES:
-                # Профиль уже существовал из сида до этого изменения — довключаем
-                # sex=female, не трогая остальные поля и не плодя дубль профиля.
-                profile.sex = sex
+            else:
+                if profile.sex != sex and name in FEMALE_NAMES:
+                    # Профиль уже существовал из сида до этого изменения —
+                    # довключаем sex=female, не трогая остальные поля и не
+                    # плодя дубль профиля.
+                    profile.sex = sex
+                if profile.height_cm is None:
+                    profile.height_cm, profile.weight_kg = height_cm, end_weight
             if name in FEMALE_NAMES:
                 women[name] = user
-            athletes.append((user, archetype))
+            athletes.append((user, archetype, height_cm, start_weight, end_weight))
         await db.flush()
         print(f"  Игроков в составе: {len(athletes)} (из них женщин: {len(women)})")
 
@@ -694,7 +730,7 @@ async def seed(days: int, reset: bool, seed_value: int) -> None:
         # --- RPE, wellness, посещаемость ---
         rpe_count = 0
         wellness_count = 0
-        for user, archetype in athletes:
+        for user, archetype, _height_cm, start_weight, end_weight in athletes:
             band_for_athlete = archetype.wellness
             # Выбираем травму один раз на игрока (не на день), чтобы карта боли
             # за разные дни указывала на ту же зону, что и итоговый InjuryRecord.
@@ -760,6 +796,16 @@ async def seed(days: int, reset: bool, seed_value: int) -> None:
                 symptom_type, symptom_details = rng.choice(SYMPTOMS) if has_symptom else (None, None)
                 soreness_val = rng.randint(*band["soreness"])
                 is_injury_day = archetype.injured and (today - day).days <= 16
+                # Вес — разреженно (не каждый день), последний день окна всегда
+                # отмечен — он же синхронизируется в AthleteProfile.weight_kg ниже.
+                progress = offset / (days - 1) if days > 1 else 1
+                trend_weight = start_weight + (end_weight - start_weight) * progress
+                is_last_day = offset == days - 1
+                weight_today = (
+                    round(trend_weight + rng.uniform(-0.4, 0.4), 1)
+                    if is_last_day or rng.random() < 0.45
+                    else None
+                )
                 entry = WellnessEntry(
                     athlete_id=user.id,
                     date=day,
@@ -779,6 +825,7 @@ async def seed(days: int, reset: bool, seed_value: int) -> None:
                     symptom_type=symptom_type,
                     symptom_details=symptom_details,
                     resting_hr=baseline + rng.randint(-4, 9),
+                    weight_kg=weight_today,
                     comment=rng.choice(DAY_COMMENTS) if rng.random() < 0.15 else None,
                 )
                 # Карта боли: точка на зоне активной травмы, либо (при высоком
@@ -827,7 +874,7 @@ async def seed(days: int, reset: bool, seed_value: int) -> None:
                 )
 
         # Закрытые травмы в прошлом — чтобы раздел показывал историю и «горячие зоны»
-        for user, _ in rng.sample(athletes, 6):
+        for user, *_ in rng.sample(athletes, 6):
             title, region, side, injury_type, severity = rng.choice(HEALED_INJURIES)
             started = today - timedelta(days=rng.randint(25, 80))
             db.add(
@@ -852,7 +899,7 @@ async def seed(days: int, reset: bool, seed_value: int) -> None:
 
         # --- Пересчёт DailyMetric (та же функция, что и в ночном пересчёте) ---
         total = 0
-        for user, _ in athletes:
+        for user, *_ in athletes:
             total += await analytics_service.recalc_athlete(db, user.id, end_date=today, commit=False)
         await db.commit()
         print(f"  Пересчитано дней метрик: {total}")
