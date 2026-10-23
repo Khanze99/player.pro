@@ -48,6 +48,7 @@ function WeightSection({ athleteId, wellness }: { athleteId: string; wellness: W
   const profile = useAthleteProfile(athleteId);
   const weightPoints = wellness.filter((w) => w.weight_kg !== null).length;
   const bmi = profile.data?.bmi ?? null;
+  const color = bmiZoneColor(profile.data?.bmi_zone);
 
   return (
     <View style={styles.card}>
@@ -63,16 +64,16 @@ function WeightSection({ athleteId, wellness }: { athleteId: string; wellness: W
               <View style={styles.summaryRow}>
                 <View style={styles.summaryItem}>
                   <MicroLabel>{t('athleteReport.weight.current')}</MicroLabel>
-                  <Text style={styles.summaryValue}>{profile.data?.weight_kg} кг</Text>
+                  <Text style={[styles.summaryValue, { color }]}>{profile.data?.weight_kg} кг</Text>
                 </View>
                 <Chip
                   label={`${t('athleteReport.weight.bmi')} ${bmi.toFixed(1)} · ${t(`bmi.zone.${profile.data!.bmi_zone}`)}`}
-                  dotColor={bmiZoneColor(profile.data!.bmi_zone)}
+                  dotColor={color}
                 />
               </View>
             )}
             {weightPoints >= 2 ? (
-              <WeightSparkline entries={wellness} color={bmiZoneColor(profile.data?.bmi_zone)} />
+              <WeightSparkline entries={wellness} color={color} />
             ) : null}
             {bmi != null && profile.data!.bmi_zone !== 'normal' && (
               <Text style={styles.hint}>{t(`bmi.note.${profile.data!.bmi_zone}`)}</Text>

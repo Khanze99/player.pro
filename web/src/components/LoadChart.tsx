@@ -1,6 +1,6 @@
 import { Card } from "@/components/ui/Card";
 import { formatDate } from "@/lib/format";
-import { bmiZoneColorVar } from "@/lib/zone";
+import { bmiZoneColorVar, bmiZoneSoftVar } from "@/lib/zone";
 import type { AthleteProfile, DailyMetric, WellnessEntry } from "@/types";
 
 const BMI_ZONE_LABEL: Record<AthleteProfile["bmi_zone"], string> = {
@@ -125,12 +125,15 @@ export function WeightCard({
         <>
           {bmi != null && profile && (
             <div className="flex items-baseline gap-3 mb-2">
-              <span className="text-2xl font-semibold text-[var(--text)] tabular-nums">
+              <span
+                className="text-2xl font-semibold tabular-nums"
+                style={{ color: bmiZoneColorVar(profile.bmi_zone) }}
+              >
                 {profile.weight_kg} <span className="text-xs text-[var(--text-muted)]">кг</span>
               </span>
               <span
                 className="text-xs font-medium px-2 py-0.5 rounded-full"
-                style={{ backgroundColor: `${bmiZoneColorVar(profile.bmi_zone)}1a`, color: bmiZoneColorVar(profile.bmi_zone) }}
+                style={{ backgroundColor: bmiZoneSoftVar(profile.bmi_zone), color: bmiZoneColorVar(profile.bmi_zone) }}
               >
                 ИМТ {bmi.toFixed(1)} · {BMI_ZONE_LABEL[profile.bmi_zone]}
               </span>

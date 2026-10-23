@@ -33,3 +33,20 @@ export function bmiZoneColorVar(zone: BmiZone | null | undefined): string {
       return "var(--no-data)";
   }
 }
+
+// Приглушённый фон под пилюлю/бейдж того же zone — те самые --*-soft из
+// globals.css, не хак с хекс-альфа-суффиксом на var(): `${var(--x)}1a` не
+// валидный CSS, браузер его просто проигнорирует.
+export function bmiZoneSoftVar(zone: BmiZone | null | undefined): string {
+  switch (zone) {
+    case "normal":
+      return "var(--good-soft)";
+    case "underweight":
+    case "overweight":
+      return "var(--caution-soft)";
+    case "obese":
+      return "var(--risk-soft)";
+    default:
+      return "var(--no-data-soft)";
+  }
+}

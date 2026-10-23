@@ -95,7 +95,7 @@ function WeightCard({
         <View>
           <Text style={styles.weightTitle}>{t('home.weightTitle')}</Text>
           <View style={styles.weightNow}>
-            <Text style={styles.weightValue}>{profile?.weight_kg ?? '—'}</Text>
+            <Text style={[styles.weightValue, { color }]}>{profile?.weight_kg ?? '—'}</Text>
             <Text style={styles.weightUnit}>кг</Text>
           </View>
         </View>
