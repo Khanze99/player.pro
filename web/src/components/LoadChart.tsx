@@ -169,7 +169,10 @@ function WeightSparkline({
   const PAD_LEFT = 36;
   const PAD_Y = 10;
   const PAD_BOTTOM = 20;
-  const MIN_LABEL_GAP = 48;
+  // Подписи чередуются сверху/снизу — зазор нужен только в пределах одной
+  // стороны, не между всеми точками подряд (см. pointLabels ниже).
+  const MIN_LABEL_GAP = 28;
+  const LABEL_OFFSET = 8;
   const plotW = W - PAD_LEFT;
   const plotH = H - PAD_BOTTOM;
 
@@ -189,14 +192,23 @@ function WeightSparkline({
   const coords = series.map((p) => `${xOf(p.ts)},${yOf(p.weight)}`).join(" ");
 
   const months = monthTicks(minTs, maxTs);
+  // Чередуем сверху/снизу по чётности индекса — на разреженном ряде (вес
+  // отмечают не каждый день) иначе подписанной оставалась едва треть точек,
+  // остальные гасились нехваткой места в одну строку.
   const pointLabels = series
-    .map((p) => ({ x: xOf(p.ts), y: yOf(p.weight), weight: p.weight }))
-    .reduce<{ x: number; y: number; weight: number }[]>((acc, p) => {
-      const prev = acc[acc.length - 1];
-      if (prev && p.x - prev.x < MIN_LABEL_GAP) return acc;
-      acc.push(p);
-      return acc;
-    }, []);
+    .map((p, i) => ({
+      x: xOf(p.ts),
+      y: yOf(p.weight),
+      weight: p.weight,
+      band: (i % 2 === 0 ? "above" : "below") as "above" | "below",
+    }))
+    .reduce<{ items: PointLabel[]; lastX: Record<"above" | "below", number> }>(
+      (state, p) => {
+        if (p.x - state.lastX[p.band] < MIN_LABEL_GAP) return state;
+        return { items: [...state.items, p], lastX: { ...state.lastX, [p.band]: p.x } };
+      },
+      { items: [], lastX: { above: -Infinity, below: -Infinity } },
+    ).items;
 
   return (
     <svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`}>
@@ -226,9 +238,13 @@ function WeightSparkline({
       ))}
       {pointLabels.map((p) => (
         <text
-          key={`lbl-${p.x}`}
+          key={`lbl-${p.x}-${p.band}`}
           x={p.x}
-          y={Math.max(p.y - 7, PAD_Y)}
+          y={
+            p.band === "above"
+              ? Math.max(p.y - LABEL_OFFSET, PAD_Y + 2)
+              : Math.min(p.y + LABEL_OFFSET + 6, plotH - 2)
+          }
           fontSize={9}
           fontWeight={600}
           fill={color}
@@ -259,6 +275,13 @@ function WeightSparkline({
       ))}
     </svg>
   );
+}
+
+interface PointLabel {
+  x: number;
+  y: number;
+  weight: number;
+  band: "above" | "below";
 }
 
 interface MonthTick {

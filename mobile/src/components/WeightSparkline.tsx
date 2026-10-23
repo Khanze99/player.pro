@@ -21,7 +21,17 @@ const H = 110;
 const PAD_LEFT = 30; // место под подпись максимума/минимума по Y
 const PAD_Y = 10;
 const PAD_BOTTOM = 18; // место под подписи месяцев внизу графика
-const MIN_LABEL_GAP = 34; // минимальный зазор между подписями точек, иначе налезают
+// Подписи чередуются сверху/снизу (см. pointLabels) — зазор нужен только
+// между подписями ОДНОЙ стороны, поэтому меньше, чем было при однорядной схеме.
+const MIN_LABEL_GAP = 20;
+const LABEL_OFFSET = 8; // расстояние от кружка точки до подписи
+
+interface PointLabel {
+  x: number;
+  y: number;
+  weight: number;
+  band: 'above' | 'below';
+}
 
 interface Props {
   entries: WellnessEntry[]; // любой порядок, фильтруются и сортируются внутри
@@ -56,18 +66,26 @@ export function WeightSparkline({ entries, color }: Props) {
   // подписывались бы за пределами графика или впритык к краю.
   const months = monthTicks(minTs, maxTs, i18n.language);
 
-  // Подпись у точки — только если осталось минимум MIN_LABEL_GAP от предыдущей
-  // подписанной точки: при частых отметках иначе цифры сливаются в кашу.
-  // reduce() вместо внешнего mutable-счётчика — последняя подписанная точка
-  // живёт в самом аккумуляторе, не в переменной рендера (react-hooks/immutability).
+  // Подпись у точки — чередуем сверху/снизу по чётности индекса: иначе на
+  // разреженном ряде (вес отмечают не каждый день) соседние точки из-за
+  // недостатка места гасили друг друга, и подписанной оставалась едва
+  // треть точек — выглядело как «не все точки отображаются». В две строки
+  // влезает намного больше: MIN_LABEL_GAP проверяется отдельно для «верхних»
+  // и «нижних» подписей, а не по всем точкам подряд.
   const pointLabels = points
-    .map((p) => ({ x: xOf(p.ts), y: yOf(p.weight), weight: p.weight }))
-    .reduce<{ x: number; y: number; weight: number }[]>((acc, p) => {
-      const prev = acc[acc.length - 1];
-      if (prev && p.x - prev.x < MIN_LABEL_GAP) return acc;
-      acc.push(p);
-      return acc;
-    }, []);
+    .map((p, i) => ({
+      x: xOf(p.ts),
+      y: yOf(p.weight),
+      weight: p.weight,
+      band: (i % 2 === 0 ? 'above' : 'below') as 'above' | 'below',
+    }))
+    .reduce<{ items: PointLabel[]; lastX: Record<'above' | 'below', number> }>(
+      (state, p) => {
+        if (p.x - state.lastX[p.band] < MIN_LABEL_GAP) return state;
+        return { items: [...state.items, p], lastX: { ...state.lastX, [p.band]: p.x } };
+      },
+      { items: [], lastX: { above: -Infinity, below: -Infinity } },
+    ).items;
 
   return (
     <View>
@@ -110,9 +128,13 @@ export function WeightSparkline({ entries, color }: Props) {
         ))}
         {pointLabels.map((p) => (
           <SvgText
-            key={`lbl-${p.x}`}
+            key={`lbl-${p.x}-${p.band}`}
             x={p.x}
-            y={Math.max(p.y - 7, PAD_Y)}
+            y={
+              p.band === 'above'
+                ? Math.max(p.y - LABEL_OFFSET, PAD_Y + 2)
+                : Math.min(p.y + LABEL_OFFSET + 6, plotH - 2)
+            }
             fontSize={8.5}
             fontWeight="600"
             fill={color}
