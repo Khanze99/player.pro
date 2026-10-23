@@ -237,7 +237,7 @@ SYMPTOMS: list[tuple[SymptomType, str]] = [
 
 # Регионы, у которых реально есть зона на манекене (mobile/mannequinPaths.ts
 # MANNEQUIN_ZONES) и подпись (mobile/i18n *.ts wellness.bodyMap.region.*).
-# BodyRegion шире этого набора (knee/groin/ankle/… есть у InjuryRecord), но
+# BodyRegion шире этого набора (knee/groin/.../ — есть у InjuryRecord), но
 # карта боли умеет рисовать только эти: вне набора точка не найдёт зону и
 # подпись останется непереведённым ключом. Руками в синхроне с клиентом.
 MAPPED_PAIN_REGIONS: frozenset[BodyRegion] = frozenset(
@@ -248,6 +248,7 @@ MAPPED_PAIN_REGIONS: frozenset[BodyRegion] = frozenset(
         BodyRegion.hand,
         BodyRegion.quad,
         BodyRegion.shin,
+        BodyRegion.ankle,
         BodyRegion.upper_back,
         BodyRegion.lower_back,
         BodyRegion.glute,
