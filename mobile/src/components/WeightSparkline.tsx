@@ -123,11 +123,14 @@ export function WeightSparkline({ entries, color }: Props) {
         ))}
 
         {/* Шкала Y — максимум и минимум видимого диапазона, чтобы понимать,
-            какой вес соответствует верху/низу линии, без подписи на каждой точке. */}
-        <SvgText x={2} y={yOf(max) + 3} fontSize={9} fill={th.textMuted}>
+            какой вес соответствует верху/низу линии, без подписи на каждой точке.
+            Цвет — тот же, что у линии (не th.textMuted): цифры, не нейтральный
+            подписи-чром, тоже должны тянуться к цвету графика, а не к чёрному/
+            серому по умолчанию. */}
+        <SvgText x={2} y={yOf(max) + 3} fontSize={9} fontWeight="600" fill={color}>
           {max}
         </SvgText>
-        <SvgText x={2} y={yOf(min) + 3} fontSize={9} fill={th.textMuted}>
+        <SvgText x={2} y={yOf(min) + 3} fontSize={9} fontWeight="600" fill={color}>
           {min}
         </SvgText>
 

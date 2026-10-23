@@ -234,10 +234,12 @@ function WeightSparkline({
           {p.weight}
         </text>
       ))}
-      <text x={2} y={yOf(max) + 3} fontSize={10} fill="var(--text-faint)">
+      {/* Цвет — тот же, что у линии (не var(--text-faint)): цифры шкалы, не
+          только сама линия, тоже тянутся к цвету графика. */}
+      <text x={2} y={yOf(max) + 3} fontSize={10} fontWeight={600} fill={color}>
         {max}
       </text>
-      <text x={2} y={yOf(min) + 3} fontSize={10} fill="var(--text-faint)">
+      <text x={2} y={yOf(min) + 3} fontSize={10} fontWeight={600} fill={color}>
         {min}
       </text>
       {months.map((m) => (
