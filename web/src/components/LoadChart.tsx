@@ -197,20 +197,19 @@ function WeightSparkline({
 
   return (
     <svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`}>
-      {months.map((m, i) =>
-        i === 0 ? null : (
-          <line
-            key={`div-${m.startTs}`}
-            x1={xOf(m.startTs)}
-            y1={PAD_Y - 4}
-            x2={xOf(m.startTs)}
-            y2={plotH}
-            stroke="var(--border)"
-            strokeWidth={1}
-            strokeDasharray="3 3"
-          />
-        ),
-      )}
+      {months.map((m) => (
+        <line
+          key={`div-${m.startTs}`}
+          x1={xOf(m.startTs)}
+          y1={PAD_Y - 4}
+          x2={xOf(m.startTs)}
+          y2={plotH}
+          stroke={color}
+          strokeOpacity={0.35}
+          strokeWidth={1}
+          strokeDasharray="3 3"
+        />
+      ))}
       <polyline
         points={coords}
         fill="none"

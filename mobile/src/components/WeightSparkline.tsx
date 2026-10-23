@@ -79,21 +79,22 @@ export function WeightSparkline({ entries, color }: Props) {
           </LinearGradient>
         </Defs>
 
-        {/* Границы месяцев — тонкий пунктир, разделяет график на подписанные отрезки */}
-        {months.map((m, i) =>
-          i === 0 ? null : (
-            <Line
-              key={`div-${m.startTs}`}
-              x1={xOf(m.startTs)}
-              y1={PAD_Y - 4}
-              x2={xOf(m.startTs)}
-              y2={plotH}
-              stroke={th.border}
-              strokeWidth={1}
-              strokeDasharray={[3, 3]}
-            />
-          ),
-        )}
+        {/* Границы месяцев — тонкий пунктир цветом линии (не th.border: тот
+            слишком тёмный на тёмном фоне, почти не виден). Включая самую
+            первую — начало первого отрезка тоже отмечено, не только внутренние. */}
+        {months.map((m) => (
+          <Line
+            key={`div-${m.startTs}`}
+            x1={xOf(m.startTs)}
+            y1={PAD_Y - 4}
+            x2={xOf(m.startTs)}
+            y2={plotH}
+            stroke={color}
+            strokeOpacity={0.35}
+            strokeWidth={1}
+            strokeDasharray={[3, 3]}
+          />
+        ))}
 
         <Polygon points={`${PAD_LEFT},${plotH} ${coords} ${W},${plotH}`} fill="url(#weightArea)" />
         <Polyline
