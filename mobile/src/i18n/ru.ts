@@ -146,6 +146,7 @@ export default {
         quad: 'Бедро, передняя пов.',
         knee: 'Колено',
         shin: 'Голень',
+        ankle: 'Голеностоп',
         foot: 'Стопа',
         upper_back: 'Верх спины',
         lower_back: 'Поясница',

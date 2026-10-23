@@ -148,6 +148,7 @@ const en: typeof ru = {
         quad: 'Thigh, front',
         knee: 'Knee',
         shin: 'Shin',
+        ankle: 'Ankle',
         foot: 'Foot',
         upper_back: 'Upper back',
         lower_back: 'Lower back',

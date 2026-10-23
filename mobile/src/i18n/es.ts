@@ -148,6 +148,7 @@ const es: typeof ru = {
         quad: 'Muslo, frontal',
         knee: 'Rodilla',
         shin: 'Espinilla',
+        ankle: 'Tobillo',
         foot: 'Pie',
         upper_back: 'Espalda alta',
         lower_back: 'Zona lumbar',
