@@ -8,6 +8,12 @@ teams_service.upsert_member (TeamMembership), а на то, увидит ли м
 CoachHome вместо своей ленты игрока, смотрит User.global_role
 ((tabs)/index.tsx: `global_role !== 'player'`) — порознь роль разъезжается.
 
+org_id у пользователя допускается и None (личный режим, после
+set_personal.py) — тогда скрипт восстанавливает org_id = org.id заодно с
+ролью, это штатный путь «обратно в команду» после личного режима.
+TeamMembership за время личного режима не удаляется, так что роль в
+команде просто становится видимой снова.
+
 Для первого включения в организацию — make invite (новый email) или
 make seed-player (игрок сразу с историей), не этот скрипт.
 """
@@ -48,8 +54,8 @@ async def set_role(email: str, org_name: str, team_name: str, role: TeamRole) ->
         ).scalar_one_or_none()
         if org is None:
             raise SystemExit(f"Организация «{org_name}» не найдена")
-        if user.org_id != org.id:
-            raise SystemExit(f"{email} не состоит в «{org_name}» (org_id={user.org_id})")
+        if user.org_id not in (None, org.id):
+            raise SystemExit(f"{email} состоит в другой организации (org_id={user.org_id})")
 
         team = (
             await db.execute(select(Team).where(Team.org_id == org.id, Team.name == team_name))
@@ -57,6 +63,7 @@ async def set_role(email: str, org_name: str, team_name: str, role: TeamRole) ->
         if team is None:
             raise SystemExit(f"Команда «{team_name}» не найдена в «{org_name}»")
 
+        user.org_id = org.id
         user.global_role = GLOBAL_ROLE_FOR[role]
         await db.flush()
         try:

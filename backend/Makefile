@@ -92,6 +92,10 @@ set-role: ## Сменить роль уже состоящего в органи
 	@test -n "$(email)" -a -n "$(org)" -a -n "$(team)" -a -n "$(role)" || (echo 'Нужно: make set-role email="a@b.com" org="ФK РУБИН" team="Основа" role=coach'; exit 1)
 	$(PYTHON) scripts/set_role.py --email "$(email)" --org "$(org)" --team "$(team)" --role "$(role)"
 
+set-personal: ## Перевести участника организации в личный режим игрока (org_id=None), обратно — make set-role: make set-personal email="a@b.com"
+	@test -n "$(email)" || (echo 'Нужно: make set-personal email="a@b.com"'; exit 1)
+	$(PYTHON) scripts/set_personal.py --email "$(email)"
+
 set-admin: ## Сделать уже существующего участника глобальным админом его организации: make set-admin email="a@b.com" org="ФK РУБИН"
 	@test -n "$(email)" -a -n "$(org)" || (echo 'Нужно: make set-admin email="a@b.com" org="ФK РУБИН"'; exit 1)
 	$(PYTHON) scripts/set_global_admin.py --email "$(email)" --org "$(org)"
