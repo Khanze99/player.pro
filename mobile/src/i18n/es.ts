@@ -94,6 +94,8 @@ const es: typeof ru = {
     weightTitle: 'Peso',
     weightEmptyNudge: 'Registra tu peso en la encuesta y aquí aparecerán el gráfico y el IMC',
     weightNeedMore: 'Un registro más y aparece el gráfico',
+    activityTitle: 'Actividad de los últimos 12 meses',
+    activitySubtitle: 'encuesta y RPE por día',
   },
   wellness: {
     title: '¿Cómo estás hoy?',
@@ -274,6 +276,13 @@ const es: typeof ru = {
     lossChip: 'Meta: bajar a {{n}} kg',
     gainChip: 'Meta: subir a {{n}} kg',
     sameChip: 'Meta: {{n}} kg',
+  },
+  activity: {
+    legend: { none: 'nada', survey: 'encuesta', rpe: 'RPE', both: 'ambos' },
+    cellBoth: 'encuesta y RPE',
+    cellSurvey: 'encuesta',
+    cellRpe: 'RPE',
+    cellNone: 'nada registrado',
   },
   dayDetail: {
     title: 'Día completo',

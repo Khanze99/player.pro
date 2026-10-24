@@ -33,8 +33,9 @@ import {
   useWellnessHistory,
 } from '@/api/hooks';
 import { sessionEndTime, sessionLabel } from '@/api/sessions';
-import type { AthleteProfile, RpeSession, WeightGoal, WellnessEntry } from '@/api/types';
+import type { AthleteProfile, RpeEntry, RpeSession, WeightGoal, WellnessEntry } from '@/api/types';
 import { ActionCard } from '@/components/ActionCard';
+import { ActivityHeatmap } from '@/components/ActivityHeatmap';
 import { Button } from '@/components/Button';
 import { TeamBadge } from '@/components/TeamBadge';
 import { CoachHome } from '@/components/CoachHome';
@@ -228,6 +229,39 @@ function WeightCard({
   );
 }
 
+/** Карта активности (docs/plan-activity-heatmap.md) — тап по клетке даёт тост
+ * с датой и фактами, без шторки/модалки: та же простота, что у остальных
+ * мелких подсказок на этом экране. */
+function ActivityCard({ wellness, rpe }: { wellness: WellnessEntry[]; rpe: RpeEntry[] }) {
+  const styles = useStyles(makeStyles);
+  const { t, i18n } = useTranslation();
+  const toast = useToast((s) => s.show);
+  const wellnessDates = new Set(wellness.map((w) => w.date));
+  const rpeDates = new Set(rpe.map((r) => r.date));
+
+  const onCellPress = (date: string, hasSurvey: boolean, hasRpe: boolean) => {
+    const label = new Date(date).toLocaleDateString(i18n.language, { day: 'numeric', month: 'short' });
+    const fact = hasSurvey && hasRpe
+      ? t('activity.cellBoth')
+      : hasSurvey
+        ? t('activity.cellSurvey')
+        : hasRpe
+          ? t('activity.cellRpe')
+          : t('activity.cellNone');
+    toast(`${label}: ${fact}`);
+  };
+
+  return (
+    <View style={styles.weightCard}>
+      <Text style={styles.weightTitle}>{t('home.activityTitle')}</Text>
+      <Text style={styles.activitySubtitle}>{t('home.activitySubtitle')}</Text>
+      <View style={styles.activityGrid}>
+        <ActivityHeatmap wellnessDates={wellnessDates} rpeDates={rpeDates} onCellPress={onCellPress} />
+      </View>
+    </View>
+  );
+}
+
 export default function Home() {
   const me = useMe();
   // Пока роль неизвестна (первый запрос) — показываем игровой «Дом» как основной случай
@@ -253,6 +287,10 @@ function PlayerHome() {
   // покажет на графике.
   const weightHistory = useWellnessHistory(90);
   const profile = useMyProfile();
+  // 365 дней — карта активности (docs/plan-activity-heatmap.md), отдельное
+  // окно от всего остального на экране: это не тренд, а годовой обзор.
+  const yearWellness = useWellnessHistory(365);
+  const yearRpe = useRpeHistory(365);
 
   const today = todayISO();
   const sessions = useRpeSessions(today);
@@ -357,6 +395,7 @@ function PlayerHome() {
         </View>
 
         <WeightCard profile={profile.data} history={weightHistory.data ?? []} />
+        <ActivityCard wellness={yearWellness.data ?? []} rpe={yearRpe.data ?? []} />
       </ScrollView>
       <Guide />
     </Screen>
@@ -479,4 +518,6 @@ const makeStyles = (th: Theme) => StyleSheet.create({
     fontSize: 17,
     color: th.text,
   },
+  activitySubtitle: { fontFamily: th.font.regular, fontSize: 12, color: th.textMuted },
+  activityGrid: { marginTop: spacing.s },
 });

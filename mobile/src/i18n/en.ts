@@ -94,6 +94,8 @@ const en: typeof ru = {
     weightTitle: 'Weight',
     weightEmptyNudge: 'Log your weight in the survey — a chart and BMI will show up here',
     weightNeedMore: 'One more entry and the chart appears',
+    activityTitle: 'Activity over 12 months',
+    activitySubtitle: 'survey and RPE by day',
   },
   wellness: {
     title: 'How are you today?',
@@ -274,6 +276,13 @@ const en: typeof ru = {
     lossChip: 'Goal: lose to {{n}} kg',
     gainChip: 'Goal: gain to {{n}} kg',
     sameChip: 'Goal: {{n}} kg',
+  },
+  activity: {
+    legend: { none: 'none', survey: 'survey', rpe: 'RPE', both: 'both' },
+    cellBoth: 'survey and RPE',
+    cellSurvey: 'survey',
+    cellRpe: 'RPE',
+    cellNone: 'nothing logged',
   },
   dayDetail: {
     title: 'Full day',

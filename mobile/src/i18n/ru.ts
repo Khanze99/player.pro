@@ -92,6 +92,8 @@ export default {
     weightTitle: 'Вес',
     weightEmptyNudge: 'Отметь вес в опросе — здесь появится график и ИМТ',
     weightNeedMore: 'Ещё одна отметка — и появится график',
+    activityTitle: 'Активность за 12 месяцев',
+    activitySubtitle: 'опрос и RPE по дням',
   },
   wellness: {
     title: 'Как ты сегодня?',
@@ -272,6 +274,13 @@ export default {
     lossChip: 'Цель: сбросить до {{n}} кг',
     gainChip: 'Цель: набрать до {{n}} кг',
     sameChip: 'Цель: {{n}} кг',
+  },
+  activity: {
+    legend: { none: 'нет', survey: 'опрос', rpe: 'RPE', both: 'оба' },
+    cellBoth: 'опрос и RPE',
+    cellSurvey: 'опрос',
+    cellRpe: 'RPE',
+    cellNone: 'ничего не отмечено',
   },
   dayDetail: {
     title: 'День целиком',

@@ -17,7 +17,8 @@ import {
   useAthleteWeightGoal,
   useAthleteWellnessHistory,
 } from '@/api/hooks';
-import type { WellnessEntry } from '@/api/types';
+import type { RpeEntry, WellnessEntry } from '@/api/types';
+import { ActivityHeatmap } from '@/components/ActivityHeatmap';
 import { BodyMap } from '@/components/BodyMap';
 import { Chip } from '@/components/Chip';
 import { CloseIcon } from '@/components/Icons';
@@ -28,6 +29,7 @@ import { RecoveryMethods } from '@/components/RecoveryMethods';
 import { RpeDayCard } from '@/components/RpeDayCard';
 import { ScaleRow } from '@/components/ScaleRow';
 import { Screen } from '@/components/Screen';
+import { useToast } from '@/components/Toast';
 import { MicroLabel, ScreenTitle } from '@/components/Typography';
 import { WeightSparkline } from '@/components/WeightSparkline';
 import {
@@ -92,6 +94,40 @@ function WeightSection({ athleteId, wellness }: { athleteId: string; wellness: W
   );
 }
 
+/** Карта активности (docs/plan-activity-heatmap.md) — не спецкатегория, тот же
+ * ensure_can_view_athlete, что у остального отчёта: факт заполнения опроса/RPE,
+ * не медицинская деталь. Тап по клетке — тост, как на домашнем экране игрока. */
+function ActivitySection({ wellness, rpe }: { wellness: WellnessEntry[]; rpe: RpeEntry[] }) {
+  const styles = useStyles(makeStyles);
+  const { t, i18n } = useTranslation();
+  const toast = useToast((s) => s.show);
+  const wellnessDates = new Set(wellness.map((w) => w.date));
+  const rpeDates = new Set(rpe.map((r) => r.date));
+
+  const onCellPress = (date: string, hasSurvey: boolean, hasRpe: boolean) => {
+    const label = new Date(date).toLocaleDateString(i18n.language, { day: 'numeric', month: 'short' });
+    const fact = hasSurvey && hasRpe
+      ? t('activity.cellBoth')
+      : hasSurvey
+        ? t('activity.cellSurvey')
+        : hasRpe
+          ? t('activity.cellRpe')
+          : t('activity.cellNone');
+    toast(`${label}: ${fact}`);
+  };
+
+  return (
+    <View style={styles.card}>
+      <View style={styles.cardHead}>
+        <Text style={styles.cardHeadText}>{t('home.activityTitle')}</Text>
+      </View>
+      <View style={styles.cardBody}>
+        <ActivityHeatmap wellnessDates={wellnessDates} rpeDates={rpeDates} onCellPress={onCellPress} />
+      </View>
+    </View>
+  );
+}
+
 /** Цикл — спецкатегория, доступ по согласию игрока (ensure_can_view_sensitive).
  * Без согласия хук получает 403 и секция просто не рисуется — без тоста с ошибкой,
  * как и остальные данные, закрытые согласием (body_metrics и т.п.). Витрина одна
@@ -135,6 +171,10 @@ export default function AthleteReport() {
   // месячную разметку WeightSparkline (3 месяца), не привязано к 28-дневному
   // окну готовности/нагрузки выше.
   const weightHistory = useAthleteWellnessHistory(params.id, 90);
+  // Карта активности (docs/plan-activity-heatmap.md) — тоже отдельное окно,
+  // годовой обзор, не тренд.
+  const yearWellness = useAthleteWellnessHistory(params.id, 365);
+  const yearRpe = useAthleteRpeHistory(params.id, 365);
   const data = metrics.data ?? [];
   const latestWithLoad = [...data].reverse().find((m) => m.load_zone !== 'no_data');
   const accumulating = !latestWithLoad || latestWithLoad.acwr === null;
@@ -219,6 +259,8 @@ export default function AthleteReport() {
         </View>
 
         <WeightSection athleteId={params.id} wellness={weightHistory.data ?? []} />
+
+        <ActivitySection wellness={yearWellness.data ?? []} rpe={yearRpe.data ?? []} />
 
         <ReadinessBreakdownSection metrics={data} athleteId={params.id} />
 
