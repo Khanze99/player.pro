@@ -28,10 +28,18 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))  # соседний see
 import seed_demo as demo  # noqa: E402
 from sqlalchemy import delete, select  # noqa: E402
 
+from app.config import settings as app_settings  # noqa: E402
 from app.database import AsyncSessionLocal  # noqa: E402
 from app.models.consent import DataConsent  # noqa: E402
 from app.models.cycle import CycleLog  # noqa: E402
-from app.models.enums import AttendanceStatus, ConsentScope, GlobalRole, Sex, TeamRole  # noqa: E402
+from app.models.enums import (  # noqa: E402
+    AttendanceStatus,
+    ConsentAudience,
+    ConsentScope,
+    GlobalRole,
+    Sex,
+    TeamRole,
+)
 from app.models.event import Attendance, Event  # noqa: E402
 from app.models.metric import DailyMetric, Streak  # noqa: E402
 from app.models.organization import Organization  # noqa: E402
@@ -60,6 +68,14 @@ async def wipe_own_history(db, athlete_id, *, cycle: bool = False) -> None:
     await db.execute(delete(RpeEntry).where(RpeEntry.athlete_id == athlete_id))
     await db.execute(delete(DailyMetric).where(DailyMetric.athlete_id == athlete_id))
     await db.execute(delete(Streak).where(Streak.athlete_id == athlete_id))
+    # Вес (docs/plan-weight-tracking.md) пересчитывается заново при каждом
+    # запуске — старое согласие body_metrics сносим, иначе повторный запуск
+    # плодил бы вторую активную запись (revoked_at не проставлен).
+    await db.execute(
+        delete(DataConsent).where(
+            DataConsent.athlete_id == athlete_id, DataConsent.scope == ConsentScope.body_metrics
+        )
+    )
 
     if cycle:
         # CycleSettings не трогаем (seed_cycle_for_athlete сам идемпотентен на неё) —
@@ -126,6 +142,24 @@ async def seed_player(
         today = date.today()
         start = today - timedelta(days=days - 1)
 
+        # Рост/вес (docs/plan-weight-tracking.md) — тот же генератор, что у
+        # демо-игроков seed_demo.py: целевой ИМТ привязан к архетипу нагрузки,
+        # тренд за окно. Профиль — «последнее известное» (конец тренда), сама
+        # серия по дням — ниже, в цикле. Согласие body_metrics даём сразу
+        # (audience=coach — старший ранг, открывает и coach, и medic), иначе
+        # self-тест под своим же логином ничего не покажет в отчёте штаба.
+        height_cm, start_weight, end_weight = demo.weight_plan_for_athlete(archetype, rng)
+        profile.height_cm = height_cm
+        profile.weight_kg = end_weight
+        db.add(
+            DataConsent(
+                athlete_id=user.id,
+                scope=ConsentScope.body_metrics,
+                audience=ConsentAudience.coach,
+                policy_version=app_settings.consent_policy_version,
+            )
+        )
+
         events_by_day: dict[date, Event] = {}
         rows = await db.execute(
             select(Event).where(
@@ -174,6 +208,18 @@ async def seed_player(
             has_symptom = rng.random() < 0.03
             symptom_type, symptom_details = rng.choice(demo.SYMPTOMS) if has_symptom else (None, None)
 
+            # Вес — разреженно (не каждый день), последний день окна всегда
+            # отмечен (тот же приём, что в seed_demo.py — он же синхронизирован
+            # в profile.weight_kg выше).
+            progress = offset / (days - 1) if days > 1 else 1
+            trend_weight = start_weight + (end_weight - start_weight) * progress
+            is_last_day = offset == days - 1
+            weight_today = (
+                round(trend_weight + rng.uniform(-0.4, 0.4), 1)
+                if is_last_day or rng.random() < 0.45
+                else None
+            )
+
             entry = WellnessEntry(
                 athlete_id=user.id,
                 date=day,
@@ -191,6 +237,7 @@ async def seed_player(
                 symptom_type=symptom_type,
                 symptom_details=symptom_details,
                 resting_hr=62 + rng.randint(-4, 9),
+                weight_kg=weight_today,
                 comment=rng.choice(demo.DAY_COMMENTS) if rng.random() < 0.2 else None,
             )
             if is_injury_day and injury_choice and injury_choice[1] in demo.MAPPED_PAIN_REGIONS:
