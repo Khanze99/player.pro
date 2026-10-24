@@ -43,7 +43,15 @@ function mondayOf(d: Date): Date {
 }
 
 function toISO(d: Date): string {
-  return d.toISOString().slice(0, 10);
+  // Локальные компоненты даты, не toISOString() — тот конвертирует в UTC и при
+  // положительном смещении (например, Москва, UTC+3) сдвигает дату на день
+  // назад, из-за чего ключи клеток переставали совпадать с WellnessEntry.date/
+  // RpeEntry.date (чистая календарная дата без таймзоны) — сетка выглядела
+  // пустой почти целиком.
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
 }
 
 function buildGrid(
