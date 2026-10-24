@@ -1,7 +1,7 @@
 import { Card } from "@/components/ui/Card";
 import { formatDate } from "@/lib/format";
 import { bmiZoneColorVar, bmiZoneSoftVar } from "@/lib/zone";
-import type { AthleteProfile, DailyMetric, WellnessEntry } from "@/types";
+import type { AthleteProfile, DailyMetric, WeightGoal, WellnessEntry } from "@/types";
 
 const BMI_ZONE_LABEL: Record<AthleteProfile["bmi_zone"], string> = {
   no_data: "Нет данных",
@@ -103,12 +103,21 @@ function Sparkline({ points }: { points: DailyMetric[] }) {
 // видимость, что рост/вес профиля: по согласию игрока. «Недостаточно данных» —
 // одна формулировка для «нет согласия» и «правда нечего показывать» (тренер не
 // должен видеть, кто отказался делиться), ровно как у CycleCard.
+function goalChipText(goal: WeightGoal): string {
+  const n = goal.target_weight_kg;
+  if (goal.target_weight_kg < goal.start_weight_kg) return `Цель: сбросить до ${n} кг`;
+  if (goal.target_weight_kg > goal.start_weight_kg) return `Цель: набрать до ${n} кг`;
+  return `Цель: ${n} кг`;
+}
+
 export function WeightCard({
   profile,
   wellness,
+  goal,
 }: {
   profile: AthleteProfile | null;
   wellness: WellnessEntry[];
+  goal: WeightGoal | null;
 }) {
   const points = wellness
     .filter((w): w is WellnessEntry & { weight_kg: number } => w.weight_kg !== null)
@@ -124,7 +133,7 @@ export function WeightCard({
       ) : (
         <>
           {bmi != null && profile && (
-            <div className="flex items-baseline gap-3 mb-2">
+            <div className="flex items-baseline gap-3 mb-2 flex-wrap">
               <span
                 className="text-2xl font-semibold tabular-nums"
                 style={{ color: bmiZoneColorVar(profile.bmi_zone) }}
@@ -137,10 +146,21 @@ export function WeightCard({
               >
                 ИМТ {bmi.toFixed(1)} · {BMI_ZONE_LABEL[profile.bmi_zone]}
               </span>
+              {/* Только чтение — штаб не ставит и не меняет цель (docs/plan-weight-tracking.md) */}
+              {goal && (
+                <span className="text-xs font-medium px-2 py-0.5 rounded-full border border-[var(--accent)] text-[var(--accent)]">
+                  {goalChipText(goal)}
+                </span>
+              )}
             </div>
           )}
           {points.length >= 2 && (
-            <WeightSparkline points={points} color={bmiZoneColorVar(profile?.bmi_zone)} />
+            <WeightSparkline
+              points={points}
+              color={bmiZoneColorVar(profile?.bmi_zone)}
+              start={goal?.start_weight_kg}
+              target={goal?.target_weight_kg}
+            />
           )}
           {profile && BMI_ZONE_NOTE[profile.bmi_zone] && (
             <p className="text-xs text-[var(--text-muted)] mt-2">{BMI_ZONE_NOTE[profile.bmi_zone]}</p>
@@ -160,9 +180,15 @@ export function WeightCard({
 function WeightSparkline({
   points,
   color,
+  start,
+  target,
 }: {
   points: (WellnessEntry & { weight_kg: number })[];
   color: string;
+  /** Точка отсчёта и цель (docs/plan-weight-tracking.md) — горизонтальные
+   *  линии через весь график. Не заданы, если цели нет. */
+  start?: number;
+  target?: number;
 }) {
   const W = 560;
   const H = 110;
@@ -183,8 +209,11 @@ function WeightSparkline({
   const maxTs = series[series.length - 1].ts;
   const tsSpan = maxTs - minTs || 1;
   const values = series.map((p) => p.weight);
-  const min = Math.min(...values);
-  const max = Math.max(...values);
+  // Старт/цель могут лежать за пределами диапазона реальных отметок — шкала
+  // расширяется, чтобы обе линии физически попали в кадр.
+  const goalValues = [start, target].filter((v): v is number => v != null);
+  const min = Math.min(...values, ...goalValues);
+  const max = Math.max(...values, ...goalValues);
   const span = max - min || 1;
 
   const xOf = (ts: number) => PAD_LEFT + ((ts - minTs) / tsSpan) * plotW;
@@ -225,6 +254,48 @@ function WeightSparkline({
           strokeDasharray="3 3"
         />
       ))}
+      {/* Старт/цель — горизонтальные линии через весь график, цветом бренда
+          (не цветом ИМТ-линии данных): это ориентир, а не измерение. */}
+      {start != null && (
+        <>
+          <line
+            x1={PAD_LEFT}
+            y1={yOf(start)}
+            x2={W}
+            y2={yOf(start)}
+            stroke="var(--accent)"
+            strokeOpacity={0.5}
+            strokeWidth={1.3}
+            strokeDasharray="2 3"
+          />
+          <text x={W - 2} y={yOf(start) - 3} fontSize={9} fill="var(--accent)" textAnchor="end">
+            старт {start}
+          </text>
+        </>
+      )}
+      {target != null && (
+        <>
+          <line
+            x1={PAD_LEFT}
+            y1={yOf(target)}
+            x2={W}
+            y2={yOf(target)}
+            stroke="var(--accent)"
+            strokeWidth={1.5}
+            strokeDasharray="6 3"
+          />
+          <text
+            x={PAD_LEFT + plotW / 2}
+            y={yOf(target) - 4}
+            fontSize={10}
+            fontWeight={600}
+            fill="var(--accent)"
+            textAnchor="middle"
+          >
+            цель {target}
+          </text>
+        </>
+      )}
       <polyline
         points={coords}
         fill="none"

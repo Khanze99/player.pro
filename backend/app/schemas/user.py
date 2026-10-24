@@ -1,5 +1,6 @@
 import uuid
 from datetime import date as date_type
+from datetime import datetime
 from decimal import Decimal
 
 from pydantic import BaseModel, Field
@@ -43,3 +44,17 @@ class AthleteProfileOut(BaseModel):
     # bmi_zone как у load_zone/readiness_zone — всегда строка, "no_data" а не null.
     bmi: float | None = None
     bmi_zone: str = "no_data"
+
+
+class WeightGoalIn(BaseModel):
+    # Границы совпадают с ck_weight_goal_target; start_weight_kg не принимаем
+    # от клиента — сервер снимает его сам с текущего известного веса (см. план).
+    target_weight_kg: Decimal = Field(ge=30, le=250, decimal_places=1)
+
+
+class WeightGoalOut(BaseModel):
+    model_config = {"from_attributes": True}
+
+    start_weight_kg: Decimal
+    target_weight_kg: Decimal
+    updated_at: datetime

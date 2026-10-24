@@ -21,6 +21,7 @@ import type {
   TeamMember,
   TeamSummary,
   TransferPayload,
+  WeightGoal,
   WellnessEntry,
 } from "@/types";
 
@@ -132,6 +133,12 @@ export const api = {
       if (err instanceof ApiError && err.status === 404) return null;
       throw err;
     }),
+
+  // Цель по весу — только чтение (штаб не ставит цель, PUT нет), null уже
+  // приходит с бэкенда и на «нет согласия», и на «цели не существует»
+  // (docs/plan-weight-tracking.md).
+  athleteWeightGoal: (athleteId: string, token: string) =>
+    request<WeightGoal | null>(`/users/athletes/${athleteId}/weight-goal`, token),
 
   medicalExams: (athleteId: string, token: string) =>
     request<MedicalExams>(`/medical-exams/athletes/${athleteId}`, token),

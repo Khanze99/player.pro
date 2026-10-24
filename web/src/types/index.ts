@@ -299,6 +299,15 @@ export interface AthleteProfile {
   bmi_zone: BmiZone;
 }
 
+// Цель по весу (docs/plan-weight-tracking.md, «Дополнение: цель веса») —
+// только чтение на вебе (штаб не ставит цель), тот же гейт body_metrics, что
+// у AthleteProfile.weight_kg выше.
+export interface WeightGoal {
+  start_weight_kg: number;
+  target_weight_kg: number;
+  updated_at: string;
+}
+
 // Цикл (docs/plan-women-health-nutrition.md) — минимальный трекинг (решение
 // 2026-10-16): только отметка дня и болевой порог. Спецкатегория персданных,
 // доступ по согласию игрока (ensure_can_view_sensitive). Витрина одна для coach

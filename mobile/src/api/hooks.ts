@@ -37,6 +37,7 @@ import type {
   TeamInjuries,
   TeamMember,
   TeamSummary,
+  WeightGoal,
   WellnessEntry,
   WellnessPayload,
 } from './types';
@@ -236,6 +237,34 @@ export function useUpsertProfile() {
     },
   });
 }
+
+export const useMyWeightGoal = () =>
+  useQuery({
+    queryKey: ['weight-goal'],
+    queryFn: () => api<WeightGoal | null>('/users/me/weight-goal'),
+  });
+
+export function useSetWeightGoal() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (target_weight_kg: number) =>
+      api<WeightGoal>('/users/me/weight-goal', {
+        method: 'PUT',
+        body: JSON.stringify({ target_weight_kg }),
+      }),
+    onSuccess: (data) => qc.setQueryData(['weight-goal'], data),
+  });
+}
+
+/** Цель другого игрока — отчёт тренера/врача, только чтение (PUT нет: ставит
+ * и меняет цель только сам игрок). null — либо нет согласия body_metrics,
+ * либо цели нет, бэкенд не различает (docs/plan-weight-tracking.md). */
+export const useAthleteWeightGoal = (athleteId: string | undefined) =>
+  useQuery({
+    queryKey: ['athlete-weight-goal', athleteId],
+    enabled: !!athleteId,
+    queryFn: () => api<WeightGoal | null>(`/users/athletes/${athleteId}/weight-goal`),
+  });
 
 export function useUploadAvatar() {
   const qc = useQueryClient();

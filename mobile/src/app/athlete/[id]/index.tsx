@@ -14,6 +14,7 @@ import {
   useAthleteMetrics,
   useAthleteProfile,
   useAthleteRpeHistory,
+  useAthleteWeightGoal,
   useAthleteWellnessHistory,
 } from '@/api/hooks';
 import type { WellnessEntry } from '@/api/types';
@@ -46,6 +47,7 @@ function WeightSection({ athleteId, wellness }: { athleteId: string; wellness: W
   const styles = useStyles(makeStyles);
   const { t } = useTranslation();
   const profile = useAthleteProfile(athleteId);
+  const goal = useAthleteWeightGoal(athleteId);
   const weightPoints = wellness.filter((w) => w.weight_kg !== null).length;
   const bmi = profile.data?.bmi ?? null;
   const color = bmiZoneColor(profile.data?.bmi_zone);
@@ -73,7 +75,12 @@ function WeightSection({ athleteId, wellness }: { athleteId: string; wellness: W
               </View>
             )}
             {weightPoints >= 2 ? (
-              <WeightSparkline entries={wellness} color={color} />
+              <WeightSparkline
+                entries={wellness}
+                color={color}
+                start={goal.data?.start_weight_kg}
+                target={goal.data?.target_weight_kg}
+              />
             ) : null}
             {bmi != null && profile.data!.bmi_zone !== 'normal' && (
               <Text style={styles.hint}>{t(`bmi.note.${profile.data!.bmi_zone}`)}</Text>

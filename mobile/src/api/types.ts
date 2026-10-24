@@ -454,6 +454,16 @@ export interface AthleteProfile {
   bmi_zone: 'no_data' | 'underweight' | 'normal' | 'overweight' | 'obese';
 }
 
+// Цель по весу (docs/plan-weight-tracking.md, «Дополнение: цель веса») — одна
+// активная запись, ставит сам игрок. start_weight_kg — снимок веса на момент
+// сохранения/правки цели, не дата первой постановки (пересчитывается заново
+// при каждой правке). Та же спецкатегория body_metrics, что и сам вес.
+export interface WeightGoal {
+  start_weight_kg: number;
+  target_weight_kg: number;
+  updated_at: string;
+}
+
 // Цикл (backend/app/schemas/cycle.py) — минимальный трекинг (решение 2026-10-16):
 // только отметка дня и болевой порог. Спецкатегория — доступ только по согласию.
 // Отдельного «включить трекинг» нет (решение 2026-10-17) — всегда доступен

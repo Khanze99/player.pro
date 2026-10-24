@@ -5,22 +5,37 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import type { TFunction } from 'i18next';
 import { useCallback, useState } from 'react';
-import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { useTranslation } from 'react-i18next';
 
+import { ApiError } from '@/api/client';
 import {
   todayISO,
   useMe,
   useMetrics,
   useMyProfile,
+  useMyWeightGoal,
   useRpeHistory,
   useRpeSessions,
+  useSetWeightGoal,
   useStreaks,
   useWellnessHistory,
 } from '@/api/hooks';
 import { sessionEndTime, sessionLabel } from '@/api/sessions';
-import type { AthleteProfile, RpeSession, WellnessEntry } from '@/api/types';
+import type { AthleteProfile, RpeSession, WeightGoal, WellnessEntry } from '@/api/types';
 import { ActionCard } from '@/components/ActionCard';
+import { Button } from '@/components/Button';
 import { TeamBadge } from '@/components/TeamBadge';
 import { CoachHome } from '@/components/CoachHome';
 import { Guide } from '@/components/Guide';
@@ -28,6 +43,7 @@ import { BoltIcon, SunIcon } from '@/components/Icons';
 import { ReadinessRing } from '@/components/ReadinessRing';
 import { Screen } from '@/components/Screen';
 import { StatTile } from '@/components/StatTile';
+import { useToast } from '@/components/Toast';
 import { WeightSparkline } from '@/components/WeightSparkline';
 import {
   bmiZoneColor,
@@ -64,7 +80,72 @@ function rpeCardHint({
 }
 
 /** Карточка «Вес» (docs/plan-weight-tracking.md) — под карточками опроса/RPE.
- * Пусто (ни одной отметки) — приглашение заполнить, не молчащая пустая карточка. */
+ * Пусто (ни одной отметки) — приглашение заполнить, не молчащая пустая карточка.
+ * Цель (docs/plan-weight-tracking.md, «Дополнение: цель веса») — своя кнопка/
+ * чип + модалка ввода, фичу читает сама (не тащим её в пропы PlayerHome). */
+function goalChipText(t: TFunction, goal: WeightGoal): string {
+  const n = goal.target_weight_kg;
+  if (goal.target_weight_kg < goal.start_weight_kg) return t('weightGoal.lossChip', { n });
+  if (goal.target_weight_kg > goal.start_weight_kg) return t('weightGoal.gainChip', { n });
+  return t('weightGoal.sameChip', { n });
+}
+
+function WeightGoalModal({
+  visible,
+  onClose,
+  value,
+  onChangeValue,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  value: string;
+  onChangeValue: (v: string) => void;
+}) {
+  const th = useTheme();
+  const styles = useStyles(makeStyles);
+  const { t } = useTranslation();
+  const toast = useToast((s) => s.show);
+  const setGoal = useSetWeightGoal();
+
+  const save = () => {
+    const n = Number(value);
+    if (!value || Number.isNaN(n) || n < 30 || n > 250) {
+      toast(t('weightGoal.invalid'));
+      return;
+    }
+    setGoal.mutate(n, {
+      onSuccess: () => {
+        toast(t('common.saved'));
+        onClose();
+      },
+      onError: (e) => toast(e instanceof ApiError ? e.detail : t('common.retry')),
+    });
+  };
+
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <Pressable style={styles.backdrop} onPress={onClose} />
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <View style={styles.sheet}>
+          <Text style={styles.sheetTitle}>{t('weightGoal.modalTitle')}</Text>
+          <Text style={styles.sheetHint}>{t('weightGoal.staffNotice')}</Text>
+          <Text style={styles.weightTitle}>{t('weightGoal.targetLabel')}</Text>
+          <TextInput
+            style={styles.goalInput}
+            value={value}
+            onChangeText={(v) => onChangeValue(v.replace(/[^\d.]/g, '').replace(/^(\d*\.\d).*$/, '$1'))}
+            keyboardType="decimal-pad"
+            placeholder="—"
+            placeholderTextColor={th.textMuted}
+            autoFocus
+          />
+          <Button title={t('common.save')} onPress={save} loading={setGoal.isPending} />
+        </View>
+      </KeyboardAvoidingView>
+    </Modal>
+  );
+}
+
 function WeightCard({
   profile,
   history,
@@ -76,6 +157,16 @@ function WeightCard({
   const { t } = useTranslation();
   const weightPoints = history.filter((w) => w.weight_kg !== null).length;
   const bmi = profile?.bmi ?? null;
+  const goal = useMyWeightGoal();
+  const [modalOpen, setModalOpen] = useState(false);
+  const [draftTarget, setDraftTarget] = useState('');
+
+  // Значение поля выставляем в момент открытия (клик), не в эффекте по
+  // изменению visible — тот же приём, что у шторки severity в BodyMap.
+  const openGoalModal = () => {
+    setDraftTarget(goal.data ? String(goal.data.target_weight_kg) : '');
+    setModalOpen(true);
+  };
 
   if (weightPoints === 0) {
     return (
@@ -99,20 +190,40 @@ function WeightCard({
             <Text style={styles.weightUnit}>кг</Text>
           </View>
         </View>
-        {bmi != null && (
-          <Text style={[styles.bmiPill, { backgroundColor: `${color}24`, color }]}>
-            {t('athleteReport.weight.bmi')} {bmi.toFixed(1)} · {t(`bmi.zone.${profile!.bmi_zone}`)}
-          </Text>
-        )}
+        <View style={styles.weightHeadRight}>
+          {bmi != null && (
+            <Text style={[styles.bmiPill, { backgroundColor: `${color}24`, color }]}>
+              {t('athleteReport.weight.bmi')} {bmi.toFixed(1)} · {t(`bmi.zone.${profile!.bmi_zone}`)}
+            </Text>
+          )}
+          <Pressable onPress={openGoalModal} accessibilityRole="button">
+            {goal.data ? (
+              <Text style={styles.goalChip}>{goalChipText(t, goal.data)}</Text>
+            ) : (
+              <Text style={styles.goalSetButton}>{t('weightGoal.setButton')}</Text>
+            )}
+          </Pressable>
+        </View>
       </View>
       {weightPoints >= 2 ? (
-        <WeightSparkline entries={history} color={color} />
+        <WeightSparkline
+          entries={history}
+          color={color}
+          start={goal.data?.start_weight_kg}
+          target={goal.data?.target_weight_kg}
+        />
       ) : (
         <Text style={styles.weightEmptyText}>{t('home.weightNeedMore')}</Text>
       )}
       {bmi != null && profile!.bmi_zone !== 'normal' && (
         <Text style={styles.weightNote}>{t(`bmi.note.${profile!.bmi_zone}`)}</Text>
       )}
+      <WeightGoalModal
+        visible={modalOpen}
+        onClose={() => setModalOpen(false)}
+        value={draftTarget}
+        onChangeValue={setDraftTarget}
+      />
     </View>
   );
 }
@@ -324,5 +435,48 @@ const makeStyles = (th: Theme) => StyleSheet.create({
     color: th.textMuted,
     marginTop: spacing.s,
     lineHeight: 16,
+  },
+  weightHeadRight: { alignItems: 'flex-end', gap: spacing.xs },
+  goalSetButton: {
+    fontFamily: th.font.semibold,
+    fontSize: 11,
+    color: th.brand,
+    paddingHorizontal: spacing.s,
+    paddingVertical: 4,
+  },
+  goalChip: {
+    fontFamily: th.font.medium,
+    fontSize: 11,
+    color: th.brand,
+    paddingHorizontal: spacing.s,
+    paddingVertical: 3,
+    borderRadius: th.radius.chip,
+    borderWidth: 1,
+    borderColor: th.brand,
+  },
+  backdrop: { flex: 1, backgroundColor: '#0009' },
+  sheet: {
+    backgroundColor: th.surface,
+    borderWidth: 1,
+    borderColor: th.border,
+    borderTopLeftRadius: th.radius.card,
+    borderTopRightRadius: th.radius.card,
+    paddingHorizontal: spacing.screen,
+    paddingTop: spacing.l,
+    paddingBottom: spacing.xl,
+    gap: spacing.m,
+  },
+  sheetTitle: { fontFamily: th.font.display, fontSize: 17, color: th.text },
+  sheetHint: { fontFamily: th.font.regular, fontSize: 12.5, color: th.textMuted, marginTop: -spacing.s },
+  goalInput: {
+    backgroundColor: th.surface2,
+    borderWidth: 1,
+    borderColor: th.border,
+    borderRadius: th.radius.control,
+    paddingHorizontal: spacing.l,
+    paddingVertical: spacing.m,
+    fontFamily: th.font.regular,
+    fontSize: 17,
+    color: th.text,
   },
 });

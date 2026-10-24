@@ -2,11 +2,13 @@
 
 import uuid
 
+from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.enums import Sex
 from app.models.user import AthleteProfile, User
-from app.schemas.user import AthleteProfileIn, UserUpdateIn
+from app.models.weight_goal import WeightGoal
+from app.schemas.user import AthleteProfileIn, UserUpdateIn, WeightGoalIn
 
 NAME_PARTS = ("last_name", "first_name", "middle_name")
 
@@ -52,3 +54,35 @@ async def upsert_profile(db: AsyncSession, user_id: uuid.UUID, data: AthleteProf
     await db.commit()
     await db.refresh(profile)
     return profile
+
+
+async def get_weight_goal(db: AsyncSession, user_id: uuid.UUID) -> WeightGoal | None:
+    return await db.get(WeightGoal, user_id)
+
+
+async def set_weight_goal(db: AsyncSession, user_id: uuid.UUID, data: WeightGoalIn) -> WeightGoal:
+    """start_weight_kg — не от клиента: снимок текущего известного веса на
+    момент сохранения (см. docs/plan-weight-tracking.md, «точка отсчёта»
+    пересчитывается при каждой правке, не хранит историю первой постановки).
+    """
+    profile = await db.get(AthleteProfile, user_id)
+    if profile is None or profile.weight_kg is None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Сначала отметь вес хотя бы раз — иначе не от чего отталкивать цель",
+        )
+
+    goal = await db.get(WeightGoal, user_id)
+    if goal is None:
+        goal = WeightGoal(
+            user_id=user_id,
+            start_weight_kg=profile.weight_kg,
+            target_weight_kg=data.target_weight_kg,
+        )
+        db.add(goal)
+    else:
+        goal.start_weight_kg = profile.weight_kg
+        goal.target_weight_kg = data.target_weight_kg
+    await db.commit()
+    await db.refresh(goal)
+    return goal

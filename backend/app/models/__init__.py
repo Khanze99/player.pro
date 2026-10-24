@@ -43,6 +43,7 @@ from app.models.recovery_method import RecoveryMethodLog
 from app.models.rpe import RpeEntry
 from app.models.team import Location, Team, TeamMembership
 from app.models.user import AthleteProfile, RefreshToken, User
+from app.models.weight_goal import WeightGoal
 from app.models.wellness import WellnessEntry
 
 __all__ = [
@@ -98,5 +99,6 @@ __all__ = [
     "AthleteProfile",
     "RefreshToken",
     "User",
+    "WeightGoal",
     "WellnessEntry",
 ]

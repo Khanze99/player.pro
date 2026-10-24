@@ -20,6 +20,7 @@ import type {
   Me,
   RpeEntry,
   SquadStatus,
+  WeightGoal,
   WellnessEntry,
 } from "@/types";
 
@@ -43,8 +44,9 @@ export default async function AthletePage({
   let me: Me;
   let cycleState: CycleStaffView | null;
   let profile: AthleteProfile | null;
+  let weightGoal: WeightGoal | null;
   try {
-    [squad, metrics, wellnessHistory, rpeHistory, medicalExams, me, cycleState, profile] =
+    [squad, metrics, wellnessHistory, rpeHistory, medicalExams, me, cycleState, profile, weightGoal] =
       await Promise.all([
         api.squadStatus(teamId, token),
         api.athleteMetrics(athleteId, token, 28),
@@ -54,6 +56,7 @@ export default async function AthletePage({
         api.me(token),
         api.cycleAthleteState(athleteId, token),
         api.athleteProfile(athleteId, token),
+        api.athleteWeightGoal(athleteId, token),
       ]);
   } catch (err) {
     // Игрок мог быть удалён/выведен из состава (или ссылка просто устарела —
@@ -91,7 +94,7 @@ export default async function AthletePage({
       <div className="grid gap-6 lg:grid-cols-2">
         <LoadChart metrics={metrics} />
         <ReadinessTrendChart metrics={metrics} />
-        <WeightCard profile={profile} wellness={wellnessHistory} />
+        <WeightCard profile={profile} wellness={wellnessHistory} goal={weightGoal} />
       </div>
 
       <ReadinessBreakdownPanel athleteId={athleteId} latestDate={latestWithReadiness?.date ?? null} />

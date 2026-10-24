@@ -193,6 +193,85 @@ async def test_athlete_always_sees_own_body_metrics(client, db):
     assert resp.json()["weight_kg"] is not None
 
 
+# --------------------------------------------------------------- цель веса
+
+
+async def test_weight_goal_requires_known_weight(client):
+    """Нет отметки веса — не от чего снимать точку отсчёта (docs/plan-weight-tracking.md)."""
+    user = await register_user(client, "noweight@example.com")
+    resp = await client.put(
+        "/api/v1/users/me/weight-goal", json={"target_weight_kg": 75}, headers=user["headers"]
+    )
+    assert resp.status_code == 409, resp.text
+
+
+async def test_weight_goal_snapshots_current_weight_as_start(client):
+    user = await register_user(client, "goalstart@example.com")
+    await client.put("/api/v1/users/me/profile", json={"weight_kg": 80.0}, headers=user["headers"])
+
+    resp = await client.put(
+        "/api/v1/users/me/weight-goal", json={"target_weight_kg": 75}, headers=user["headers"]
+    )
+    assert resp.status_code == 200, resp.text
+    assert float(resp.json()["start_weight_kg"]) == 80.0
+    assert float(resp.json()["target_weight_kg"]) == 75.0
+
+    got = await client.get("/api/v1/users/me/weight-goal", headers=user["headers"])
+    assert float(got.json()["start_weight_kg"]) == 80.0
+
+
+async def test_weight_goal_absent_is_null(client):
+    user = await register_user(client, "nogoal@example.com")
+    resp = await client.get("/api/v1/users/me/weight-goal", headers=user["headers"])
+    assert resp.status_code == 200
+    assert resp.json() is None
+
+
+async def test_weight_goal_start_updates_with_current_weight(client):
+    """Повторная установка цели пересчитывает точку отсчёта от нового веса,
+    не хранит значение первой постановки."""
+    user = await register_user(client, "goalupdate@example.com")
+    await client.put("/api/v1/users/me/profile", json={"weight_kg": 80.0}, headers=user["headers"])
+    await client.put("/api/v1/users/me/weight-goal", json={"target_weight_kg": 75}, headers=user["headers"])
+
+    await client.put("/api/v1/users/me/profile", json={"weight_kg": 78.0}, headers=user["headers"])
+    resp = await client.put(
+        "/api/v1/users/me/weight-goal", json={"target_weight_kg": 74}, headers=user["headers"]
+    )
+    assert float(resp.json()["start_weight_kg"]) == 78.0
+    assert float(resp.json()["target_weight_kg"]) == 74.0
+
+
+async def test_weight_goal_gated_by_body_metrics_consent(client, db):
+    """Тот же гейт, что у weight_kg самого: нет согласия → null, не 403 —
+    формулировка не должна различать «нет согласия» и «нет цели»."""
+    world = await _club_with_player_and_staff(db)
+    athlete_id = world["athlete"].id
+    set_goal = await client.put(
+        "/api/v1/users/me/weight-goal",
+        json={"target_weight_kg": 80},
+        headers=_token(client, athlete_id),
+    )
+    assert set_goal.status_code == 200, set_goal.text
+
+    coach_before = await client.get(
+        f"/api/v1/users/athletes/{athlete_id}/weight-goal", headers=_token(client, world["coach"].id)
+    )
+    assert coach_before.status_code == 200
+    assert coach_before.json() is None  # нет согласия
+
+    await consent_service.grant(db, athlete_id, ConsentScope.body_metrics, ConsentAudience.coach)
+    coach_after = await client.get(
+        f"/api/v1/users/athletes/{athlete_id}/weight-goal", headers=_token(client, world["coach"].id)
+    )
+    assert float(coach_after.json()["target_weight_kg"]) == 80.0
+
+    self_view = await client.get(
+        f"/api/v1/users/athletes/{athlete_id}/weight-goal", headers=_token(client, athlete_id)
+    )
+    assert float(self_view.json()["target_weight_kg"]) == 80.0
+
+
 # ------------------------------------------------------------------- аватар
 
 

@@ -8,7 +8,7 @@ from app.core import authz, calculations
 from app.models.enums import ConsentScope, Sex
 from app.models.user import User
 from app.schemas.auth import MeOut
-from app.schemas.user import AthleteProfileIn, AthleteProfileOut, UserUpdateIn
+from app.schemas.user import AthleteProfileIn, AthleteProfileOut, UserUpdateIn, WeightGoalIn, WeightGoalOut
 from app.services import auth_service, avatar_service, users_service
 
 router = APIRouter(prefix="/users", tags=["users"])
@@ -54,6 +54,16 @@ async def upsert_my_profile(data: AthleteProfileIn, user: CurrentUser, db: DbSes
     return _with_bmi(AthleteProfileOut.model_validate(profile))
 
 
+@router.get("/me/weight-goal", response_model=WeightGoalOut | None)
+async def my_weight_goal(user: CurrentUser, db: DbSession):
+    return await users_service.get_weight_goal(db, user.id)
+
+
+@router.put("/me/weight-goal", response_model=WeightGoalOut)
+async def set_my_weight_goal(data: WeightGoalIn, user: CurrentUser, db: DbSession):
+    return await users_service.set_weight_goal(db, user.id, data)
+
+
 @router.put("/me/avatar", response_model=MeOut)
 async def set_my_avatar(file: UploadFile, user: CurrentUser, db: DbSession):
     """Фото пересоздаётся сервером в квадрат WEBP без метадаты (EXIF/GPS)."""
@@ -84,6 +94,23 @@ async def athlete_profile(athlete_id: uuid.UUID, user: CurrentUser, db: DbSessio
             out.height_cm = None
             out.weight_kg = None
     return _with_bmi(out)
+
+
+@router.get("/athletes/{athlete_id}/weight-goal", response_model=WeightGoalOut | None)
+async def athlete_weight_goal(athlete_id: uuid.UUID, user: CurrentUser, db: DbSession):
+    """Штаб только читает — ставит и меняет цель только сам игрок (PUT нет).
+
+    Нет согласия body_metrics → None, тем же приёмом, что height_cm/weight_kg
+    в athlete_profile: формулировка ответа не должна отличать «нет согласия»
+    от «цели не существует».
+    """
+    await authz.ensure_can_view_athlete(db, user, athlete_id)
+    if user.id != athlete_id:
+        try:
+            await authz.ensure_can_view_sensitive(db, user, athlete_id, ConsentScope.body_metrics)
+        except HTTPException:
+            return None
+    return await users_service.get_weight_goal(db, athlete_id)
 
 
 @router.get("/{user_id}/avatar")

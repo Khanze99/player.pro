@@ -36,11 +36,15 @@ interface PointLabel {
 interface Props {
   entries: WellnessEntry[]; // любой порядок, фильтруются и сортируются внутри
   color: string;
+  /** Точка отсчёта и цель (docs/plan-weight-tracking.md) — горизонтальные
+   *  линии через весь график. Не заданы, если цели нет. */
+  start?: number;
+  target?: number;
 }
 
-export function WeightSparkline({ entries, color }: Props) {
+export function WeightSparkline({ entries, color, start, target }: Props) {
   const th = useTheme();
-  const { i18n } = useTranslation();
+  const { t, i18n } = useTranslation();
   const points = entries
     .filter((e) => e.weight_kg !== null)
     .map((e) => ({ ts: Date.parse(e.date), weight: e.weight_kg as number }))
@@ -53,8 +57,12 @@ export function WeightSparkline({ entries, color }: Props) {
   const maxTs = points[points.length - 1].ts;
   const tsSpan = maxTs - minTs || 1;
   const values = points.map((p) => p.weight);
-  const min = Math.min(...values);
-  const max = Math.max(...values);
+  // Старт/цель могут лежать за пределами диапазона реальных отметок (цель
+  // амбициознее, чем всё, что уже было) — шкала Y должна расшириться, чтобы
+  // обе линии физически попали в кадр, а не «висели» за кромкой графика.
+  const goalValues = [start, target].filter((v): v is number => v != null);
+  const min = Math.min(...values, ...goalValues);
+  const max = Math.max(...values, ...goalValues);
   const span = max - min || 1;
 
   const xOf = (ts: number) => PAD_LEFT + ((ts - minTs) / tsSpan) * plotW;
@@ -113,6 +121,49 @@ export function WeightSparkline({ entries, color }: Props) {
             strokeDasharray={[3, 3]}
           />
         ))}
+
+        {/* Старт/цель — горизонтальные линии через весь график, цветом бренда
+            (не цветом ИМТ-линии данных): это ориентир, а не измерение. */}
+        {start != null && (
+          <>
+            <Line
+              x1={PAD_LEFT}
+              y1={yOf(start)}
+              x2={W}
+              y2={yOf(start)}
+              stroke={th.brand}
+              strokeOpacity={0.5}
+              strokeWidth={1.3}
+              strokeDasharray={[2, 3]}
+            />
+            <SvgText x={W - 2} y={yOf(start) - 3} fontSize={8} fill={th.brand} textAnchor="end">
+              {t('weightGoal.startLine')} {start}
+            </SvgText>
+          </>
+        )}
+        {target != null && (
+          <>
+            <Line
+              x1={PAD_LEFT}
+              y1={yOf(target)}
+              x2={W}
+              y2={yOf(target)}
+              stroke={th.brand}
+              strokeWidth={1.5}
+              strokeDasharray={[6, 3]}
+            />
+            <SvgText
+              x={PAD_LEFT + plotW / 2}
+              y={yOf(target) - 4}
+              fontSize={9}
+              fontWeight="600"
+              fill={th.brand}
+              textAnchor="middle"
+            >
+              {t('weightGoal.targetLine')} {target}
+            </SvgText>
+          </>
+        )}
 
         <Polygon points={`${PAD_LEFT},${plotH} ${coords} ${W},${plotH}`} fill="url(#weightArea)" />
         <Polyline
