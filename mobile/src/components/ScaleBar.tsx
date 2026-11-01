@@ -1,5 +1,7 @@
-// Шкала 1–10: прогресс-бар с кнопками −/+ по бокам и тапом по треку (дизайн-ТЗ 4.4, v3).
-// Без эмодзи; направление задают текстовые якоря снизу.
+// Шкала с прогресс-баром, кнопками −/+ по бокам и тапом по треку (дизайн-ТЗ 4.4, v3).
+// По умолчанию 1–10 (Ликерт-шкалы опроса), но диапазон/шаг настраиваются — тем же
+// компонентом закрыт, например, бар часов сна. Без эмодзи; направление задают
+// текстовые якоря снизу.
 
 import { useState } from 'react';
 import {
@@ -13,59 +15,78 @@ import {
 
 import { spacing, type Theme, useStyles } from '../theme';
 
-const MAX = 10;
-
 interface Props {
   label: string;
   lowLabel: string;
   highLabel: string;
   value: number | null;
   onChange: (value: number) => void;
+  min?: number;
+  max?: number;
+  step?: number;
+  formatValue?: (value: number) => string;
 }
 
-const clamp = (n: number) => Math.max(1, Math.min(MAX, n));
-
-export function ScaleBar({ label, lowLabel, highLabel, value, onChange }: Props) {
+export function ScaleBar({
+  label,
+  lowLabel,
+  highLabel,
+  value,
+  onChange,
+  min = 1,
+  max = 10,
+  step = 1,
+  formatValue,
+}: Props) {
   const styles = useStyles(makeStyles);
   const [trackWidth, setTrackWidth] = useState(0);
-  const filled = value ?? 0;
+  const range = max - min;
+  const filled = value ?? min;
+  const roundToStep = (n: number) => Math.round(n / step) * step;
+  const clamp = (n: number) => Math.max(min, Math.min(max, roundToStep(n)));
 
   const onTrackPress = (e: GestureResponderEvent) => {
     if (trackWidth <= 0) return;
     const ratio = e.nativeEvent.locationX / trackWidth;
-    onChange(clamp(Math.round(ratio * MAX)));
+    onChange(clamp(min + ratio * range));
   };
 
   const onLayout = (e: LayoutChangeEvent) => setTrackWidth(e.nativeEvent.layout.width);
+
+  const tickCount = Math.round(range / step) - 1;
+  const displayValue = value === null ? null : formatValue ? formatValue(value) : value;
 
   return (
     <View style={styles.wrap}>
       <View style={styles.header}>
         <Text style={styles.label}>{label}</Text>
-        <Text style={[styles.value, value === null && styles.valueEmpty]}>{value ?? '—'}</Text>
+        <Text style={[styles.value, value === null && styles.valueEmpty]}>{displayValue ?? '—'}</Text>
       </View>
 
       <View style={styles.row}>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={`${label} −`}
-          onPress={() => onChange(clamp(filled - 1))}
+          onPress={() => onChange(clamp(filled - step))}
           style={({ pressed }) => [styles.step, pressed && styles.stepPressed]}
         >
           <Text style={styles.stepText}>−</Text>
         </Pressable>
 
         <Pressable style={styles.track} onLayout={onLayout} onPress={onTrackPress}>
-          <View style={[styles.fill, { width: (filled / MAX) * trackWidth }]} />
-          {Array.from({ length: MAX - 1 }, (_, i) => (
-            <View key={i} style={[styles.tick, { left: ((i + 1) / MAX) * trackWidth }]} />
+          <View style={[styles.fill, { width: ((filled - min) / range) * trackWidth }]} />
+          {Array.from({ length: tickCount }, (_, i) => (
+            <View
+              key={i}
+              style={[styles.tick, { left: (((i + 1) * step) / range) * trackWidth }]}
+            />
           ))}
         </Pressable>
 
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={`${label} +`}
-          onPress={() => onChange(clamp(filled + 1))}
+          onPress={() => onChange(clamp(filled + step))}
           style={({ pressed }) => [styles.step, pressed && styles.stepPressed]}
         >
           <Text style={styles.stepText}>+</Text>

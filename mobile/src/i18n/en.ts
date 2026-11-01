@@ -116,6 +116,7 @@ const en: typeof ru = {
     moodLow: 'Bad',
     moodHigh: 'Great',
     sleepHours: 'Hours of sleep',
+    sleepHoursUnit: 'h',
     restingHr: 'Resting HR (optional)',
     weightLabel: 'Weight, kg (optional)',
     injury: 'Injury',

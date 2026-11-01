@@ -6,7 +6,6 @@ import { useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
   Switch,
@@ -36,7 +35,8 @@ import { useToast } from '@/components/Toast';
 import { MicroLabel, ScreenTitle } from '@/components/Typography';
 import { spacing, type Theme, useStyles, useTheme } from '@/theme';
 
-const SLEEP_HOURS = [5, 6, 7, 8, 9, 10];
+const SLEEP_HOURS_MIN = 3;
+const SLEEP_HOURS_MAX = 12;
 // Тот же порог, что и в backend/app/services/dashboard_service.py (PAIN_THRESHOLD):
 // там soreness >= 7 уже считается «есть боль» для отчёта тренеру/врачу. Раз это
 // порог, после которого коуч/медик должны увидеть боль, с этого же порога нужно
@@ -206,19 +206,16 @@ export default function Wellness() {
             <Text style={styles.requiredHint}>{t('wellness.painMapRequired')}</Text>
           )}
 
-          <Text style={styles.sectionLabel}>{t('wellness.sleepHours')}</Text>
-          <View style={styles.hoursRow}>
-            {SLEEP_HOURS.map((h) => (
-              <Pressable
-                key={h}
-                onPress={() => setSleepHours(h)}
-                accessibilityRole="button"
-                style={[styles.hourChip, sleepHours === h && styles.hourChipActive]}
-              >
-                <Text style={[styles.hourText, sleepHours === h && styles.hourTextActive]}>{h}</Text>
-              </Pressable>
-            ))}
-          </View>
+          <ScaleBar
+            label={t('wellness.sleepHours')}
+            lowLabel={`${SLEEP_HOURS_MIN} ${t('wellness.sleepHoursUnit')}`}
+            highLabel={`${SLEEP_HOURS_MAX} ${t('wellness.sleepHoursUnit')}`}
+            value={sleepHours}
+            onChange={setSleepHours}
+            min={SLEEP_HOURS_MIN}
+            max={SLEEP_HOURS_MAX}
+            formatValue={(v) => `${v} ${t('wellness.sleepHoursUnit')}`}
+          />
 
           <Text style={styles.sectionLabel}>{t('wellness.restingHr')}</Text>
           <TextInput
@@ -398,20 +395,6 @@ const makeStyles = (th: Theme) => StyleSheet.create({
     marginTop: spacing.s,
     marginBottom: spacing.s,
   },
-  hoursRow: { flexDirection: 'row', gap: spacing.s },
-  hourChip: {
-    flex: 1,
-    minHeight: 48,
-    borderRadius: th.radius.control,
-    backgroundColor: th.surface2,
-    borderWidth: 1,
-    borderColor: th.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  hourChipActive: { backgroundColor: th.brand, borderColor: th.brandOn },
-  hourText: { fontFamily: th.font.semibold, fontSize: 16, color: th.textMuted },
-  hourTextActive: { color: th.onBrand },
   hrInput: {
     backgroundColor: th.surface2,
     borderWidth: 1,

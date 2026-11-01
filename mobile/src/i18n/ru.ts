@@ -114,6 +114,7 @@ export default {
     moodLow: 'Плохое',
     moodHigh: 'Отличное',
     sleepHours: 'Часы сна',
+    sleepHoursUnit: 'ч',
     restingHr: 'Пульс покоя (необязательно)',
     weightLabel: 'Вес, кг (необязательно)',
     injury: 'Травма',
