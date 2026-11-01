@@ -6,8 +6,9 @@ import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
-import { useCycleLogs, useFeatures, useMyEvents, useMyProfile } from '@/api/hooks';
+import { useCycleLogs, useFeatures, useMe, useMyEvents, useMyProfile, useMyTeams } from '@/api/hooks';
 import type { CalendarEvent } from '@/api/types';
+import { activeTeamStore } from '@/auth/activeTeam';
 import { TeamBadge } from '@/components/TeamBadge';
 import { PlusIcon } from '@/components/Icons';
 import { toLocalISO } from '@/api/dates';
@@ -37,7 +38,17 @@ export default function Calendar() {
     return { fromISO: toLocalISO(first), toISO: toLocalISO(last) };
   }, [month]);
 
-  const events = useMyEvents(fromISO, toISO);
+  // Личный режим/игрок — как раньше, «мои события» без привязки к команде
+  // (у игрока она одна, у человека без организации — нет вовсе). Скоуп на
+  // активную команду нужен только мультикомандному тренеру/медику, иначе
+  // переключение команды в шапке никак не влияло на список событий.
+  const me = useMe();
+  const isStaff = me.data != null && me.data.global_role !== 'player' && me.data.org_id != null;
+  const teams = useMyTeams(isStaff);
+  const storedTeamId = activeTeamStore((s) => s.activeTeamId);
+  const activeTeamId = isStaff ? storedTeamId ?? teams.data?.[0]?.id ?? null : null;
+
+  const events = useMyEvents(fromISO, toISO, activeTeamId);
 
   // Дни месячных — неяркая красная подложка, см. MonthCalendar.periodDays.
   // Гейт по фиче+полу: нет смысла дёргать /cycle/me/logs для всех подряд, а

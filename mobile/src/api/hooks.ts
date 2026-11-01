@@ -409,14 +409,20 @@ export const useTeamMembers = (teamId: string | null | undefined) =>
     queryFn: () => api<TeamMember[]>(`/teams/${teamId}/members`),
   });
 
-/** События команд пользователя + индивидуальные за окно дат (границы — UTC-сутки). */
-export const useMyEvents = (fromISO: string, toISO: string) =>
+/**
+ * События за окно дат (границы — UTC-сутки). Без teamId — «мои события» по
+ * ВСЕМ командам пользователя сразу + личные (игрок, личный режим: команда
+ * одна или нет вовсе, разницы не видно). С teamId — скоуп на одну команду
+ * (мультикомандный тренер/медик, переключение активной командой в шапке).
+ */
+export const useMyEvents = (fromISO: string, toISO: string, teamId?: string | null) =>
   useQuery({
-    queryKey: ['events', fromISO, toISO],
+    queryKey: ['events', teamId ?? 'me', fromISO, toISO],
     queryFn: () => {
       // fromISO/toISO — локальные даты, эндпоинт фильтрует по моменту времени
       const { from, to } = localDayBounds(fromISO, toISO);
-      return api<CalendarEvent[]>(`/events/me?date_from=${from}&date_to=${to}`);
+      const path = teamId ? `/events/teams/${teamId}` : '/events/me';
+      return api<CalendarEvent[]>(`${path}?date_from=${from}&date_to=${to}`);
     },
   });
 
