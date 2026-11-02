@@ -5,12 +5,13 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { useMyTeams, useSquadStatus } from '@/api/hooks';
 import type { SquadPlayer } from '@/api/types';
 import { activeTeamStore } from '@/auth/activeTeam';
+import { RefreshableScroll } from '@/components/PullToRefresh';
 import { Screen } from '@/components/Screen';
 import { StatTile } from '@/components/StatTile';
 import { TeamBadge } from '@/components/TeamBadge';
@@ -113,12 +114,7 @@ export function CoachHome() {
 
   return (
     <Screen>
-      <ScrollView
-        contentContainerStyle={styles.content}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={th.textMuted} />
-        }
-      >
+      <RefreshableScroll refreshing={refreshing} onRefresh={onRefresh} contentContainerStyle={styles.content}>
         <View style={styles.header}>
           <View>
             <Text style={styles.date}>{dateLabel}</Text>
@@ -149,7 +145,7 @@ export function CoachHome() {
             <Text style={styles.emptyHint}>{t('coach.emptyHint')}</Text>
           </View>
         )}
-      </ScrollView>
+      </RefreshableScroll>
     </Screen>
   );
 }

@@ -10,8 +10,6 @@ import {
   Modal,
   Platform,
   Pressable,
-  RefreshControl,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -42,6 +40,7 @@ import { CoachHome } from '@/components/CoachHome';
 import { Guide } from '@/components/Guide';
 import { BoltIcon, SunIcon } from '@/components/Icons';
 import { ReadinessRing } from '@/components/ReadinessRing';
+import { RefreshableScroll } from '@/components/PullToRefresh';
 import { Screen } from '@/components/Screen';
 import { StatTile } from '@/components/StatTile';
 import { useToast } from '@/components/Toast';
@@ -328,12 +327,7 @@ function PlayerHome() {
 
   return (
     <Screen glowColor={todayMetric?.readiness != null ? zoneColor : th.brand}>
-      <ScrollView
-        contentContainerStyle={styles.content}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={th.textMuted} />
-        }
-      >
+      <RefreshableScroll refreshing={refreshing} onRefresh={onRefresh} contentContainerStyle={styles.content}>
         <View style={styles.header}>
           <View>
             <Text style={styles.date}>{dateLabel}</Text>
@@ -396,7 +390,7 @@ function PlayerHome() {
 
         <WeightCard profile={profile.data} history={weightHistory.data ?? []} />
         <ActivityCard wellness={yearWellness.data ?? []} rpe={yearRpe.data ?? []} />
-      </ScrollView>
+      </RefreshableScroll>
       <Guide />
     </Screen>
   );

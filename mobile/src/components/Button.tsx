@@ -1,6 +1,7 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import { ActivityIndicator, Pressable, StyleSheet, Text } from 'react-native';
+import { Pressable, StyleSheet, Text } from 'react-native';
 
+import { PulseLoader } from './PulseLoader';
 import { spacing, type Theme, useStyles, useTheme } from '../theme';
 
 interface Props {
@@ -31,7 +32,7 @@ export function Button({ title, onPress, disabled, loading }: Props) {
         end={{ x: 1, y: 1 }}
         style={styles.gradient}
       >
-        {loading ? <ActivityIndicator color={th.onBrand} /> : <Text style={styles.text}>{title}</Text>}
+        {loading ? <PulseLoader size={32} color={th.onBrand} /> : <Text style={styles.text}>{title}</Text>}
       </LinearGradient>
     </Pressable>
   );

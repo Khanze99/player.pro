@@ -6,7 +6,7 @@
 
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useState } from 'react';
-import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { useMyTeams, useSquadStatus, useTeamInjuries, useTeamSummary } from '@/api/hooks';
@@ -21,6 +21,7 @@ import type {
 import { activeTeamStore } from '@/auth/activeTeam';
 import { TeamBadge } from '@/components/TeamBadge';
 import { Donut } from '@/components/Donut';
+import { RefreshableScroll } from '@/components/PullToRefresh';
 import { Screen } from '@/components/Screen';
 import { Segmented } from '@/components/Segmented';
 import { MicroLabel, ScreenTitle } from '@/components/Typography';
@@ -417,7 +418,6 @@ function InjuriesSection({ teamId }: { teamId: string | undefined }) {
 }
 
 export default function Dashboard() {
-  const th = useTheme();
   const styles = useStyles(makeStyles);
   const { t, i18n } = useTranslation();
   const qc = useQueryClient();
@@ -439,12 +439,7 @@ export default function Dashboard() {
 
   return (
     <Screen>
-      <ScrollView
-        contentContainerStyle={styles.content}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={th.textMuted} />
-        }
-      >
+      <RefreshableScroll refreshing={refreshing} onRefresh={onRefresh} contentContainerStyle={styles.content}>
         <View style={styles.header}>
           <View>
             <Text style={styles.date}>{dateLabel}</Text>
@@ -463,7 +458,7 @@ export default function Dashboard() {
         {section === 'summary' && <SummarySection teamId={activeTeamId} />}
         {section === 'status' && <StatusSection teamId={activeTeamId} />}
         {section === 'injuries' && <InjuriesSection teamId={activeTeamId} />}
-      </ScrollView>
+      </RefreshableScroll>
     </Screen>
   );
 }

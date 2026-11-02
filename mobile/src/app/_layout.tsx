@@ -11,7 +11,8 @@ import { Stack, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
-import { Platform } from 'react-native';
+import { Platform, StyleSheet, View } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
 
 import { ThemeProvider, useTheme } from '@/theme';
@@ -21,6 +22,7 @@ import { queryClient } from '@/api/queryClient';
 import type { Me } from '@/api/types';
 import { hydrateActiveTeam } from '@/auth/activeTeam';
 import { bootstrapSession, isNewUser, session } from '@/auth/session';
+import { PulseLoader } from '@/components/PulseLoader';
 import { ToastHost } from '@/components/Toast';
 
 void SplashScreen.preventAutoHideAsync();
@@ -37,7 +39,6 @@ function AuthGate() {
 
   useEffect(() => {
     if (status === 'loading') return;
-    void SplashScreen.hideAsync();
     const inAuth = segments[0] === '(auth)';
     if (status === 'active') {
       if (inAuth) router.replace('/');
@@ -98,51 +99,79 @@ export default function RootLayout() {
     Unbounded_600SemiBold,
   });
 
-  // На вебе не держим весь экран пустым до загрузки шрифтов: системный фолбэк в
-  // теме уже покрывает первый кадр, а Google-шрифты подтягиваются следом.
-  if (!fontsLoaded && Platform.OS !== 'web') return null;
+  // На вебе не ждём шрифты отдельно: системный фолбэк в теме уже покрывает
+  // первый кадр, а Google-шрифты подтягиваются следом.
+  const fontsReady = fontsLoaded || Platform.OS === 'web';
 
   return (
-    <SafeAreaProvider initialMetrics={initialWindowMetrics}>
-      <QueryClientProvider client={queryClient}>
-        <ThemeProvider>
-          <AppStack />
-        </ThemeProvider>
-      </QueryClientProvider>
-    </SafeAreaProvider>
+    // GestureDetector (PullToRefresh.tsx) требует предка GestureHandlerRootView
+    // во всём дереве — без него жесты не распознаются вообще (не только pull-to-refresh).
+    <GestureHandlerRootView style={styles.flex}>
+      <SafeAreaProvider initialMetrics={initialWindowMetrics}>
+        <QueryClientProvider client={queryClient}>
+          <ThemeProvider>
+            <AppStack fontsReady={fontsReady} />
+          </ThemeProvider>
+        </QueryClientProvider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }
 
 // Тема организации приезжает с сервера после логина (docs/plan-org-branding.md,
 // этап 2); пока провайдер отдаёт тему продукта по умолчанию.
-function AppStack() {
+//
+// Сплэш (docs/plan-pulse-loader.md) отдаём сразу на первом рендере этого
+// дерева — не ждём ни шрифты, ни статус сессии, как раньше. Нативную
+// картинку сплэша анимировать нельзя (это системная картинка, не RN-дерево),
+// поэтому дальше паузу рисуем сами: пока не готовы шрифты или не решён
+// статус сессии (bootstrapSession в AuthGate), вместо Stack показываем
+// полноэкранный PulseLoader на фоне темы.
+function AppStack({ fontsReady }: { fontsReady: boolean }) {
   const th = useTheme();
+  const status = session((s) => s.status);
+  const ready = fontsReady && status !== 'loading';
+
+  useEffect(() => {
+    void SplashScreen.hideAsync();
+  }, []);
 
   return (
     <>
       <AuthGate />
-      <Stack
-        screenOptions={{
-          headerShown: false,
-          contentStyle: { backgroundColor: th.bg },
-        }}
-      >
-        <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="(auth)" />
-        <Stack.Screen name="wellness" options={{ presentation: 'modal' }} />
-        <Stack.Screen name="rpe" options={{ presentation: 'modal' }} />
-        <Stack.Screen name="invite" options={{ presentation: 'modal' }} />
-        <Stack.Screen name="event-create" options={{ presentation: 'modal' }} />
-        <Stack.Screen name="event/[id]" options={{ presentation: 'modal' }} />
-        <Stack.Screen name="food-add" options={{ presentation: 'modal' }} />
-        <Stack.Screen name="food-create" options={{ presentation: 'modal' }} />
-        <Stack.Screen name="privacy" options={{ presentation: 'modal' }} />
-        <Stack.Screen name="terms" options={{ presentation: 'modal' }} />
-        <Stack.Screen name="privacy-policy" options={{ presentation: 'modal' }} />
-        <Stack.Screen name="cycle" options={{ presentation: 'modal' }} />
-      </Stack>
+      {ready ? (
+        <Stack
+          screenOptions={{
+            headerShown: false,
+            contentStyle: { backgroundColor: th.bg },
+          }}
+        >
+          <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="(auth)" />
+          <Stack.Screen name="wellness" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="rpe" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="invite" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="event-create" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="event/[id]" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="food-add" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="food-create" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="privacy" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="terms" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="privacy-policy" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="cycle" options={{ presentation: 'modal' }} />
+        </Stack>
+      ) : (
+        <View style={[styles.loading, { backgroundColor: th.bg }]}>
+          <PulseLoader size={96} />
+        </View>
+      )}
       <ToastHost />
       <StatusBar style="light" />
     </>
   );
 }
+
+const styles = StyleSheet.create({
+  flex: { flex: 1 },
+  loading: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+});
