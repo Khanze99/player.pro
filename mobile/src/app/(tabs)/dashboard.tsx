@@ -5,8 +5,9 @@
 // Все цифры приходят предрасчитанными с сервера, клиент только раскрашивает.
 
 import { useQueryClient } from '@tanstack/react-query';
+import { useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { useMyTeams, useSquadStatus, useTeamInjuries, useTeamSummary } from '@/api/hooks';
@@ -121,9 +122,14 @@ function AlertRow({ alert }: { alert: TeamAlert }) {
   const th = useTheme();
   const styles = useStyles(makeStyles);
   const { t } = useTranslation();
+  const router = useRouter();
   const color = alert.severity === 'risk' ? th.risk : th.caution;
   return (
-    <View style={styles.row}>
+    <Pressable
+      accessibilityRole="button"
+      onPress={() => router.push({ pathname: '/athlete/[id]', params: { id: alert.athlete_id, name: alert.name } })}
+      style={styles.row}
+    >
       <View style={[styles.severityBar, { backgroundColor: color }]} />
       <View style={styles.rowMain}>
         <Text style={styles.rowTitle} numberOfLines={1}>
@@ -133,7 +139,7 @@ function AlertRow({ alert }: { alert: TeamAlert }) {
           {alert.reasons.map((reason) => t(`dashboard.reason.${reason}`)).join(' · ')}
         </Text>
       </View>
-    </View>
+    </Pressable>
   );
 }
 
@@ -225,6 +231,7 @@ function PlayerRow({ player, tab }: { player: SquadPlayer; tab: StatusTab }) {
   const th = useTheme();
   const styles = useStyles(makeStyles);
   const { t } = useTranslation();
+  const router = useRouter();
 
   const view: Record<StatusTab, { value: string; color: string; hint: string }> = {
     readiness: {
@@ -267,7 +274,11 @@ function PlayerRow({ player, tab }: { player: SquadPlayer; tab: StatusTab }) {
   const { value, color, hint } = view[tab];
 
   return (
-    <View style={styles.row}>
+    <Pressable
+      accessibilityRole="button"
+      onPress={() => router.push({ pathname: '/athlete/[id]', params: { id: player.athlete_id, name: player.name } })}
+      style={styles.row}
+    >
       <View style={[styles.badge, { borderColor: color }]}>
         <Text style={styles.badgeText}>{value}</Text>
       </View>
@@ -285,7 +296,7 @@ function PlayerRow({ player, tab }: { player: SquadPlayer; tab: StatusTab }) {
           <Text style={[styles.rowHint, { color: th.risk }]}>{t('coach.injury')}</Text>
         ) : null}
       </View>
-    </View>
+    </Pressable>
   );
 }
 
@@ -337,6 +348,7 @@ function InjuryRow({ item }: { item: TeamInjury }) {
   const th = useTheme();
   const styles = useStyles(makeStyles);
   const { t, i18n } = useTranslation();
+  const router = useRouter();
   const color = item.kind === 'illness' ? th.brandOn : th.risk;
   const since = new Date(item.start_date).toLocaleDateString(i18n.language, {
     day: 'numeric',
@@ -351,7 +363,13 @@ function InjuryRow({ item }: { item: TeamInjury }) {
       : t(`dashboard.kind.${item.kind}`);
 
   return (
-    <View style={styles.row}>
+    <Pressable
+      accessibilityRole="button"
+      onPress={() =>
+        router.push({ pathname: '/athlete/[id]', params: { id: item.athlete_id, name: item.athlete_name } })
+      }
+      style={styles.row}
+    >
       <View style={[styles.severityBar, { backgroundColor: color }]} />
       <View style={styles.rowMain}>
         <Text style={styles.rowTitle} numberOfLines={1}>
@@ -365,7 +383,7 @@ function InjuryRow({ item }: { item: TeamInjury }) {
         <Text style={[styles.rowValue, { color }]}>{t('dashboard.days', { n: item.days_out })}</Text>
         <Text style={styles.rowHint}>{since}</Text>
       </View>
-    </View>
+    </Pressable>
   );
 }
 
