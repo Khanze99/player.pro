@@ -350,6 +350,7 @@ const en: typeof ru = {
   },
   eventCreate: {
     title: 'New event',
+    editTitle: 'Edit event',
     typeLabel: 'Type',
     titleLabel: 'Title (optional)',
     titlePlaceholder: 'E.g.: tactics, cardio…',
@@ -365,6 +366,7 @@ const en: typeof ru = {
   eventDetail: {
     attendance: 'Attendance',
     status: { present: 'In', absent: 'Out', excused: 'Exc.' },
+    edit: 'Edit',
     delete: 'Delete event',
     deleteTitle: 'Delete event?',
     deleteConfirm: 'It will disappear from every participant’s calendar',

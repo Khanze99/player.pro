@@ -8,7 +8,7 @@ import { useTranslation } from 'react-i18next';
 
 import { ApiError } from '@/api/client';
 import { toLocalISO } from '@/api/dates';
-import { useCreateEvent, useMe, useMyTeams } from '@/api/hooks';
+import { useCreateEvent, useMe, useMyTeams, useUpdateEvent } from '@/api/hooks';
 import type { EventType } from '@/api/types';
 import { Button } from '@/components/Button';
 import { Field } from '@/components/Field';
@@ -42,23 +42,38 @@ export default function EventCreate() {
   const { t, i18n } = useTranslation();
   const router = useRouter();
   const toast = useToast((s) => s.show);
-  const { date } = useLocalSearchParams<{ date?: string }>();
+  const params = useLocalSearchParams<{
+    date?: string;
+    // Присутствуют, только когда экран открыт на правку (event/[id].tsx) —
+    // те же поля, что уже передаёт карточка события, второго запроса не нужно
+    id?: string;
+    type?: EventType;
+    title?: string;
+    start?: string;
+    duration?: string;
+    teamId?: string;
+  }>();
+  const isEdit = !!params.id;
+  const prefillStart = params.start ? new Date(params.start) : null;
 
   const me = useMe();
   const teams = useMyTeams();
   const createEvent = useCreateEvent();
+  const updateEvent = useUpdateEvent(params.id ?? '');
 
   const isStaff = me.data != null && me.data.global_role !== 'player';
   const types = isStaff ? TEAM_TYPES : PERSONAL_TYPES;
 
-  const day = date ?? toLocalISO(new Date());
+  const day = prefillStart ? toLocalISO(prefillStart) : (params.date ?? toLocalISO(new Date()));
 
-  const [type, setType] = useState<EventType>(isStaff ? 'training' : 'individual');
-  const [title, setTitle] = useState('');
-  const [teamId, setTeamId] = useState<string | null>(null);
-  const [start, setStart] = useState(() => atTime(day, DEFAULT_START_HOUR, 0));
+  const [type, setType] = useState<EventType>(params.type ?? (isStaff ? 'training' : 'individual'));
+  const [title, setTitle] = useState(params.title ?? '');
+  const [teamId, setTeamId] = useState<string | null>(params.teamId || null);
+  const [start, setStart] = useState(() => prefillStart ?? atTime(day, DEFAULT_START_HOUR, 0));
   const [end, setEnd] = useState(() =>
-    addMinutes(atTime(day, DEFAULT_START_HOUR, 0), DEFAULT_DURATION_MIN),
+    prefillStart && params.duration
+      ? addMinutes(prefillStart, Number(params.duration))
+      : addMinutes(atTime(day, DEFAULT_START_HOUR, 0), DEFAULT_DURATION_MIN),
   );
   const [error, setError] = useState<string | null>(null);
 
@@ -97,6 +112,26 @@ export default function EventCreate() {
 
   const submit = () => {
     setError(null);
+    const onSettled = {
+      onSuccess: () => {
+        toast(t('common.saved'));
+        router.back();
+      },
+      onError: (e: unknown) => setError(e instanceof ApiError ? e.detail : t('common.retry')),
+    };
+    if (isEdit) {
+      // team_id не передаём — EventUpdateIn его не принимает, команду события не меняют
+      updateEvent.mutate(
+        {
+          type,
+          title: title.trim() || null,
+          planned_start: start.toISOString(),
+          planned_duration_min: duration,
+        },
+        onSettled,
+      );
+      return;
+    }
     createEvent.mutate(
       {
         team_id: isStaff ? activeTeamId : null,
@@ -105,13 +140,7 @@ export default function EventCreate() {
         planned_start: start.toISOString(),
         planned_duration_min: duration,
       },
-      {
-        onSuccess: () => {
-          toast(t('common.saved'));
-          router.back();
-        },
-        onError: (e) => setError(e instanceof ApiError ? e.detail : t('common.retry')),
-      },
+      onSettled,
     );
   };
 
@@ -121,7 +150,7 @@ export default function EventCreate() {
         <View style={styles.header}>
           <View>
             <Text style={styles.date}>{dateLabel}</Text>
-            <ScreenTitle>{t('eventCreate.title')}</ScreenTitle>
+            <ScreenTitle>{t(isEdit ? 'eventCreate.editTitle' : 'eventCreate.title')}</ScreenTitle>
           </View>
           <Pressable
             onPress={() => router.back()}
@@ -144,7 +173,8 @@ export default function EventCreate() {
           />
         </View>
 
-        {isStaff && (teams.data?.length ?? 0) > 1 && (
+        {/* Команду события не меняют (EventUpdateIn её не принимает) — переключатель только при создании */}
+        {!isEdit && isStaff && (teams.data?.length ?? 0) > 1 && (
           <View style={styles.section}>
             <MicroLabel>{t('invite.teamLabel')}</MicroLabel>
             <OptionChips
@@ -179,10 +209,10 @@ export default function EventCreate() {
       </ScrollView>
       <View style={styles.footer}>
         <Button
-          title={t('eventCreate.submit')}
+          title={t(isEdit ? 'common.save' : 'eventCreate.submit')}
           onPress={submit}
           disabled={!canSubmit}
-          loading={createEvent.isPending}
+          loading={isEdit ? updateEvent.isPending : createEvent.isPending}
         />
       </View>
     </Screen>

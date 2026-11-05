@@ -25,7 +25,14 @@ class RpeEntry(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     athlete_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), index=True)
-    event_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("events.id"), nullable=True)
+    # ondelete=SET NULL, не CASCADE: RPE — реальная оценка нагрузки игрока
+    # (входит в session_load/ACWR), event_id=NULL — уже штатное состояние
+    # «свободной» записи (см. docstring выше). Удаление события должно
+    # отвязать оценку, а не стереть её. Тот же баг с DELETE /events/{id},
+    # что и у Attendance — см. её комментарий в app/models/event.py.
+    event_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("events.id", ondelete="SET NULL"), nullable=True
+    )
     date: Mapped[date_type] = mapped_column(index=True)
     exertion: Mapped[int] = mapped_column()  # RPE CR10, 1–10
     performance: Mapped[int] = mapped_column()  # 1–10

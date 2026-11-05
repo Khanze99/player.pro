@@ -2,13 +2,14 @@
 // удаление менеджером события. Данные приходят параметрами из календаря.
 
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
+import { ApiError } from '@/api/client';
 import { useAttendance, useDeleteEvent, useMe, useSetAttendance, useTeamMembers } from '@/api/hooks';
 import type { AttendanceStatus, EventType } from '@/api/types';
 import { Chip } from '@/components/Chip';
-import { CloseIcon, TrashIcon } from '@/components/Icons';
+import { CloseIcon, EditIcon, TrashIcon } from '@/components/Icons';
 import { Screen } from '@/components/Screen';
 import { useToast } from '@/components/Toast';
 import { MicroLabel, ScreenTitle } from '@/components/Typography';
@@ -63,21 +64,46 @@ export default function EventDetail() {
     .toUpperCase();
   const timeLabel = start.toLocaleTimeString(i18n.language, { hour: '2-digit', minute: '2-digit' });
 
+  const runDelete = () => {
+    deleteEvent.mutate(params.id, {
+      onSuccess: () => {
+        toast(t('eventDetail.deleted'));
+        router.back();
+      },
+      // Раньше тут не было onError — ошибка (в т.ч. прежний баг с FK на
+      // отметках посещаемости/RPE) проходила молча, выглядело как
+      // «не удаляется», хотя запрос реально падал.
+      onError: (e) => toast(e instanceof ApiError ? e.detail : t('common.noConnection')),
+    });
+  };
+
   const confirmDelete = () => {
+    // react-native-web (0.21) не реализует Alert.alert — пустая функция,
+    // без диалога и без колбэка. На вебе кнопка «Удалить» внутри Alert
+    // просто никогда не существовала — запрос не уходил вообще, не только
+    // молча падал. window.confirm — штатный веб-паттерн, не редизайн.
+    if (Platform.OS === 'web') {
+      if (typeof window !== 'undefined' && window.confirm(t('eventDetail.deleteConfirm'))) runDelete();
+      return;
+    }
     Alert.alert(t('eventDetail.deleteTitle'), t('eventDetail.deleteConfirm'), [
       { text: t('common.cancel'), style: 'cancel' },
-      {
-        text: t('eventDetail.delete'),
-        style: 'destructive',
-        onPress: () =>
-          deleteEvent.mutate(params.id, {
-            onSuccess: () => {
-              toast(t('eventDetail.deleted'));
-              router.back();
-            },
-          }),
-      },
+      { text: t('eventDetail.delete'), style: 'destructive', onPress: runDelete },
     ]);
+  };
+
+  const editEvent = () => {
+    router.push({
+      pathname: '/event-create',
+      params: {
+        id: params.id,
+        type: params.type,
+        title: params.title,
+        start: params.start,
+        duration: params.duration,
+        teamId: params.teamId,
+      },
+    });
   };
 
   return (
@@ -156,14 +182,24 @@ export default function EventDetail() {
         )}
 
         {canManage && (
-          <Pressable
-            accessibilityRole="button"
-            onPress={confirmDelete}
-            style={({ pressed }) => [styles.deleteRow, pressed && { opacity: 0.7 }]}
-          >
-            <TrashIcon color={th.risk} />
-            <Text style={styles.deleteText}>{t('eventDetail.delete')}</Text>
-          </Pressable>
+          <View style={styles.manageRow}>
+            <Pressable
+              accessibilityRole="button"
+              onPress={editEvent}
+              style={({ pressed }) => [styles.manageButton, pressed && { opacity: 0.7 }]}
+            >
+              <EditIcon color={th.text} />
+              <Text style={styles.editText}>{t('eventDetail.edit')}</Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              onPress={confirmDelete}
+              style={({ pressed }) => [styles.manageButton, pressed && { opacity: 0.7 }]}
+            >
+              <TrashIcon color={th.risk} />
+              <Text style={styles.deleteText}>{t('eventDetail.delete')}</Text>
+            </Pressable>
+          </View>
         )}
       </ScrollView>
     </Screen>
@@ -213,7 +249,9 @@ const makeStyles = (th: Theme) => StyleSheet.create({
   // заливка чипа — статусный цвет, а он темой не подменяется
   statusTextActive: { color: '#FFFFFF', fontFamily: th.font.semibold },
   emptyText: { fontFamily: th.font.regular, fontSize: 14, color: th.textMuted },
-  deleteRow: {
+  manageRow: { flexDirection: 'row', gap: spacing.m },
+  manageButton: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -224,5 +262,6 @@ const makeStyles = (th: Theme) => StyleSheet.create({
     borderColor: th.border,
     backgroundColor: th.surface,
   },
+  editText: { fontFamily: th.font.semibold, fontSize: 15, color: th.text },
   deleteText: { fontFamily: th.font.semibold, fontSize: 15, color: th.risk },
 });

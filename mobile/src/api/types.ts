@@ -234,6 +234,14 @@ export interface EventPayload {
   planned_duration_min: number;
 }
 
+/** Правка события (EventUpdateIn) — без team_id: команду события не меняют. */
+export interface EventUpdatePayload {
+  type?: EventType;
+  title?: string | null;
+  planned_start?: string;
+  planned_duration_min?: number;
+}
+
 export interface Attendance {
   event_id: string;
   user_id: string;

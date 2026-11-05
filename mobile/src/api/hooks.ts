@@ -24,6 +24,7 @@ import type {
   CalendarEvent,
   DailyMetric,
   EventPayload,
+  EventUpdatePayload,
   Invitation,
   InvitePayload,
   Me,
@@ -430,6 +431,14 @@ export function useCreateEvent() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (payload: EventPayload) => post<CalendarEvent>('/events', payload),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['events'] }),
+  });
+}
+
+export function useUpdateEvent(eventId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: EventUpdatePayload) => patch<CalendarEvent>(`/events/${eventId}`, payload),
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['events'] }),
   });
 }

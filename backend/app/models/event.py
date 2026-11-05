@@ -28,6 +28,10 @@ class Event(Base):
 class Attendance(Base):
     __tablename__ = "attendances"
 
-    event_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("events.id"), primary_key=True)
+    # ondelete=CASCADE: отметка посещаемости бессмысленна без события — удаление
+    # события должно забирать её с собой, а не блокировать само удаление (баг:
+    # FK без ondelete на любое событие с хоть одной отметкой кидал IntegrityError
+    # на DELETE /events/{id}, 500 без обработки — для пользователя «не удаляется»).
+    event_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("events.id", ondelete="CASCADE"), primary_key=True)
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), primary_key=True)
     status: Mapped[AttendanceStatus] = mapped_column(String(16))

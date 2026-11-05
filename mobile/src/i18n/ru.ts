@@ -348,6 +348,7 @@ export default {
   },
   eventCreate: {
     title: 'Новое событие',
+    editTitle: 'Изменить событие',
     typeLabel: 'Тип',
     titleLabel: 'Название (необязательно)',
     titlePlaceholder: 'Например: тактика, кардио…',
@@ -363,6 +364,7 @@ export default {
   eventDetail: {
     attendance: 'Посещаемость',
     status: { present: 'Был', absent: 'Не был', excused: 'Уваж.' },
+    edit: 'Изменить',
     delete: 'Удалить событие',
     deleteTitle: 'Удалить событие?',
     deleteConfirm: 'Событие исчезнет из календаря всех участников',
