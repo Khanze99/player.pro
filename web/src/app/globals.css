@@ -30,6 +30,35 @@
   --no-data-soft: #F1F3F6;
 }
 
+/* Тёмная тема (docs/design-player-passport-theme.md) — явный тумблер
+   (ThemeToggle), не prefers-color-scheme: светлая остаётся задокументированным
+   дефолтом выше, тёмная — опция. Токены не придуманы заново — те же значения,
+   что уже в проде на мобилке (mobile/src/theme/tokens.ts:darkTheme) и дефолтный
+   акцент брендинга (branding.py:DEFAULT_TOKENS.brand). */
+:root[data-theme="dark"] {
+  --bg: #0A0D13;
+  --surface: #131A26;
+  --surface-muted: #1B2432;
+  --border: #26303F;
+  --border-strong: #3A4860;
+  --text: #EDF2F9;
+  --text-muted: #8A99AD;
+  --text-faint: #5E6B80;
+
+  --accent: #2D8CFF;
+  --accent-hover: #1B6FE8;
+  --accent-soft: #16283F;
+
+  --good: #2FD27A;
+  --good-soft: #123222;
+  --caution: #FFB02E;
+  --caution-soft: #3A2C10;
+  --risk: #FF5C5C;
+  --risk-soft: #3A1414;
+  --no-data: #5E6B80;
+  --no-data-soft: #1B2432;
+}
+
 body {
   background: var(--bg);
   color: var(--text);

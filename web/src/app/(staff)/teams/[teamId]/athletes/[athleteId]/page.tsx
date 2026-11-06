@@ -78,6 +78,12 @@ export default async function AthletePage({
           </Link>
           <h1 className="text-xl font-semibold text-[var(--text)] mt-1">{player?.name ?? "Игрок"}</h1>
           {player?.position && <p className="text-sm text-[var(--text-muted)]">{player.position}</p>}
+          <Link
+            href={`/teams/${teamId}/athletes/${athleteId}/stats`}
+            className="text-xs text-[var(--accent)] hover:text-[var(--accent-hover)] mt-1 inline-block"
+          >
+            Паспорт игрока — статистика по сезонам →
+          </Link>
         </div>
         {player && (
           <div className="text-right">

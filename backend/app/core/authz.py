@@ -232,3 +232,19 @@ async def ensure_can_manage_athlete_status(db: AsyncSession, viewer: User, athle
     if role in STAFF_ROLES:
         return
     raise _forbidden()
+
+
+async def ensure_can_manage_season_stats(db: AsyncSession, viewer: User, athlete_id: uuid.UUID) -> None:
+    """Статистика по сезонам (docs/plan-player-season-stats.md) — тренерская/
+    скаутинговая область, не медицинская: пишет coach/head_coach команды
+    игрока или admin организации, не medic и не сам игрок (читает — ensure_
+    can_view_athlete, тот уже разрешает ровно нужный набор)."""
+    athlete = await db.get(User, athlete_id)
+    if athlete is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Игрок не найден")
+    if is_org_admin(viewer, athlete.org_id):
+        return
+    role = await _shared_team_staff_role(db, viewer.id, athlete_id)
+    if role in COACH_ROLES:
+        return
+    raise _forbidden()

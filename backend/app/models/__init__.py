@@ -41,6 +41,7 @@ from app.models.pain_point import PainPoint
 from app.models.policy_consent import PolicyConsent
 from app.models.recovery_method import RecoveryMethodLog
 from app.models.rpe import RpeEntry
+from app.models.season_stats import SeasonPlayerStats, SeasonPlayerStatValue, SportMetricDef
 from app.models.team import Location, Team, TeamMembership
 from app.models.user import AthleteProfile, RefreshToken, User
 from app.models.weight_goal import WeightGoal
@@ -93,6 +94,9 @@ __all__ = [
     "OrganizationBranding",
     "PainPoint",
     "RpeEntry",
+    "SeasonPlayerStats",
+    "SeasonPlayerStatValue",
+    "SportMetricDef",
     "Location",
     "Team",
     "TeamMembership",

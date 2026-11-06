@@ -14,21 +14,32 @@ WELLNESS = {
 }
 
 
-async def build_org(client):
-    """Организация: админ, команда, тренер, врач, два игрока; посторонний без организации."""
-    admin = await register_user(client, "admin@org.com", device_id="device-admin-001")
-    resp = await client.post("/api/v1/organizations", json={"name": "FC Test"}, headers=admin["headers"])
+async def build_org(client, sport: str | None = None, suffix: str = ""):
+    """Организация: админ, команда, тренер, врач, два игрока; посторонний без организации.
+
+    sport — необязательно, по умолчанию не задан (как у большинства тестов
+    команд в проекте); тесты, которым нужен конкретный вид спорта (например
+    season-stats), передают его явно.
+    suffix — чтобы вызвать build_org несколько раз в одном тесте (две
+    независимые организации): без него все идентификаторы/имена фиксированы
+    и второй вызов падает на уникальных constraint'ах (email/название).
+    """
+    admin = await register_user(client, f"admin{suffix}@org.com", device_id=f"device-admin{suffix}-001")
+    resp = await client.post(
+        "/api/v1/organizations", json={"name": f"FC Test{suffix}"}, headers=admin["headers"]
+    )
     assert resp.status_code == 201
-    resp = await client.post("/api/v1/teams", json={"name": "First Team"}, headers=admin["headers"])
+    team_payload = {"name": "First Team"} | ({"sport": sport} if sport else {})
+    resp = await client.post("/api/v1/teams", json=team_payload, headers=admin["headers"])
     assert resp.status_code == 201
     team_id = resp.json()["id"]
 
     members = {}
     for key, identifier, role, team_role in [
-        ("coach", "coach@org.com", "staff", "coach"),
-        ("medic", "medic@org.com", "staff", "medic"),
-        ("athlete1", "a1@org.com", "player", "athlete"),
-        ("athlete2", "a2@org.com", "player", "athlete"),
+        ("coach", f"coach{suffix}@org.com", "staff", "coach"),
+        ("medic", f"medic{suffix}@org.com", "staff", "medic"),
+        ("athlete1", f"a1{suffix}@org.com", "player", "athlete"),
+        ("athlete2", f"a2{suffix}@org.com", "player", "athlete"),
     ]:
         resp = await client.post(
             "/api/v1/organizations/invites",
@@ -36,9 +47,11 @@ async def build_org(client):
             headers=admin["headers"],
         )
         assert resp.status_code == 201, resp.text
-        members[key] = await register_user(client, identifier, device_id=f"device-{key}-001")
+        members[key] = await register_user(client, identifier, device_id=f"device-{key}{suffix}-001")
 
-    outsider = await register_user(client, "outsider@other.com", device_id="device-out-0001")
+    outsider = await register_user(
+        client, f"outsider{suffix}@other.com", device_id=f"device-out{suffix}-0001"
+    )
     return {"admin": admin, "team_id": team_id, "outsider": outsider, **members}
 
 

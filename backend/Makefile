@@ -4,7 +4,7 @@ PYTHON := $(VENV)/bin/python
 PIP := $(VENV)/bin/pip
 COMPOSE := docker compose -f ../infra/docker-compose.yml
 
-.PHONY: help install dev worker beat test lint format migration upgrade downgrade seed seed-reset seed-second-team set-admin add-member branding foods foods-off delete-user infra-up infra-celery infra-down clean
+.PHONY: help install dev worker beat test lint format migration upgrade downgrade seed seed-reset seed-second-team seed-season-stats set-admin add-member branding foods foods-off delete-user infra-up infra-celery infra-down clean
 
 help: ## Список команд
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-12s\033[0m %s\n", $$1, $$2}'
@@ -56,6 +56,9 @@ seed-reset: ## Пересоздать демо-данные с нуля
 seed-second-team: ## Вторая команда в организации — проверка перевода игрока: make seed-second-team org="ФK РУБИН" team="Молодёжка" [count=4]
 	@test -n "$(org)" -a -n "$(team)" || (echo 'Нужно: make seed-second-team org="ФK РУБИН" team="Молодёжка"'; exit 1)
 	$(PYTHON) scripts/seed_second_team.py --org "$(org)" --team "$(team)" $(if $(count),--count $(count),)
+
+seed-season-stats: ## Паспорт игрока — статистика по сезонам для уже существующих игроков команды: make seed-season-stats [org="ФK РУБИН"] [team="Основа"]
+	$(PYTHON) scripts/seed_season_stats.py $(if $(org),--org "$(org)",) $(if $(team),--team "$(team)",)
 
 branding: ## Тема организации: make branding org="ФК Рубин" f=themes/rubin.json [logo_file=герб.png]
 	@test -n "$(org)" -a -n "$(f)" || (echo 'Нужно: make branding org="ФК Рубин" f=themes/rubin.json'; exit 1)

@@ -67,6 +67,13 @@ async def _fresh_state():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
         await conn.run_sync(Base.metadata.create_all)
+    # Справочник метрик футбола — в проде/на стенде сидится data-миграцией
+    # (alembic/versions/20261105_2019_season_player_stats.py), а тут схема
+    # поднимается через create_all, не через Alembic — сеем отдельно.
+    from app.services.season_stats_service import seed_football_catalog
+
+    async with AsyncSessionLocal() as session:
+        await seed_football_catalog(session)
     yield
     await engine.dispose()  # пул соединений не должен пережить event loop теста
 

@@ -16,6 +16,7 @@ from app.api.v1 import (
     nutrition,
     organizations,
     rpe,
+    season_stats,
     teams,
     users,
     wellness,
@@ -49,3 +50,4 @@ router.include_router(injuries.router, dependencies=[_consented])
 router.include_router(medical_exams.router, dependencies=[_consented])
 router.include_router(analytics.router, dependencies=[_consented])
 router.include_router(dashboard.router, dependencies=[_consented])
+router.include_router(season_stats.router, dependencies=[_consented])

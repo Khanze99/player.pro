@@ -8,6 +8,7 @@
 import { API_URL } from "@/lib/env";
 import type {
   AthleteProfile,
+  Branding,
   CycleStaffView,
   DailyMetric,
   Me,
@@ -16,6 +17,9 @@ import type {
   ReadinessBreakdown,
   ReadinessBreakdownAverage,
   RpeEntry,
+  SeasonStat,
+  SeasonStatPayload,
+  SportMetricDef,
   SquadStatus,
   Team,
   TeamMember,
@@ -51,6 +55,9 @@ async function request<T>(path: string, token: string, init?: RequestInit): Prom
     const detail = Array.isArray(body.detail) ? body.detail[0]?.msg : body.detail;
     throw new ApiError(res.status, detail ?? res.statusText);
   }
+  // DELETE -> 204 без тела (season-stats и т.п.) — res.json() бросил бы
+  // SyntaxError на пустую строку.
+  if (res.status === 204) return undefined as T;
   return res.json() as Promise<T>;
 }
 
@@ -60,6 +67,18 @@ function post<T>(path: string, token: string, data: unknown): Promise<T> {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
   });
+}
+
+function patch<T>(path: string, token: string, data: unknown): Promise<T> {
+  return request<T>(path, token, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+}
+
+function del(path: string, token: string): Promise<void> {
+  return request<void>(path, token, { method: "DELETE" });
 }
 
 function qs(params: Record<string, string | undefined>): string {
@@ -72,6 +91,10 @@ export const api = {
   me: (token: string) => request<Me>("/auth/me", token),
 
   teams: (token: string) => request<Team[]>("/teams", token),
+
+  // Лого в шапке (docs/design-player-passport-theme.md) — без org_id/без
+  // темы бэкенд сам отдаёт org_name=null/logo_url=null, одна форма ответа.
+  branding: (token: string) => request<Branding>("/branding", token),
 
   // Состав + перевод (docs/plan-player-transfer.md) — пишущие ручки доступны
   // только admin, бэкенд сам отдаёт 403/404 остальным и на чужую организацию.
@@ -148,6 +171,23 @@ export const api = {
     token: string,
     data: { kind: MedicalExamKind; passed_date: string; valid_until: string },
   ) => post(`/medical-exams/athletes/${athleteId}`, token, data),
+
+  // Паспорт игрока (docs/plan-player-season-stats.md) — каталог метрик
+  // спорта — публичный справочник для любого авторизованного, без catch:
+  // 404 здесь означало бы опечатку в коде, не штатный случай.
+  seasonStatMetrics: (sport: string, token: string) =>
+    request<SportMetricDef[]>(`/season-stats/sports/${sport}/metrics`, token),
+
+  athleteSeasonStats: (athleteId: string, token: string) =>
+    request<SeasonStat[]>(`/season-stats/athletes/${athleteId}`, token),
+
+  createSeasonStat: (athleteId: string, token: string, data: SeasonStatPayload) =>
+    post<SeasonStat>("/season-stats", token, { ...data, athlete_id: athleteId }),
+
+  updateSeasonStat: (statId: string, token: string, data: Partial<SeasonStatPayload>) =>
+    patch<SeasonStat>(`/season-stats/${statId}`, token, data),
+
+  deleteSeasonStat: (statId: string, token: string) => del(`/season-stats/${statId}`, token),
 };
 
 function daysAgoISO(days: number): string {

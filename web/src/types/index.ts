@@ -350,3 +350,70 @@ export interface MedicalExams {
   current_umo: MedicalExam | null;
   current_tmo: MedicalExam | null;
 }
+
+// ------------------------------------------------------- Паспорт игрока
+
+// Справочник метрик спорта (backend/app/schemas/season_stats.py) — ключи,
+// подписи — словарь на клиенте (src/lib/seasonStatLabels.ts), не тут.
+export interface SportMetricDef {
+  key: string;
+  category_key: string;
+  unit: "percent" | null;
+  pct_of_key: string | null;
+  on_radar_default: boolean;
+  radar_max: number | null;
+  sort_order: number;
+}
+
+export interface SeasonStatMetricValue {
+  key: string;
+  value: number;
+  per_90: number | null;
+  pct: number | null;
+}
+
+export interface SeasonStat {
+  id: string;
+  athlete_id: string;
+  sport: string;
+  season: string;
+  team_label: string;
+  competition: string | null;
+  matches: number;
+  minutes: number;
+  score: number;
+  assists: number;
+  penalty_minor: number;
+  penalty_major: number;
+  score_per_90: number | null;
+  assists_per_90: number | null;
+  metrics: SeasonStatMetricValue[];
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+}
+
+// Тело POST/PATCH — athlete_id добавляется на вызове create, sport сервис
+// берёт из команды игрока сам (не передаётся).
+// Тема организации (docs/plan-org-branding.md) — здесь используется только
+// лого+название в шапке админки, не цвета (own theming на вебе пока не
+// подключено, это отдельная задача).
+export interface Branding {
+  version: number;
+  org_id: string | null;
+  org_name: string | null;
+  logo_url: string | null;
+}
+
+export interface SeasonStatPayload {
+  season: string;
+  team_label: string;
+  competition?: string;
+  matches: number;
+  minutes: number;
+  score: number;
+  assists: number;
+  penalty_minor: number;
+  penalty_major: number;
+  values: Record<string, number>;
+}
