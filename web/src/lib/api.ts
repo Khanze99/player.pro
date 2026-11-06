@@ -19,6 +19,7 @@ import type {
   RpeEntry,
   SeasonStat,
   SeasonStatPayload,
+  TeamBenchmark,
   SportMetricDef,
   SquadStatus,
   Team,
@@ -188,6 +189,12 @@ export const api = {
     patch<SeasonStat>(`/season-stats/${statId}`, token, data),
 
   deleteSeasonStat: (statId: string, token: string) => del(`/season-stats/${statId}`, token),
+
+  teamSeasonBenchmark: (teamId: string, season: string, token: string) =>
+    request<TeamBenchmark>(
+      `/season-stats/teams/${teamId}/benchmark?season=${encodeURIComponent(season)}`,
+      token,
+    ),
 };
 
 function daysAgoISO(days: number): string {

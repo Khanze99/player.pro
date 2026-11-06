@@ -1,6 +1,8 @@
-// «Все турниры» для выбранного клуба+сезона (docs/plan-player-season-stats.md)
-// — сумма по записям одного клуба/сезона, разным только турниром (лига и
-// кубок, например). Тот же приём, что у daily_load: запись без метрики = 0
+// «Все турниры» для выбранного сезона (docs/plan-player-season-stats.md):
+// сумма ВСЕХ записей сезона игрока, включая другие команды (дубль, сборная).
+// Селекта «Клуб» больше нет (docs/design-player-passport-theme.md), так что
+// итог сезона = всё, что игрок сыграл за сезон; та же логика у медианы
+// команды на бэкенде (season_stats_service.team_benchmark). Тот же приём, что у daily_load: запись без метрики = 0
 // в сумме, не пропуск (CLAUDE.md, «день без событий = 0»). per-90 и %
 // считаются один раз над суммами, не усреднением готовых per-90/% по
 // записям — иначе запись с малым числом минут искажала бы среднее сильнее.
@@ -13,9 +15,8 @@ function per90(value: number, minutes: number): number | null {
   return minutes > 0 ? Math.round(((value * 90) / minutes) * 100) / 100 : null;
 }
 
-// group — записи одного клуба и сезона (разных турниров), непустой массив;
-// defs — каталог метрик спорта group[0] (клуб+сезон на практике не меняют
-// вид спорта внутри себя, в отличие от сезона к сезону).
+// group: все записи одного сезона, непустой массив; defs: каталог метрик
+// спорта group[0] (внутри сезона вид спорта на практике не меняется).
 export function sumTournaments(group: SeasonStat[], defs: SportMetricDef[]): SeasonStat {
   let matches = 0;
   let minutes = 0;
@@ -43,11 +44,11 @@ export function sumTournaments(group: SeasonStat[], defs: SportMetricDef[]): Sea
   });
 
   return {
-    id: `__all_tournaments__${group[0].team_label}__${group[0].season}`,
+    id: `__all_tournaments__${group[0].season}`,
     athlete_id: group[0].athlete_id,
     sport: group[0].sport,
     season: group[0].season,
-    team_label: group[0].team_label,
+    team_label: [...new Set(group.map((e) => e.team_label))].join(", "),
     competition: group.length > 1 ? "Все турниры" : group[0].competition,
     matches,
     minutes,

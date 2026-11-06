@@ -1,10 +1,18 @@
 import uuid
+from typing import Annotated
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 
 from app.api.deps import CurrentUser, DbSession
 from app.core import authz
-from app.schemas.season_stats import SeasonStatCreateIn, SeasonStatOut, SeasonStatUpdateIn, SportMetricDefOut
+from app.schemas.season_stats import (
+    Season,
+    SeasonStatCreateIn,
+    SeasonStatOut,
+    SeasonStatUpdateIn,
+    SportMetricDefOut,
+    TeamBenchmarkOut,
+)
 from app.services import season_stats_service
 
 router = APIRouter(prefix="/season-stats", tags=["season-stats"])
@@ -21,6 +29,16 @@ async def sport_metrics(sport: str, user: CurrentUser, db: DbSession):
 async def athlete_season_stats(athlete_id: uuid.UUID, user: CurrentUser, db: DbSession):
     await authz.ensure_can_view_athlete(db, user, athlete_id)
     return await season_stats_service.list_athlete_entries_out(db, athlete_id)
+
+
+@router.get("/teams/{team_id}/benchmark", response_model=TeamBenchmarkOut)
+async def team_benchmark(
+    team_id: uuid.UUID, user: CurrentUser, db: DbSession, season: Annotated[Season, Query()]
+):
+    # Агрегат по составу: только штаб команды и admin организации, не игроки
+    await authz.require_team_staff(db, user, team_id)
+    team = await authz.get_team(db, team_id)
+    return await season_stats_service.team_benchmark(db, team, season)
 
 
 @router.post("", response_model=SeasonStatOut, status_code=201)

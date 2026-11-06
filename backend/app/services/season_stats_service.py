@@ -1,7 +1,10 @@
+import statistics
 import uuid
+from collections import defaultdict
 
 from fastapi import HTTPException, status
 from sqlalchemy import delete, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.enums import TeamRole
@@ -12,7 +15,16 @@ from app.schemas.season_stats import (
     SeasonStatMetricValueOut,
     SeasonStatOut,
     SeasonStatUpdateIn,
+    TeamBenchmarkMetricOut,
+    TeamBenchmarkOut,
 )
+
+# Порог надёжности per-90: меньше пяти полных матчей за сезон, и одна удачная
+# игра делает из запасного «лучшего бомбардира». Общий для медианы команды и
+# для пометки «мало игрового времени» в паспорте (клиент берёт из ответа).
+MIN_RELIABLE_MINUTES = 450
+# Меньше трёх игроков в выборке: медиана раскрывает конкретные чужие цифры
+MIN_BENCHMARK_PLAYERS = 3
 
 # Живая копия справочника футбола — источник правды для прод/стенда остаётся
 # data-сид в alembic/versions/20261105_2019_season_player_stats.py (миграции
@@ -170,19 +182,25 @@ async def athlete_team(db: AsyncSession, athlete_id: uuid.UUID) -> Team | None:
     """Команда игрока (team_role=athlete) — источник Team.sport для записи.
 
     У игрока на практике одна команда; при нескольких (технически допустимо)
-    берём любую — каталог метрик всё равно общий на организацию/спорт, не на
-    конкретную команду.
+    берём ту, где он состоит дольше всех: без order_by Postgres отдавал бы
+    любую, и вид спорта новой записи зависел бы от плана запроса.
     """
     row = await db.execute(
         select(Team)
         .join(TeamMembership, TeamMembership.team_id == Team.id)
         .where(TeamMembership.user_id == athlete_id, TeamMembership.team_role == TeamRole.athlete)
+        .order_by(TeamMembership.created_at, Team.id)
         .limit(1)
     )
     return row.scalar_one_or_none()
 
 
+UNIQUE_ENTRY_CONSTRAINT = "uq_season_player_stats_entry"
+
+
 async def _validate_values(db: AsyncSession, sport: str, values: dict[str, float]) -> None:
+    """Ключи против каталога спорта и числитель ≤ знаменателя для метрик-%:
+    само число (конечное, ≥0, потолок) уже проверено схемой."""
     if not values:
         return
     defs = await get_metric_defs(db, sport)
@@ -192,6 +210,35 @@ async def _validate_values(db: AsyncSession, sport: str, values: dict[str, float
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=f"Неизвестные метрики для спорта «{sport}»: {', '.join(sorted(unknown))}",
         )
+    # «Удары в створ» больше «ударов» дали бы точность 120%. Пару проверяем,
+    # только когда в записи есть обе метрики: без знаменателя % и так null.
+    for d in defs:
+        if d.pct_of_key and d.key in values and d.pct_of_key in values:
+            if values[d.key] > values[d.pct_of_key]:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail=f"«{d.key}» не может быть больше «{d.pct_of_key}»",
+                )
+
+
+async def _commit_entry(db: AsyncSession, entry: SeasonPlayerStats) -> None:
+    """commit с переводом дубля записи (uq_season_player_stats_entry) в 409:
+    иначе повторное сохранение той же записи падало бы 500.
+
+    Текст ошибки собираем до commit: после rollback атрибуты entry истекают,
+    и чтение их в async-сессии полезло бы в БД вне greenlet."""
+    competition = f", турнир «{entry.competition}»" if entry.competition else ""
+    detail = (
+        f"Запись за сезон {entry.season}, команда «{entry.team_label}»{competition} "
+        "уже есть: измените её вместо создания новой"
+    )
+    try:
+        await db.commit()
+    except IntegrityError as exc:
+        await db.rollback()
+        if UNIQUE_ENTRY_CONSTRAINT not in str(exc.orig):
+            raise
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=detail) from exc
 
 
 async def create_entry(
@@ -226,7 +273,7 @@ async def create_entry(
         values=[SeasonPlayerStatValue(metric_key=k, value=v) for k, v in data.values.items()],
     )
     db.add(entry)
-    await db.commit()
+    await _commit_entry(db, entry)
     await db.refresh(entry)
     return entry
 
@@ -257,7 +304,7 @@ async def update_entry(
             SeasonPlayerStatValue(season_stat_id=entry.id, metric_key=k, value=v)
             for k, v in data.values.items()
         )
-    await db.commit()
+    await _commit_entry(db, entry)
     await db.refresh(entry)
     return entry
 
@@ -325,3 +372,80 @@ async def list_athlete_entries_out(db: AsyncSession, athlete_id: uuid.UUID) -> l
     entries = await list_athlete_entries(db, athlete_id)
     defs_by_sport = {sport: await get_metric_defs(db, sport) for sport in {e.sport for e in entries}}
     return [to_out(e, defs_by_sport[e.sport]) for e in entries]
+
+
+def _median(values: list[float], digits: int) -> float | None:
+    return round(statistics.median(values), digits) if values else None
+
+
+async def team_benchmark(db: AsyncSession, team: Team, season: str) -> TeamBenchmarkOut:
+    """Медиана per-90/% по игрокам команды за сезон (все турниры игрока
+    суммируются, как «Все турниры» в паспорте; per-90 считается над суммой).
+    Состав: текущие athlete-участники команды."""
+    rows = await db.execute(
+        select(SeasonPlayerStats)
+        .join(TeamMembership, TeamMembership.user_id == SeasonPlayerStats.athlete_id)
+        .where(
+            TeamMembership.team_id == team.id,
+            TeamMembership.team_role == TeamRole.athlete,
+            SeasonPlayerStats.season == season,
+        )
+    )
+    minutes: dict[uuid.UUID, int] = defaultdict(int)
+    score: dict[uuid.UUID, int] = defaultdict(int)
+    assists: dict[uuid.UUID, int] = defaultdict(int)
+    raw: dict[uuid.UUID, dict[str, float]] = defaultdict(lambda: defaultdict(float))
+    sports: set[str] = set()
+    for entry in rows.scalars():
+        sports.add(entry.sport)
+        a = entry.athlete_id
+        minutes[a] += entry.minutes
+        score[a] += entry.score
+        assists[a] += entry.assists
+        for v in entry.values:
+            raw[a][v.metric_key] += float(v.value)
+
+    sample = [a for a, m in minutes.items() if m >= MIN_RELIABLE_MINUTES]
+    empty = TeamBenchmarkOut(
+        team_id=team.id,
+        season=season,
+        min_minutes=MIN_RELIABLE_MINUTES,
+        players=len(sample),
+        score_per_90=None,
+        assists_per_90=None,
+        metrics=[],
+    )
+    if len(sample) < MIN_BENCHMARK_PLAYERS:
+        return empty
+
+    defs: list[SportMetricDef] = []
+    for sport in sorted(sports):
+        defs.extend(await get_metric_defs(db, sport))
+    metrics = []
+    for d in {d.key: d for d in defs}.values():
+        per90s = [raw[a][d.key] * 90 / minutes[a] for a in sample if d.key in raw[a]]
+        if len(per90s) < MIN_BENCHMARK_PLAYERS:
+            continue
+        pcts: list[float] = []
+        if d.pct_of_key:
+            pcts = [
+                raw[a][d.key] / raw[a][d.pct_of_key]
+                for a in sample
+                if d.key in raw[a] and raw[a].get(d.pct_of_key)
+            ]
+        metrics.append(
+            TeamBenchmarkMetricOut(
+                key=d.key,
+                per_90=_median(per90s, 2),
+                pct=_median(pcts, 4) if len(pcts) >= MIN_BENCHMARK_PLAYERS else None,
+                players=len(per90s),
+            )
+        )
+
+    return empty.model_copy(
+        update={
+            "score_per_90": _median([score[a] * 90 / minutes[a] for a in sample], 2),
+            "assists_per_90": _median([assists[a] * 90 / minutes[a] for a in sample], 2),
+            "metrics": metrics,
+        }
+    )

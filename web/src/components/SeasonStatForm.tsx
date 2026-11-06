@@ -10,23 +10,28 @@
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 
-import { categoryText, metricText } from "@/lib/seasonStatLabels";
+import { categoryText, coreText, metricText, orderDefs } from "@/lib/seasonStatLabels";
 import type { SeasonStat, SeasonStatPayload, SportMetricDef } from "@/types";
 
 type NumKey = "matches" | "minutes" | "score" | "assists" | "penalty_minor" | "penalty_major";
 
-const NUM_FIELDS: { key: NumKey; label: string }[] = [
-  { key: "matches", label: "Матчи" },
-  { key: "minutes", label: "Минуты" },
-  { key: "score", label: "Голы" },
-  { key: "assists", label: "Голевые передачи" },
-  { key: "penalty_minor", label: "Жёлтые карточки" },
-  { key: "penalty_major", label: "Красные карточки" },
-];
+// Подписи ядра по виду спорта: модель общая (score/assists/penalty_*),
+// «Голы/ЖК/КК» только у футбола (seasonStatLabels.coreText)
+function numFields(sport: string): { key: NumKey; label: string }[] {
+  const core = coreText(sport);
+  return [
+    { key: "matches", label: "Матчи" },
+    { key: "minutes", label: "Минуты" },
+    { key: "score", label: core.score },
+    { key: "assists", label: core.assists },
+    { key: "penalty_minor", label: core.penaltyMinor },
+    { key: "penalty_major", label: core.penaltyMajor },
+  ];
+}
 
 function groupByCategory(defs: SportMetricDef[]): { category: string; defs: SportMetricDef[] }[] {
   const byCategory = new Map<string, SportMetricDef[]>();
-  for (const d of [...defs].sort((a, b) => a.sort_order - b.sort_order)) {
+  for (const d of orderDefs(defs)) {
     const list = byCategory.get(d.category_key) ?? [];
     list.push(d);
     byCategory.set(d.category_key, list);
@@ -36,12 +41,13 @@ function groupByCategory(defs: SportMetricDef[]): { category: string; defs: Spor
 
 interface Props {
   athleteId: string;
+  sport: string;
   defs: SportMetricDef[];
   initial?: SeasonStat;
   onClose: () => void;
 }
 
-export function SeasonStatForm({ athleteId, defs, initial, onClose }: Props) {
+export function SeasonStatForm({ athleteId, sport, defs, initial, onClose }: Props) {
   const router = useRouter();
   const editing = initial !== undefined;
 
@@ -114,6 +120,8 @@ export function SeasonStatForm({ athleteId, defs, initial, onClose }: Props) {
           <input
             required
             placeholder="2025/26"
+            pattern="\d{4}/\d{2}"
+            title="Сезон в формате ГГГГ/ГГ, например 2025/26"
             value={season}
             onChange={(e) => setSeason(e.target.value)}
             maxLength={16}
@@ -144,7 +152,7 @@ export function SeasonStatForm({ athleteId, defs, initial, onClose }: Props) {
       </div>
 
       <div className="grid gap-3 grid-cols-3 sm:grid-cols-6">
-        {NUM_FIELDS.map((f) => (
+        {numFields(sport).map((f) => (
           <label key={f.key} className="text-xs text-[var(--text-muted)]">
             {f.label}
             <input

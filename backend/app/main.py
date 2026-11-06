@@ -2,11 +2,13 @@ import logging
 from pathlib import Path
 
 from fastapi import FastAPI
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app.api.v1.router import router
 from app.config import settings
+from app.core.errors import validation_exception_handler
 
 logging.basicConfig(
     level=logging.DEBUG if settings.debug else logging.INFO,
@@ -39,6 +41,7 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 # Каталог так же обязан быть на volume в проде.
 (Path(__file__).resolve().parent.parent / settings.media_dir / "avatars").mkdir(parents=True, exist_ok=True)
 
+app.add_exception_handler(RequestValidationError, validation_exception_handler)
 app.include_router(router)
 
 

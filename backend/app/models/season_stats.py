@@ -41,6 +41,19 @@ class SeasonPlayerStats(Base):
     """
 
     __tablename__ = "season_player_stats"
+    # Одна запись на игрока + сезон + команду + турнир: без ключа повторное
+    # сохранение той же записи удваивало «Все турниры» в паспорте. NULLS NOT
+    # DISTINCT (PG15+): «без турнира» тоже уникален, а не бесконечно дублируем.
+    __table_args__ = (
+        UniqueConstraint(
+            "athlete_id",
+            "season",
+            "team_label",
+            "competition",
+            name="uq_season_player_stats_entry",
+            postgresql_nulls_not_distinct=True,
+        ),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     athlete_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), index=True)

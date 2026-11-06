@@ -417,3 +417,22 @@ export interface SeasonStatPayload {
   penalty_major: number;
   values: Record<string, number>;
 }
+
+// Медиана команды за сезон (GET /season-stats/teams/{id}/benchmark) — ориентир
+// радара паспорта. Пустой metrics: в выборке меньше 3 игроков с min_minutes.
+export interface TeamBenchmarkMetric {
+  key: string;
+  per_90: number | null;
+  pct: number | null;
+  players: number;
+}
+
+export interface TeamBenchmark {
+  team_id: string;
+  season: string;
+  min_minutes: number;
+  players: number;
+  score_per_90: number | null;
+  assists_per_90: number | null;
+  metrics: TeamBenchmarkMetric[];
+}
