@@ -11,9 +11,7 @@
 <meta property="og:url" content="https://player-pro.ru/">
 <meta name="theme-color" content="#0A0D13">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 38 38'%3E%3Crect width='38' height='38' rx='11' fill='%230A0D13'/%3E%3Cpath d='M6 21H12L15 12L19 27L23 17L25 21H32' stroke='%232D8CFF' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/fonts/fonts.css">
 <style>
   :root{
     color-scheme: dark;
@@ -270,7 +268,8 @@
 
   /* ============ Footer ============ */
   footer{border-top:1px solid var(--border);padding:56px 0 34px;}
-  .foot-grid{display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:40px;}
+  .foot-grid{display:grid;grid-template-columns:1.4fr 1fr 1fr 1.2fr;gap:40px;}
+  @media (max-width:980px){.foot-grid{grid-template-columns:1fr 1fr;}}
   @media (max-width:720px){.foot-grid{grid-template-columns:1fr;gap:32px;}}
   .foot-brand p{margin-top:14px;color:var(--text-muted);font-size:13.5px;max-width:36ch;}
   .foot-col h4{font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--text-faint);margin-bottom:14px;}
@@ -548,7 +547,7 @@
       <div class="road-card">
         <div class="phase">Фаза 2</div>
         <h3>Дневник питания</h3>
-        <p>Калории и БЖУ по справочнику продуктов. Строго личное: тренер и врач доступа к записям не получают.</p>
+        <p>Калории и БЖУ по справочнику продуктов. Личное по умолчанию: штаб видит записи, только если игрок сам открыл доступ.</p>
       </div>
       <div class="road-card">
         <div class="phase">Фаза 2</div>
@@ -597,7 +596,7 @@
       </div>
       <div class="sec-item">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.8"/><path d="M2 12C2 12 5 5 12 5C19 5 22 12 22 12C22 12 19 19 12 19C5 19 2 12 2 12Z" stroke="currentColor" stroke-width="1.8"/></svg>
-        <div><h3>Приватно, по согласию</h3><p>Тренер видит статусы и агрегаты, детали травм - только врач. Чувствительные данные вроде дневника питания не видит никто без явного согласия игрока - его можно отозвать в любой момент.</p></div>
+        <div><h3>Приватно, по согласию</h3><p>Тренер и врач видят свою команду, администратор - свою организацию. Чувствительные данные вроде цикла и дневника питания не видит никто без явного согласия игрока - его можно отозвать в любой момент.</p></div>
       </div>
       <div class="sec-item">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 3L4 7V12C4 16.5 7.4 20.6 12 21.8C16.6 20.6 20 16.5 20 12V7L12 3Z" stroke="currentColor" stroke-width="1.8"/></svg>
@@ -635,7 +634,7 @@
         </div>
         <div><label for="f-msg">Сообщение</label><textarea id="f-msg" placeholder="Команда или личное использование - расскажите, что нужно"></textarea></div>
         <button class="btn btn-primary" type="submit">Отправить заявку</button>
-        <span class="form-note">Нажимая «Отправить», вы соглашаетесь на обработку персональных данных.</span>
+        <span class="form-note">Нажимая «Отправить», вы соглашаетесь на обработку персональных данных в соответствии с <a href="/privacy">Политикой конфиденциальности</a>.</span>
       </form>
     </div>
   </div>
@@ -667,6 +666,12 @@
         <a href="#security">Безопасность</a>
         <a href="#contact">Контакты</a>
         <a href="mailto:hello@player-pro.ru">hello@player-pro.ru</a>
+      </div>
+      <div class="foot-col">
+        <h4>Документы</h4>
+        <a href="/privacy">Политика конфиденциальности</a>
+        <a href="/terms">Пользовательское соглашение</a>
+        <a href="/delete-account">Удаление аккаунта</a>
       </div>
     </div>
     <div class="foot-bottom">
