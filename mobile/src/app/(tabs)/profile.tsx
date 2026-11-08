@@ -32,6 +32,7 @@ import { Segmented } from '@/components/Segmented';
 import { useToast } from '@/components/Toast';
 import { MicroLabel, ScreenTitle } from '@/components/Typography';
 import type { AppLocale } from '@/i18n';
+import { legalDocHref, type LegalDoc } from '@/legal';
 import { spacing, type Theme, useStyles, useTheme } from '@/theme';
 
 const LOCALES: { code: AppLocale; label: string }[] = [
@@ -140,6 +141,10 @@ export default function Profile() {
   // Личный режим (org_id нет) — команд не бывает, пункт «Команда» для него не нужен,
   // даже если роль почему-то не 'player' (см. тот же гейт в (tabs)/_layout.tsx).
   const isStaff = me.data != null && !isPlayer && me.data.org_id != null;
+  // «Приватность» решает, что из личных данных видят врач и тренер. В личном режиме
+  // штаба нет, решать нечего: экран и ссылки на него скрыты. При вступлении в
+  // организацию всё закрыто по умолчанию, пункт появляется сам.
+  const canSharePrivate = isPlayer && me.data?.org_id != null;
   // Команда» в меню — только если есть из чего выбирать (как и гейт при входе,
   // docs/plan-team-selector.md): рядовой coach должен мочь переключаться так же,
   // как admin, не только он.
@@ -246,6 +251,8 @@ export default function Profile() {
       },
     });
   };
+
+  const openDoc = (doc: LegalDoc) => router.push(legalDocHref(doc));
 
   const logout = async () => {
     const refresh = await getRefreshToken();
@@ -389,9 +396,11 @@ export default function Profile() {
                   />
                 </View>
               </View>
-              <Pressable onPress={() => router.push('/privacy')} accessibilityRole="button">
-                <Text style={styles.metricsHint}>{t('profile.bodyMetricsHint')}</Text>
-              </Pressable>
+              {canSharePrivate ? (
+                <Pressable onPress={() => router.push('/privacy')} accessibilityRole="button">
+                  <Text style={styles.metricsHint}>{t('profile.bodyMetricsHint')}</Text>
+                </Pressable>
+              ) : null}
             </>
           ) : null}
         </View>
@@ -453,7 +462,7 @@ export default function Profile() {
               <ChevronIcon color={th.textMuted} />
             </Pressable>
           ) : null}
-          {isPlayer && (features.data?.cycle || features.data?.nutrition) ? (
+          {canSharePrivate ? (
             <Pressable style={styles.row} accessibilityRole="button" onPress={() => router.push('/privacy')}>
               <Text style={styles.rowText}>{t('profile.privacy')}</Text>
               <ChevronIcon color={th.textMuted} />
@@ -465,6 +474,29 @@ export default function Profile() {
             onPress={() => void logout()}
           >
             <Text style={[styles.rowText, { color: th.risk }]}>{t('profile.logout')}</Text>
+          </Pressable>
+        </View>
+
+        {/* Документы и удаление аккаунта: Apple 5.1.1(i)/(v), Google Play, 152-ФЗ.
+            Видно всем ролям, без фича-флагов (docs/plan-legal-texts.md). */}
+        <View style={styles.section}>
+          <MicroLabel>{t('legalDocs.sectionTitle')}</MicroLabel>
+        </View>
+        <View style={styles.rows}>
+          <Pressable style={styles.row} accessibilityRole="link" onPress={() => openDoc('terms')}>
+            <Text style={styles.rowText}>{t('legalDocs.terms')}</Text>
+            <ChevronIcon color={th.textMuted} />
+          </Pressable>
+          <Pressable style={styles.row} accessibilityRole="link" onPress={() => openDoc('privacy')}>
+            <Text style={styles.rowText}>{t('legalDocs.privacyPolicy')}</Text>
+            <ChevronIcon color={th.textMuted} />
+          </Pressable>
+          <Pressable
+            style={[styles.row, { borderBottomWidth: 0 }]}
+            accessibilityRole="button"
+            onPress={() => router.push('/delete-account')}
+          >
+            <Text style={[styles.rowText, { color: th.risk }]}>{t('legalDocs.deleteAccount')}</Text>
           </Pressable>
         </View>
       </ScrollView>

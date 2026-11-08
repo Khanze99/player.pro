@@ -12,7 +12,7 @@ import { useRouter } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
-import { useCycleSettings, useUpdateCycleSettings } from '@/api/hooks';
+import { useCycleSettings, useMe, useUpdateCycleSettings } from '@/api/hooks';
 import { CloseIcon } from '@/components/Icons';
 import { Screen } from '@/components/Screen';
 import { Stepper } from '@/components/Stepper';
@@ -23,6 +23,7 @@ function SettingsCard() {
   const styles = useStyles(makeStyles);
   const { t } = useTranslation();
   const router = useRouter();
+  const inOrg = useMe().data?.org_id != null;
   const settings = useCycleSettings();
   const update = useUpdateCycleSettings();
 
@@ -48,9 +49,12 @@ function SettingsCard() {
         max={10}
       />
 
-      <Pressable style={styles.privacyLink} onPress={() => router.push('/privacy')}>
-        <Text style={styles.privacyText}>{t('cycle.whoSees')}</Text>
-      </Pressable>
+      {/* В личном режиме цикл не видит никто: ссылка на «Приватность» не нужна */}
+      {inOrg ? (
+        <Pressable style={styles.privacyLink} onPress={() => router.push('/privacy')}>
+          <Text style={styles.privacyText}>{t('cycle.whoSees')}</Text>
+        </Pressable>
+      ) : null}
     </View>
   );
 }

@@ -4,13 +4,15 @@
 //   · по умолчанию всё закрыто — «нет записи» значит запрет;
 //   · уровни вложены: открыть тренеру = открыть и врачу, но не наоборот;
 //   · отзыв в один тап и в любой момент.
-// Экран доступен всем ролям — согласие даёт и отзывает только сам человек.
+// Экран показывается игроку в организации (в личном режиме штаба нет). Карточки
+// только про то, что человек реально ведёт: цикл при женском поле и включённом
+// флаге, питание при включённом флаге, замеры тела всегда.
 
 import { useRouter } from 'expo-router';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
-import { useMyConsents, useSetConsent } from '@/api/hooks';
+import { useFeatures, useMyConsents, useMyProfile, useSetConsent } from '@/api/hooks';
 import type { ConsentAudience, ConsentScope } from '@/api/types';
 import { CloseIcon } from '@/components/Icons';
 import { Screen } from '@/components/Screen';
@@ -19,7 +21,6 @@ import { useToast } from '@/components/Toast';
 import { MicroLabel, ScreenTitle } from '@/components/Typography';
 import { spacing, type Theme, useStyles, useTheme } from '@/theme';
 
-const SCOPES: readonly ConsentScope[] = ['cycle', 'nutrition', 'body_metrics'];
 const AUDIENCES: readonly ConsentAudience[] = ['none', 'medic', 'coach'];
 
 export default function Privacy() {
@@ -30,6 +31,14 @@ export default function Privacy() {
   const toast = useToast((s) => s.show);
   const consents = useMyConsents();
   const setConsent = useSetConsent();
+  const features = useFeatures();
+  const profile = useMyProfile();
+
+  const scopes: ConsentScope[] = [
+    ...(features.data?.cycle && profile.data?.sex === 'female' ? (['cycle'] as const) : []),
+    ...(features.data?.nutrition ? (['nutrition'] as const) : []),
+    'body_metrics',
+  ];
 
   const audienceFor = (scope: ConsentScope): ConsentAudience =>
     consents.data?.consents.find((c) => c.scope === scope)?.audience ?? 'none';
@@ -58,7 +67,7 @@ export default function Privacy() {
             </Pressable>
           </View>
 
-          {SCOPES.map((scope) => (
+          {scopes.map((scope) => (
             <View key={scope} style={styles.card}>
               <MicroLabel>{t(`privacy.scope.${scope}`)}</MicroLabel>
               <Text style={styles.scopeHint}>{t(`privacy.scopeHint.${scope}`)}</Text>

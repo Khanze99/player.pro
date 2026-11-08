@@ -15,6 +15,7 @@ import { Button } from '@/components/Button';
 import { CheckIcon } from '@/components/Icons';
 import { Screen } from '@/components/Screen';
 import { ScreenTitle } from '@/components/Typography';
+import { legalDocHref, type LegalDoc } from '@/legal';
 import { spacing, type Theme, useStyles, useTheme } from '@/theme';
 
 export default function Consent() {
@@ -40,6 +41,9 @@ export default function Consent() {
     if (status.data.terms.granted) setTerms(true);
     if (status.data.health_data.granted) setHealth(true);
   }
+
+  // Текст документа своим экраном (app/legal/[doc].tsx), тот же, что на сайте
+  const openDoc = (doc: LegalDoc) => router.push(legalDocHref(doc));
 
   const continueOnboarding = async () => {
     setSubmitting(true);
@@ -74,11 +78,11 @@ export default function Consent() {
           <ConsentRow checked={terms} onToggle={() => setTerms((v) => !v)}>
             <Text style={styles.rowText}>
               {t('consent.termsPrefix')}
-              <Text style={styles.link} onPress={() => router.push('/terms')}>
+              <Text style={styles.link} onPress={() => openDoc('terms')}>
                 {t('consent.termsLink')}
               </Text>
               {t('consent.termsMiddle')}
-              <Text style={styles.link} onPress={() => router.push('/privacy-policy')}>
+              <Text style={styles.link} onPress={() => openDoc('privacy')}>
                 {t('consent.privacyLink')}
               </Text>
               {t('consent.termsSuffix')}
@@ -97,6 +101,16 @@ export default function Consent() {
           disabled={!terms || !health}
           loading={submitting}
         />
+        {/* Отказ тоже должен быть возможен: без согласий обработка прекращается, а
+            аккаунт после OTP уже есть (и у вернувшегося при новой редакции документов). */}
+        <Pressable
+          onPress={() => router.push('/delete-account')}
+          accessibilityRole="button"
+          hitSlop={8}
+          style={styles.refuse}
+        >
+          <Text style={styles.refuseText}>{t('consent.refuse')}</Text>
+        </Pressable>
       </View>
     </Screen>
   );
@@ -142,5 +156,7 @@ const makeStyles = (th: Theme) => StyleSheet.create({
     marginTop: 2,
   },
   boxChecked: { backgroundColor: th.brand, borderColor: th.brand },
-  footer: { padding: spacing.screen },
+  footer: { padding: spacing.screen, gap: spacing.m },
+  refuse: { alignSelf: 'center', paddingVertical: spacing.xs },
+  refuseText: { fontFamily: th.font.regular, fontSize: 13, color: th.textMuted, textDecorationLine: 'underline' },
 });

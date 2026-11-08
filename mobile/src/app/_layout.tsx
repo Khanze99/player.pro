@@ -156,8 +156,8 @@ function AppStack({ fontsReady }: { fontsReady: boolean }) {
           <Stack.Screen name="food-add" options={{ presentation: 'modal' }} />
           <Stack.Screen name="food-create" options={{ presentation: 'modal' }} />
           <Stack.Screen name="privacy" options={{ presentation: 'modal' }} />
-          <Stack.Screen name="terms" options={{ presentation: 'modal' }} />
-          <Stack.Screen name="privacy-policy" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="delete-account" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="legal/[doc]" options={{ presentation: 'modal' }} />
           <Stack.Screen name="cycle" options={{ presentation: 'modal' }} />
         </Stack>
       ) : (

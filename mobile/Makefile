@@ -1,6 +1,6 @@
 # PlayerPro mobile (React Native + Expo)
 
-.PHONY: help init install start ios android lint test doctor clean
+.PHONY: help init install start ios android lint test doctor clean legal
 
 help: ## Список команд
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-10s\033[0m %s\n", $$1, $$2}'
@@ -36,3 +36,6 @@ doctor: ## Диагностика окружения
 
 clean: ## Удалить node_modules и кэши
 	rm -rf node_modules .expo
+
+legal: ## Пересобрать тексты документов в приложении из landing/*.html
+	node scripts/build-legal.js
