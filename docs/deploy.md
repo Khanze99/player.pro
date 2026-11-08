@@ -17,7 +17,7 @@ Compose — `nginx` → `api` (FastAPI) → `postgres` + `redis`, плюс `work
 
 Апекс `player-pro.ru` — сайт-визитка (`landing/index.html`), третий `server_name` в
 том же nginx, что и остальные два домена. В отличие от `app.`/`admin.` — чистая
-статика без бэкенда: один файл, собирать нечего, `landing/` коммитится в git как
+статика без бэкенда: собирать нечего, `landing/` коммитится в git как
 обычный исходник (не build-артефакт вроде `infra/web/`), обновление — `git pull` на
 сервере.
 
@@ -57,7 +57,7 @@ Managed-сервисы дают бэкапы и отказоустойчивос
 | `infra/nginx/landing.conf` | `server_name player-pro.ru`, :80. Чистая статика `/srv/landing`, без проксирования — у сайта-визитки нет бэкенда. TLS — шаг 5 |
 | `infra/nginx/templates/` | `*-tls.conf`-варианты всех трёх доменов — не загружаются nginx'ом (только `infra/nginx/*.conf` без подпапок монтируется в `conf.d`), копируются поверх активного файла вручную **после** выпуска сертификата (шаг 5) |
 | `infra/web/` | каталог со статикой веб-PWA; nginx монтирует `:ro`, содержимое кладётся шагом 4b (в git не коммитится) |
-| `landing/` | исходник сайта-визитки (`index.html`, один файл, без сборки); nginx монтирует `../landing:/srv/landing:ro`, обновление — `git pull` (в отличие от `infra/web/` коммитится в git как обычный код) |
+| `landing/` | исходник сайта-визитки без сборки: `index.html`, юридические страницы `privacy.html`/`terms.html`/`delete-account.html` (чистые URL через `try_files $uri $uri.html`), свои шрифты в `fonts/`; nginx монтирует `../landing:/srv/landing:ro`, обновление: `git pull` (в отличие от `infra/web/` коммитится в git как обычный код) |
 
 ### `infra/.env` (не коммитить)
 
@@ -146,8 +146,10 @@ sudo usermod -aG docker $USER   # перелогиниться
 git clone <repo> ~/player.pro && cd ~/player.pro
 cp infra/.env.example infra/.env   # заполнить (шаг 1), в т.ч. COMPOSE_PROFILES=web
 
-docker compose -f infra/docker-compose.stand.yml --env-file infra/.env up -d --build
+docker compose -f infra/docker-compose.stand.yml --env-file infra/.env build api admin
+docker compose -f infra/docker-compose.stand.yml --env-file infra/.env up -d
 # COMPOSE_PROFILES=web из .env → поднимется и nginx. migrate накатывает Alembic сам.
+# Не `up -d --build`: см. «Обновление версии» в «Эксплуатации», почему сборка отдельно.
 
 curl -s  http://localhost:8000/health    # {"status":"ok"}  — api напрямую (адрес для APK)
 curl -s  http://localhost/health         # то же через nginx
@@ -187,6 +189,43 @@ $CO exec api python scripts/seed_branding.py \
 
 Герб лежит в томе `branding_data` и переживает пересборку образа. Если тома нет,
 все гербы исчезнут при первом же релизе.
+
+### Ревью-аккаунты для сторов и наших проверок
+
+App Store, Google Play и RuStore проверяют приложение под тестовым входом, а код из
+письма ревьюер не получит. Для двух адресов на нашем домене код фиксированный
+(`docs/plan-legal-texts.md`, «Ревью-аккаунт»). Аккаунты живут в отдельной
+организации **«PlayerPro Demo»** с выдуманными игроками: ревьюеры видят всё, что
+видит тренер этой команды, поэтому реальных людей туда не добавлять.
+
+```bash
+CO="docker compose -f infra/docker-compose.stand.yml --env-file infra/.env"
+
+# 1. В infra/.env (ошибка в значениях роняет старт api, а не вход пользователей):
+#    REVIEW_LOGIN_IDENTIFIERS=review-player@player-pro.ru,review-coach@player-pro.ru
+#    REVIEW_OTP_CODE=000000
+$CO up -d api worker          # пересоздать контейнеры с новыми переменными
+
+# 2. Организация, выдуманный состав и оба аккаунта (повторный запуск безопасен)
+$CO exec api python scripts/seed_review_org.py
+#    refresh: пересоздать состав со свежими датами (история стареет)
+#    $CO exec api python scripts/seed_review_org.py --refresh
+
+# 3. Проверка: код не отправляется, вход по фиксированному коду проходит
+curl -s -X POST https://app.player-pro.ru/api/v1/auth/otp/request \
+  -H 'Content-Type: application/json' -d '{"identifier":"review-player@player-pro.ru"}'   # {"sent":true,...}
+```
+
+- `review-player@player-pro.ru`: игрок «Демо-команды» с историей опросов и RPE за 3
+  недели. `review-coach@player-pro.ru`: тренер этой команды (не админ, удаление
+  аккаунта у него работает).
+- Оба создаются в статусе «новый»: при первом входе ревьюер проходит настоящий
+  онбординг (согласия, пол, PIN).
+- Если ревьюер удалил аккаунт, шаг 2 создаст его заново. Перед каждой подачей в стор
+  проверить вход обоими адресами.
+- В заметках ревьюеру: «Login: review-player@player-pro.ru (athlete) or
+  review-coach@player-pro.ru (coach), code 000000. Delete account is functional and
+  irreversible, please use it last.»
 
 ## Шаг 4b. Веб-PWA (`app.player-pro.ru`)
 
@@ -234,10 +273,15 @@ curl -sI  https://app.player-pro.ru/api/v1/branding  # доходит до FastA
 
 ```bash
 curl -sI http://localhost/ -H "Host: player-pro.ru"   # 200, text/html
+# Юридические страницы: на эти URL ссылаются приложение и карточки в сторах
+for u in /privacy /terms /delete-account /fonts/fonts.css; do
+  curl -s -o /dev/null -w "%{http_code} $u\n" http://localhost$u -H "Host: player-pro.ru"
+done                                                  # все 200
 ```
 
 Обновление = `git pull` на сервере, `reload` nginx не нужен (контент — volume, не
-образ). `reload` нужен, только если менялся сам `landing.conf`.
+образ). `reload` нужен, только если менялся сам `landing.conf` (в том числе после
+перехода на чистые URL юридических страниц: `try_files $uri $uri.html $uri/`).
 
 > Форма заявки (`#contact`) пока декоративная — `onsubmit="return false"`, сабмит
 > никуда не уходит. Реальный приём заявок (письмо/бэкенд-эндпоинт) — отдельная
@@ -363,7 +407,8 @@ server {
 1. **DNS** — A-запись `admin.player-pro.ru` → тот же публичный IP ВМ.
 2. **Собрать и поднять сервис `admin`** (если ещё не поднят — он под тем же
    профилем `web`, что nginx): `docker compose -f infra/docker-compose.stand.yml
-   --env-file infra/.env --profile web up -d --build`. Отдельного `.env`-значения
+   --env-file infra/.env build admin`, затем тот же `-f … --env-file infra/.env
+   --profile web up -d` (без `--build`, см. «Обновление версии»). Отдельного `.env`-значения
    ему не нужно — `API_URL=http://api:8000` уже в compose, секретов у кабинета нет:
    пользователь всегда свой (email OTP → опционально пароль, `docs/plan-web-admin-
    password-auth.md`), сервер ничего своего не хранит.
@@ -484,8 +529,19 @@ dev-сервера Expo (`src/api/client.ts`) — в APK это не работ�
 
 ```bash
 cd ~/player.pro && git pull
-docker compose -f infra/docker-compose.stand.yml up -d --build   # migrate накатит новые ревизии сам
+docker compose -f infra/docker-compose.stand.yml --env-file infra/.env build api admin
+docker compose -f infra/docker-compose.stand.yml --env-file infra/.env up -d   # migrate накатит новые ревизии сам
 ```
+
+> **Почему не `up -d --build`.** У `migrate`, `api`, `worker`, `beat` и `seed` один и тот
+> же образ `playerpro-backend`, и у каждого свой `build:`. `up --build` собирает их
+> параллельно, и тег вешается на образ из нескольких потоков сразу. Сборка проходит, а
+> шаг тегирования падает (замечено 2026-11-08 при выкатке 1.8):
+> `failed to create an image docker.io/library/playerpro-backend:latest … AlreadyExists`.
+> Контейнеры при этом не пересоздаются, на стенде остаётся старая версия. Поэтому образ
+> собирается одним сервисом (`build api`), остальные берут его же. `admin` - отдельный
+> образ, его можно собирать той же командой. Если тег всё же застрял:
+> `docker image rm playerpro-backend:latest` и повторить `build api`.
 
 > Если после этого сервис **без своего `build:`** (в первую очередь `nginx`) ведёт себя
 > так, будто не видит изменений в своих файлах/томах (новый `.conf` в `infra/nginx/`,
