@@ -63,6 +63,19 @@ async def _find_user(db: AsyncSession, kind: str, value: str) -> User | None:
     return row.scalar_one_or_none()
 
 
+def _ensure_not_deleted(user: User) -> None:
+    """Защита в глубину: у надгробия phone/email стёрты, и `_find_user` его не найдёт.
+    Но если строка всё же нашлась, verify_otp не должен «воскресить» её в active."""
+    if user.status == UserStatus.deleted:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Сначала запросите код")
+
+
+def _is_review_login(value: str) -> bool:
+    """Значения проверены и нормализованы при старте (Settings._check_review_login):
+    опечатка в .env роняет запуск, а не вход всех пользователей."""
+    return bool(settings.review_otp_code) and value in settings.review_logins
+
+
 async def request_otp(db: AsyncSession, store: OtpStore, identifier: str) -> str | None:
     """Создаёт/находит пользователя, шлёт OTP. Возвращает код только в debug-режиме."""
     kind, value = normalize_identifier(identifier)
@@ -80,6 +93,13 @@ async def request_otp(db: AsyncSession, store: OtpStore, identifier: str) -> str
         await db.commit()
     elif user.status == UserStatus.blocked:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Аккаунт заблокирован")
+    _ensure_not_deleted(user)
+
+    if _is_review_login(value):
+        # Ревью-аккаунт для сторов и наших проверок: фиксированный код, без отправки.
+        # TTL, лимит попыток и rate limit работают как обычно (docs/plan-legal-texts.md).
+        await store.save_challenge(value, settings.review_otp_code)
+        return None
 
     code = generate_otp_code()
     await store.save_challenge(value, code)
@@ -114,6 +134,7 @@ async def verify_otp(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Сначала запросите код")
     if user.status == UserStatus.blocked:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Аккаунт заблокирован")
+    _ensure_not_deleted(user)
 
     is_new_user = user.status != UserStatus.active
     user.status = UserStatus.active

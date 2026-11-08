@@ -4,7 +4,7 @@ PYTHON := $(VENV)/bin/python
 PIP := $(VENV)/bin/pip
 COMPOSE := docker compose -f ../infra/docker-compose.yml
 
-.PHONY: help install dev worker beat test lint format migration upgrade downgrade seed seed-reset seed-second-team seed-season-stats set-admin add-member branding foods foods-off delete-user infra-up infra-celery infra-down clean
+.PHONY: help install dev worker beat test lint format migration upgrade downgrade seed seed-reset seed-second-team seed-season-stats set-admin add-member branding foods foods-off delete-user delete-account seed-review-org infra-up infra-celery infra-down clean
 
 help: ## Список команд
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-12s\033[0m %s\n", $$1, $$2}'
@@ -53,6 +53,9 @@ seed: ## Демо-данные: команда 25 игроков + месяц н
 seed-reset: ## Пересоздать демо-данные с нуля
 	$(PYTHON) scripts/seed_demo.py --reset
 
+seed-review-org: ## Тестовая организация для ревью сторов: выдуманный состав + review-player@ и review-coach@player-pro.ru [org="PlayerPro Demo"] [team="Демо-команда"] [refresh=1]
+	$(PYTHON) scripts/seed_review_org.py $(if $(org),--org "$(org)",) $(if $(team),--team "$(team)",) $(if $(filter 1,$(refresh)),--refresh,)
+
 seed-second-team: ## Вторая команда в организации — проверка перевода игрока: make seed-second-team org="ФK РУБИН" team="Молодёжка" [count=4]
 	@test -n "$(org)" -a -n "$(team)" || (echo 'Нужно: make seed-second-team org="ФK РУБИН" team="Молодёжка"'; exit 1)
 	$(PYTHON) scripts/seed_second_team.py --org "$(org)" --team "$(team)" $(if $(count),--count $(count),)
@@ -82,6 +85,10 @@ foods-off: ## Импорт дампа Open Food Facts: make foods-off f=dump.csv
 delete-user: ## Удалить юзера со всеми данными: make delete-user identifier="a@b.com" [yes=1]
 	@test -n "$(identifier)" || (echo 'Нужно: make delete-user identifier="a@b.com" [yes=1]'; exit 1)
 	$(PYTHON) scripts/delete_user.py --identifier "$(identifier)" $(if $(filter 1,$(yes)),--yes,)
+
+delete-account: ## Боевое удаление аккаунта по запросу (надгробие, как кнопка в приложении): make delete-account identifier="a@b.com" | user_id="<uuid>" [yes=1]
+	@test -n "$(identifier)$(user_id)" || (echo 'Нужно: make delete-account identifier="a@b.com" [yes=1] или user_id="<uuid>" [yes=1]'; exit 1)
+	$(PYTHON) scripts/delete_account.py $(if $(identifier),--identifier "$(identifier)",--user-id "$(user_id)") $(if $(filter 1,$(yes)),--yes,)
 
 invite: ## Пригласить email в демо-организацию тестовой ролью: make invite org="ФK РУБИН" team="Основа" email="a@b.com" role=head_coach
 	@test -n "$(org)" -a -n "$(team)" -a -n "$(email)" -a -n "$(role)" || (echo 'Нужно: make invite org="ФK РУБИН" team="Основа" email="a@b.com" role=head_coach'; exit 1)

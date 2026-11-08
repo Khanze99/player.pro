@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends
 
 from app.api.deps import require_consented
 from app.api.v1 import (
+    account,
     analytics,
     auth,
     availability,
@@ -24,10 +25,13 @@ from app.api.v1 import (
 
 router = APIRouter(prefix="/api/v1")
 
-# auth и consent — без гейта require_consented: /auth/* должен работать до
+# auth, consent и account без гейта require_consented: /auth/* должен работать до
 # онбординга (refresh/logout/me), а /consents/policy иначе блокировал бы сам себя.
 router.include_router(auth.router)
 router.include_router(consent.router)
+# account тоже без гейта: удалиться можно, не принимая новую редакцию документов
+# (экран consent → «Не согласен, удалить аккаунт», docs/plan-legal-texts.md).
+router.include_router(account.router)
 
 # features/branding уже требуют CurrentUser (авторизация), но не завязаны на
 # согласие: в потоке онбординга экран consent идёт сразу после логина и не

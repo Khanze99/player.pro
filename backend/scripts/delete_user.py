@@ -1,5 +1,9 @@
 """Удаление пользователя по email/телефону со всеми зависимыми данными.
 
+ТОЛЬКО ДЛЯ СТЕНДА. Боевые аккаунты (запрос пользователя на удаление) удаляются
+через `make delete-account` (scripts/delete_account.py → account_deletion_service):
+там надгробие вместо hard delete, и чужие RPE/посещаемость не сносятся.
+
 Запуск:  make delete-user identifier="test@example.com"
 
 В БД ни у одной таблицы, ссылающейся на users.id, нет ON DELETE CASCADE (все

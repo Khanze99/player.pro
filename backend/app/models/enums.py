@@ -95,6 +95,10 @@ class UserStatus(str, enum.Enum):
     pending = "pending"
     active = "active"
     blocked = "blocked"
+    # «Надгробие» после удаления аккаунта (docs/plan-legal-texts.md): ПДн стёрты,
+    # строка остаётся ради чужих событий и audit_logs.actor_id. Колонка String(16)
+    # без CHECK, поэтому новое значение миграции не требует.
+    deleted = "deleted"
 
 
 class EventType(str, enum.Enum):

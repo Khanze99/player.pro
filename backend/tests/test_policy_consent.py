@@ -330,14 +330,14 @@ def _v1_submodules():
 
 def test_every_v1_router_is_gated_or_explicitly_allowlisted():
     """Каждый роутер, подключённый в router.py, обязан либо нести
-    require_consented, либо быть в жёстком allowlist (auth, consent).
+    require_consented, либо быть в жёстком allowlist (auth, consent, account).
 
     Смысл: новый роутер, добавленный без гейта, должен ронять этот тест,
     а не проходить незамеченным.
     """
     from app.api.v1 import router as router_module
 
-    allowlist = {"auth", "consent"}
+    allowlist = {"auth", "consent", "account"}
     v1_routes = router_module.router.routes
     submodules = list(_v1_submodules())
     assert submodules, "не нашли ни одного подключённого роутера — тест сломан"
@@ -369,7 +369,7 @@ async def test_allowlisted_routers_are_not_accidentally_gated():
     from app.api.v1 import router as router_module
 
     v1_routes = router_module.router.routes
-    for name in ("auth", "consent"):
+    for name in ("auth", "consent", "account"):
         module = vars(router_module)[name]
         prefix = module.router.prefix
         matching = [r for r in v1_routes if getattr(r, "path", "").startswith(f"/api/v1{prefix}")]

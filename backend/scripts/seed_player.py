@@ -131,7 +131,8 @@ async def seed_player(
 
         profile = await db.get(AthleteProfile, user.id)
         if profile is None:
-            db.add(AthleteProfile(user_id=user.id, sex=sex or Sex.not_specified))
+            profile = AthleteProfile(user_id=user.id, sex=sex or Sex.not_specified)
+            db.add(profile)
         elif sex is not None:
             profile.sex = sex
 

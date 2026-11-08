@@ -1,4 +1,11 @@
+import re
+
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# Ревью-аккаунты принимаются только на нашем домене: по ошибке вписанный адрес
+# реального человека не должен открываться вечным кодом без доставки.
+_REVIEW_EMAIL_RE = re.compile(r"^[a-z0-9._%+-]+@player-pro\.ru$")
 
 
 class Settings(BaseSettings):
@@ -20,6 +27,15 @@ class Settings(BaseSettings):
     # По умолчанию лог: SMS-провайдера нет, SMTP настраивается только в проде.
     otp_email_channel: str = "log"
     otp_phone_channel: str = "log"
+
+    # Ревью-аккаунты для App Store / Google Play / RuStore и наших проверок на проде
+    # (docs/plan-legal-texts.md): ревьюер не получит OTP на почту, поэтому для этих
+    # адресов код фиксированный и не отправляется. Список через запятую, только
+    # адреса @player-pro.ru, код ровно 6 цифр. Оба пустые = механизма нет (дефолт,
+    # тесты, локальная разработка). Ошибка в значениях роняет старт приложения, а не
+    # вход пользователей.
+    review_login_identifiers: str = ""
+    review_otp_code: str = ""
 
     # Yandex Cloud Postbox: логин — ID API-ключа, пароль — его секрет как есть
     # (не статический ключ доступа и без преобразования AWS4).
@@ -52,8 +68,11 @@ class Settings(BaseSettings):
     # docs/plan-onboarding-consent.md). Пользовательское соглашение + Политика
     # конфиденциальности (152-ФЗ ст. 9) и отдельное согласие на данные о здоровье
     # (152-ФЗ ст. 10) переспрашиваются независимо друг от друга при смене версии.
-    terms_policy_version: str = "2026-09-03"
-    health_consent_policy_version: str = "2026-09-03"
+    # 2026-11-08: редакция с клубом-оператором, полным списком данных, 18+ и удалением
+    # аккаунта (docs/plan-legal-texts.md). Значение = «Версия» в шапке
+    # landing/privacy.html и landing/terms.html: менять только вместе с ними.
+    terms_policy_version: str = "2026-11-08"
+    health_consent_policy_version: str = "2026-11-08"
 
     # Фича-флаги. Обе фичи выключены до готовности юридического текста согласия
     # и продуктового решения по отображению. Код есть и покрыт тестами, но
@@ -74,6 +93,23 @@ class Settings(BaseSettings):
     celery_task_always_eager: bool = False
 
     cors_origins: list[str] = ["http://localhost:3000", "http://localhost:8081"]
+
+    @property
+    def review_logins(self) -> frozenset[str]:
+        """Нормализованные адреса ревью-аккаунтов (проверены в _check_review_login)."""
+        return frozenset(v.strip().lower() for v in self.review_login_identifiers.split(",") if v.strip())
+
+    @model_validator(mode="after")
+    def _check_review_login(self) -> "Settings":
+        logins, code = self.review_logins, self.review_otp_code
+        if bool(logins) != bool(code):
+            raise ValueError("REVIEW_LOGIN_IDENTIFIERS и REVIEW_OTP_CODE задаются только вместе")
+        if code and not re.fullmatch(r"\d{6}", code):
+            raise ValueError("REVIEW_OTP_CODE: ровно 6 цифр")
+        bad = sorted(v for v in logins if not _REVIEW_EMAIL_RE.match(v))
+        if bad:
+            raise ValueError(f"REVIEW_LOGIN_IDENTIFIERS: только адреса @player-pro.ru, не подходят: {bad}")
+        return self
 
 
 settings = Settings()

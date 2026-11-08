@@ -31,6 +31,10 @@ x-backend-env: &backend-env
   CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://redis:6379/2}
   OTP_EMAIL_CHANNEL: ${OTP_EMAIL_CHANNEL:-log}
   OTP_PHONE_CHANNEL: ${OTP_PHONE_CHANNEL:-log}
+  # Ревью-аккаунты сторов и наших проверок (docs/plan-legal-texts.md): фиксированный
+  # код для перечисленных email @player-pro.ru, без отправки. Пусто = выключено.
+  REVIEW_LOGIN_IDENTIFIERS: ${REVIEW_LOGIN_IDENTIFIERS:-}
+  REVIEW_OTP_CODE: ${REVIEW_OTP_CODE:-}
   SMTP_HOST: ${SMTP_HOST:-}
   SMTP_PORT: ${SMTP_PORT:-587}
   SMTP_USER: ${SMTP_USER:-}
