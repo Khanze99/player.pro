@@ -27,6 +27,8 @@ import { ToastHost } from '@/components/Toast';
 
 void SplashScreen.preventAutoHideAsync();
 
+type OnboardingTarget = '/(auth)/consent' | '/(auth)/profile-setup' | '/(auth)/sex-select' | '/(auth)/pin-setup';
+
 function AuthGate() {
   const status = session((s) => s.status);
   const router = useRouter();
@@ -40,6 +42,13 @@ function AuthGate() {
   useEffect(() => {
     if (status === 'loading') return;
     const inAuth = segments[0] === '(auth)';
+    // replace из корневого лейаута пересоздаёт его целиком (expo-router 57), гейт
+    // монтируется заново и снова видит тот же статус. Без этой проверки он бы
+    // бесконечно заменял экран сам на себя: «Maximum update depth exceeded».
+    const current = `/${segments.join('/')}`;
+    const go = (target: '/(auth)/welcome' | '/(auth)/pin' | OnboardingTarget) => {
+      if (current !== target) router.replace(target);
+    };
     if (status === 'active') {
       if (inAuth) router.replace('/');
       return;
@@ -51,11 +60,7 @@ function AuthGate() {
     const routeOnboarding = async () => {
       // Приложение перезапустили посреди онбординга: access-токена в памяти нет
       if (!session.getState().accessToken) await refreshAccessToken();
-      let target:
-        | '/(auth)/consent'
-        | '/(auth)/profile-setup'
-        | '/(auth)/sex-select'
-        | '/(auth)/pin-setup' = '/(auth)/pin-setup';
+      let target: OnboardingTarget = '/(auth)/pin-setup';
       if (await isNewUser()) {
         // Безопасный дефолт для нового пользователя — самый ранний незавершённый шаг:
         // без обоих согласий (152-ФЗ, docs/plan-onboarding-consent.md) дальше пускать нельзя,
@@ -73,15 +78,15 @@ function AuthGate() {
         }
       }
       // Статус мог смениться, пока ждали сеть (например, signOut по 401)
-      if (session.getState().status === 'onboarding') router.replace(target);
+      if (session.getState().status === 'onboarding') go(target);
     };
 
     if (status === 'signedOut') {
-      router.replace('/(auth)/welcome');
+      go('/(auth)/welcome');
     } else if (status === 'onboarding') {
       void routeOnboarding();
     } else {
-      router.replace('/(auth)/pin');
+      go('/(auth)/pin');
     }
     // segments намеренно не в зависимостях: реагируем только на смену статуса сессии
     // eslint-disable-next-line react-hooks/exhaustive-deps
