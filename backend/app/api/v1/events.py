@@ -3,7 +3,7 @@ from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, HTTPException, status
 
-from app.api.deps import CurrentUser, DbSession
+from app.api.deps import CurrentUser, DbSession, require_workouts_enabled
 from app.core import authz
 from app.schemas.event import AttendanceIn, AttendanceOut, EventCreateIn, EventOut, EventUpdateIn
 from app.services import events_service
@@ -19,10 +19,18 @@ async def _require_manage(db, user, event) -> None:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Недостаточно прав")
 
 
+async def _require_own_workout(db, user, workout_id: uuid.UUID | None) -> None:
+    """Шаблон на событии: фича включена и шаблон свой (docs/plan-workout-builder.md)."""
+    if workout_id is not None:
+        require_workouts_enabled()
+        await authz.require_workout_owner(db, user, workout_id)
+
+
 @router.post("", response_model=EventOut, status_code=201)
 async def create_event(data: EventCreateIn, user: CurrentUser, db: DbSession):
     if data.team_id is not None:
         await authz.require_team_coach(db, user, data.team_id)
+    await _require_own_workout(db, user, data.workout_id)
     return await events_service.create_event(db, user.id, data)
 
 
@@ -56,6 +64,7 @@ async def team_events(
 async def update_event(event_id: uuid.UUID, data: EventUpdateIn, user: CurrentUser, db: DbSession):
     event = await events_service.get_event(db, event_id)
     await _require_manage(db, user, event)
+    await _require_own_workout(db, user, data.workout_id)
     return await events_service.update_event(db, event, data, user.id)
 
 

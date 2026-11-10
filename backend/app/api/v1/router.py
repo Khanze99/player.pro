@@ -23,6 +23,8 @@ from app.api.v1 import (
     teams,
     users,
     wellness,
+    workout_sessions,
+    workouts,
 )
 
 router = APIRouter(prefix="/api/v1")
@@ -53,6 +55,8 @@ router.include_router(rpe.router, dependencies=[_consented])
 router.include_router(notifications.router, dependencies=[_consented])
 router.include_router(events.router, dependencies=[_consented])
 router.include_router(exercises.router, dependencies=[_consented])
+router.include_router(workouts.router, dependencies=[_consented])
+router.include_router(workout_sessions.router, dependencies=[_consented])
 router.include_router(availability.router, dependencies=[_consented])
 router.include_router(injuries.router, dependencies=[_consented])
 router.include_router(medical_exams.router, dependencies=[_consented])

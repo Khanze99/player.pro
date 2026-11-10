@@ -1,6 +1,6 @@
 # План: конструктор тренировок в личном режиме
 
-Статус: **шаги 1-5 сделаны (2026-11-10), дальше роуты.** Дата составления: 2026-11-10.
+Статус: **шаги 1-6 сделаны (2026-11-10), дальше тесты доступа и границ.** Дата составления: 2026-11-10.
 
 Дополняет `PlayerPro_TZ_final.md`: раздела про библиотеку упражнений и конструктор
 тренировок в ТЗ нет. Строится поверх справочника упражнений из ветки
@@ -346,7 +346,7 @@ has_image`. `ExerciseOut` добавляет `secondary_muscles`, `steps_ru/en/e
 | 3 | api-designer | схемы справочника, шаблонов, сессий, расширение `EventIn/Out` | схемы и коды ошибок совпадают с разделом «API» ✅ Сделано: схемы + enum `WorkoutItemMode`, валидация проверена на граничных случаях |
 | 4 | db-architect | модели `Workout`, `WorkoutItem`, `WorkoutSession`, `WorkoutSessionSet`, `Event.workout_id`, enum `WorkoutItemMode`, миграция | `make upgrade`/`make downgrade` проходят; индексы и частичные уникальные на месте ✅ Сделано: `app/models/workout.py`, миграция `2093f8157b86`, FK `events_workout_id_fkey` назван вручную для отката; `OWNED` удаления аккаунта дополнен |
 | 5 | python-senior | `exercise_service` (поиск, фасеты, карточка, история), `workouts_service`, `workout_sessions_service`, правила в `authz`, флаг, `OWNED` | `make lint` чист ✅ Сделано: `exercise_service` (поиск, фильтры), `workouts_service`, `workout_sessions_service`, `authz.require_workout_owner`/`require_session_owner`, флаг и `require_workouts_enabled`, `Event.workout` для `workout_name` |
-| 6 | python-senior | роуты `/exercises`, `/workouts`, `/workout-sessions`, расширение `/events` | в роутах нет логики и запросов к БД |
+| 6 | python-senior | роуты `/exercises`, `/workouts`, `/workout-sessions`, расширение `/events` | в роутах нет логики и запросов к БД ✅ Сделано: `exercises.py` (поиск, фильтры, карточка, история), `workouts.py`, `workout_sessions.py`, проверка шаблона в `/events`; сквозной тест `test_workouts.py` |
 | 7 | tester | доступ (чужое 404, командное событие 422, флаг выкл 404), валидация режимов, одна активная сессия 409, одно выполнение на событие, «начать сейчас» создаёт событие, `finish` и `elapsed_min`, удаление шаблона не трогает историю, удаление аккаунта чистит всё, поиск и фасеты | `make test` зелёный |
 | 8 | mobile | типы, хуки, флаг; экраны `workouts`, `workout-edit`, `exercise-picker`, `exercise/[id]`; правки `event-create`, `event/[id]`, календаря, профиля; i18n ×3 | `tsc` чист; проверено на iOS-симуляторе и в вебе |
 | 9 | mobile | `workout-run`, переход в RPE с фактом, баннер активной сессии | полный проход: шаблон → календарь → выполнение → RPE на симуляторе |
