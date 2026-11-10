@@ -76,6 +76,30 @@ def test_row_values_applies_translation_override():
 # ------------------------------------------------------------------ upsert
 
 
+DATASET_SIZE = 1324  # записей в exercises-dataset на момент импорта
+
+
+def test_translations_cover_whole_dataset():
+    """Названия видит русско- и испаноязычный пользователь: без перевода нельзя
+    (docs/plan-workout-builder.md). Датасета в репозитории нет, поэтому проверяем
+    сам файл переводов: по ключу на каждое упражнение, ничего пустого."""
+    translations = exercises._load_translations(exercises.DEFAULT_TRANSLATIONS)
+    assert len(translations) == DATASET_SIZE
+    for external_id, names in translations.items():
+        assert names.get("ru", "").strip(), external_id
+        assert names.get("es", "").strip(), external_id
+
+
+def test_translated_names_are_unique_per_language():
+    """В выборе упражнения два одинаковых названия неразличимы: у дублей датасета
+    второе помечено «(вариант 2)»."""
+    translations = exercises._load_translations(exercises.DEFAULT_TRANSLATIONS)
+    for lang in ("ru", "es"):
+        names = [entry[lang] for entry in translations.values()]
+        duplicates = {name for name in names if names.count(name) > 1}
+        assert not duplicates, f"{lang}: {sorted(duplicates)}"
+
+
 async def _dataset_rows(db) -> list[Exercise]:
     rows = await db.execute(
         select(Exercise)

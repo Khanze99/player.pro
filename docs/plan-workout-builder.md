@@ -1,6 +1,6 @@
 # План: конструктор тренировок в личном режиме
 
-Статус: **шаг 1 сделан (2026-11-10), дальше перевод названий.** Дата составления: 2026-11-10.
+Статус: **шаги 1-2 сделаны (2026-11-10), дальше контракт API.** Дата составления: 2026-11-10.
 
 Дополняет `PlayerPro_TZ_final.md`: раздела про библиотеку упражнений и конструктор
 тренировок в ТЗ нет. Строится поверх справочника упражнений из ветки
@@ -333,7 +333,7 @@ has_image`. `ExerciseOut` добавляет `secondary_muscles`, `steps_ru/en/e
 | # | Кто | Что | Критерий приёмки |
 |---|---|---|---|
 | 1 | python-senior | ветка `feat/workout-builder`, влить `feat/exercise-catalog`, удалить старую миграцию, `make migration m="exercises catalog"` | `make upgrade`, `make downgrade`, снова `make upgrade` чисто; тесты импорта зелёные ✅ Сделано: миграция `7cace068acf9`, `Exercise.created_by` добавлен в `OWNED` удаления аккаунта |
-| 2 | я + ревью пользователя | перевод 1174 названий ru/es в `exercise_translations.json` | тест: у всех 1324 записей датасета есть ru и es, ни одно не равно `name_en` случайно (список осознанных исключений в тесте) |
+| 2 | я + ревью пользователя | перевод 1174 названий ru/es в `exercise_translations.json` | тест: у всех 1324 записей датасета есть ru и es, ни одно не равно `name_en` случайно (список осознанных исключений в тесте) ✅ Сделано: 1324/1324, тесты полноты и уникальности в `test_exercise_import.py` |
 | 3 | api-designer | схемы справочника, шаблонов, сессий, расширение `EventIn/Out` | схемы и коды ошибок совпадают с разделом «API» |
 | 4 | db-architect | модели `Workout`, `WorkoutItem`, `WorkoutSession`, `WorkoutSessionSet`, `Event.workout_id`, enum `WorkoutItemMode`, миграция | `make upgrade`/`make downgrade` проходят; индексы и частичные уникальные на месте |
 | 5 | python-senior | `exercise_service` (поиск, фасеты, карточка, история), `workouts_service`, `workout_sessions_service`, правила в `authz`, флаг, `OWNED` | `make lint` чист |
