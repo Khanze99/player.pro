@@ -54,6 +54,7 @@ from app.models.team import TeamMembership
 from app.models.user import AthleteProfile, RefreshToken, User
 from app.models.weight_goal import WeightGoal
 from app.models.wellness import WellnessEntry
+from app.models.workout import Workout, WorkoutSession
 from app.services import audit_service, avatar_service
 from app.services.auth_service import normalize_identifier
 
@@ -75,6 +76,11 @@ OWNED = [
     (CycleLog, CycleLog.athlete_id),
     (CycleSettings, CycleSettings.user_id),
     (FoodLogEntry, FoodLogEntry.athlete_id),
+    # Тренировки (docs/plan-workout-builder.md): подходы и пункты шаблона уходят
+    # по ondelete=CASCADE. Сессии раньше шаблонов: workout_id у них SET NULL, но
+    # так нет лишних UPDATE.
+    (WorkoutSession, WorkoutSession.athlete_id),
+    (Workout, Workout.owner_id),
     # Пользовательский продукт виден только автору (nutrition_service): чужих
     # записей дневника на нём быть не может.
     (FoodItem, FoodItem.created_by),

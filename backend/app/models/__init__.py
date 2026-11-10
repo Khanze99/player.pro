@@ -30,6 +30,7 @@ from app.models.enums import (
     SymptomType,
     TeamRole,
     UserStatus,
+    WorkoutItemMode,
 )
 from app.models.event import Attendance, Event
 from app.models.exercise import Exercise
@@ -49,6 +50,7 @@ from app.models.team import Location, Team, TeamMembership
 from app.models.user import AthleteProfile, RefreshToken, User
 from app.models.weight_goal import WeightGoal
 from app.models.wellness import WellnessEntry
+from app.models.workout import Workout, WorkoutItem, WorkoutSession, WorkoutSessionSet
 
 __all__ = [
     "AuditLog",
@@ -86,6 +88,11 @@ __all__ = [
     "Attendance",
     "Event",
     "Exercise",
+    "Workout",
+    "WorkoutItem",
+    "WorkoutItemMode",
+    "WorkoutSession",
+    "WorkoutSessionSet",
     "ExerciseBodyPart",
     "ExerciseSource",
     "InjuryRecord",
