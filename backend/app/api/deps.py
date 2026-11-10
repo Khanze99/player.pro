@@ -4,6 +4,7 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.core.security import decode_access_token
 from app.database import get_db
 from app.models.enums import UserStatus
@@ -45,3 +46,12 @@ async def require_consented(user: CurrentUser, db: DbSession) -> User:
             detail="Требуется согласие на обработку персональных данных",
         )
     return user
+
+
+def require_workouts_enabled() -> None:
+    """Конструктор тренировок под флагом выкатки (docs/plan-workout-builder.md).
+
+    Выключен: 404, а не 403. Для клиента фичи просто нет, как и в GET /features.
+    """
+    if not settings.feature_workouts_enabled:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not Found")

@@ -20,6 +20,7 @@ from app.models.enums import (
 )
 from app.models.team import Team, TeamMembership
 from app.models.user import User
+from app.models.workout import Workout, WorkoutSession
 
 
 def _forbidden(detail: str = "Недостаточно прав") -> HTTPException:
@@ -248,3 +249,23 @@ async def ensure_can_manage_season_stats(db: AsyncSession, viewer: User, athlete
     if role in COACH_ROLES:
         return
     raise _forbidden()
+
+
+# ---------------------------------------------------------------- тренировки
+# Строго личные данные (docs/plan-workout-builder.md): только владелец, роли и
+# команды не дают доступа. Чужое отвечает 404, как в дневнике питания: не
+# раскрываем, что такой id существует.
+
+
+async def require_workout_owner(db: AsyncSession, user: User, workout_id: uuid.UUID) -> Workout:
+    workout = await db.get(Workout, workout_id)
+    if workout is None or workout.owner_id != user.id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Тренировка не найдена")
+    return workout
+
+
+async def require_session_owner(db: AsyncSession, user: User, session_id: uuid.UUID) -> WorkoutSession:
+    session = await db.get(WorkoutSession, session_id)
+    if session is None or session.athlete_id != user.id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Тренировка не найдена")
+    return session

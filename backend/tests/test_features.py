@@ -1,4 +1,4 @@
-"""Фича-флаги: обе фичи по умолчанию выключены."""
+"""Фича-флаги: все фичи по умолчанию выключены."""
 
 from app.config import settings
 from tests.conftest import register_user
@@ -8,7 +8,7 @@ async def test_features_default_off(client):
     user = await register_user(client, "flags@example.com")
     resp = await client.get("/api/v1/features", headers=user["headers"])
     assert resp.status_code == 200
-    assert resp.json() == {"cycle": False, "nutrition": False}
+    assert resp.json() == {"cycle": False, "nutrition": False, "workouts": False}
 
 
 async def test_features_reflect_config(client, monkeypatch):
@@ -17,6 +17,14 @@ async def test_features_reflect_config(client, monkeypatch):
     resp = await client.get("/api/v1/features", headers=user["headers"])
     assert resp.json()["nutrition"] is True
     assert resp.json()["cycle"] is False
+    assert resp.json()["workouts"] is False
+
+
+async def test_features_workouts_flag(client, monkeypatch):
+    monkeypatch.setattr(settings, "feature_workouts_enabled", True)
+    user = await register_user(client, "flags3@example.com")
+    resp = await client.get("/api/v1/features", headers=user["headers"])
+    assert resp.json()["workouts"] is True
 
 
 async def test_features_require_auth(client):

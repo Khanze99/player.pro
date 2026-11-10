@@ -16,6 +16,7 @@ router = APIRouter(prefix="/features", tags=["features"])
 class FeaturesOut(BaseModel):
     cycle: bool
     nutrition: bool
+    workouts: bool
 
 
 @router.get("", response_model=FeaturesOut)
@@ -23,4 +24,5 @@ async def features(user: CurrentUser):
     return FeaturesOut(
         cycle=settings.feature_cycle_enabled,
         nutrition=settings.feature_nutrition_enabled,
+        workouts=settings.feature_workouts_enabled,
     )

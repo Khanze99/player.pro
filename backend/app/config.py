@@ -79,6 +79,9 @@ class Settings(BaseSettings):
     # в интерфейсе не появляется. Включать по одному флагу.
     feature_cycle_enabled: bool = False
     feature_nutrition_enabled: bool = False
+    # Конструктор тренировок (docs/plan-workout-builder.md): флаг выкатки, не пейволл.
+    # Справочник упражнений им не закрывается.
+    feature_workouts_enabled: bool = False
 
     # Ночной пересчёт DailyMetric. Прогон ставит Celery Beat (сервис `beat`);
     # nightly_recalc_enabled=false — периодическая задача не регистрируется в расписании.

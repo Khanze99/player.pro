@@ -29,6 +29,7 @@ from sqlalchemy.sql import func
 
 from app.database import Base
 from app.models.enums import WorkoutItemMode
+from app.models.exercise import Exercise
 
 
 class Workout(Base):
@@ -75,6 +76,7 @@ class WorkoutItem(Base):
     notes: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     workout: Mapped[Workout] = relationship(back_populates="items")
+    exercise: Mapped[Exercise] = relationship(lazy="joined")
 
 
 class WorkoutSession(Base):

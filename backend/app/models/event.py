@@ -1,12 +1,16 @@
 import uuid
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import DateTime, ForeignKey, String
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
 from app.database import Base
 from app.models.enums import AttendanceStatus, EventType
+
+if TYPE_CHECKING:
+    from app.models.workout import Workout
 
 
 class Event(Base):
@@ -28,6 +32,14 @@ class Event(Base):
         ForeignKey("workouts.id", ondelete="SET NULL"), nullable=True
     )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    # joined: EventOut отдаёт workout_name, и в async-сессии ленивая загрузка
+    # упала бы при сериализации. У большинства событий шаблона нет, LEFT JOIN дешёвый.
+    workout: Mapped["Workout | None"] = relationship(lazy="joined")
+
+    @property
+    def workout_name(self) -> str | None:
+        return self.workout.name if self.workout is not None else None
 
 
 class Attendance(Base):

@@ -14,7 +14,18 @@ from app.schemas.event import EventCreateIn, EventUpdateIn
 from app.services import notifications_service
 
 
+def _ensure_workout_allowed(team_id: uuid.UUID | None, workout_id: uuid.UUID | None) -> None:
+    """Шаблон тренировки ставится только на личное событие (docs/plan-workout-builder.md).
+    Что шаблон свой, проверяет роут через authz.require_workout_owner."""
+    if workout_id is not None and team_id is not None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Шаблон тренировки можно поставить только на личное событие",
+        )
+
+
 async def create_event(db: AsyncSession, creator_id: uuid.UUID, data: EventCreateIn) -> Event:
+    _ensure_workout_allowed(data.team_id, data.workout_id)
     event = Event(
         team_id=data.team_id,
         type=data.type,
@@ -23,6 +34,7 @@ async def create_event(db: AsyncSession, creator_id: uuid.UUID, data: EventCreat
         planned_duration_min=data.planned_duration_min,
         location_id=data.location_id,
         created_by=creator_id,
+        workout_id=data.workout_id,
     )
     db.add(event)
     await db.flush()
@@ -40,8 +52,10 @@ async def get_event(db: AsyncSession, event_id: uuid.UUID) -> Event:
 
 
 async def update_event(db: AsyncSession, event: Event, data: EventUpdateIn, actor_id: uuid.UUID) -> Event:
+    updates = data.model_dump(exclude_unset=True)
+    _ensure_workout_allowed(event.team_id, updates.get("workout_id"))
     changed: set[str] = set()
-    for field, value in data.model_dump(exclude_unset=True).items():
+    for field, value in updates.items():
         if getattr(event, field) != value:
             changed.add(field)
         setattr(event, field, value)
