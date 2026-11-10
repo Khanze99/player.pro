@@ -38,6 +38,7 @@ from app.models.consent import DataConsent
 from app.models.cycle import CycleLog, CycleSettings
 from app.models.enums import GlobalRole, InvitationStatus, UserStatus
 from app.models.event import Attendance, Event
+from app.models.exercise import Exercise
 from app.models.injury import InjuryRecord
 from app.models.invitation import Invitation
 from app.models.medical_exam import MedicalExam
@@ -77,6 +78,9 @@ OWNED = [
     # Пользовательский продукт виден только автору (nutrition_service): чужих
     # записей дневника на нём быть не может.
     (FoodItem, FoodItem.created_by),
+    # Своё упражнение (source=custom) видно только автору, как свой продукт.
+    # Сегодня у всех записей справочника created_by = NULL.
+    (Exercise, Exercise.created_by),
     (NutritionTarget, NutritionTarget.user_id),
     (WeightGoal, WeightGoal.user_id),
     (AthleteProfile, AthleteProfile.user_id),

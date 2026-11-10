@@ -12,6 +12,8 @@ from app.models.enums import (
     ConsentScope,
     CustomFoodKind,
     EventType,
+    ExerciseBodyPart,
+    ExerciseSource,
     FoodCategory,
     FoodSource,
     GlobalRole,
@@ -30,6 +32,7 @@ from app.models.enums import (
     UserStatus,
 )
 from app.models.event import Attendance, Event
+from app.models.exercise import Exercise
 from app.models.injury import InjuryRecord
 from app.models.invitation import Invitation
 from app.models.medical_exam import MedicalExam
@@ -82,6 +85,9 @@ __all__ = [
     "UserStatus",
     "Attendance",
     "Event",
+    "Exercise",
+    "ExerciseBodyPart",
+    "ExerciseSource",
     "InjuryRecord",
     "Invitation",
     "DailyMetric",
