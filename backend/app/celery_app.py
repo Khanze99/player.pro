@@ -16,7 +16,7 @@ celery_app = Celery(
     "playerpro",
     broker=settings.celery_broker_url,
     backend=settings.celery_result_backend,
-    include=["app.tasks.analytics_tasks"],
+    include=["app.tasks.analytics_tasks", "app.tasks.notification_tasks"],
 )
 
 celery_app.conf.update(
@@ -33,13 +33,28 @@ celery_app.conf.update(
     worker_max_tasks_per_child=200,
 )
 
+# Колокольчик (docs/plan-notifications.md): напоминания и чистка старых уведомлений.
+# Отдельно от nightly_recalc_enabled: выключение пересчёта не должно глушить напоминания.
+_beat_schedule: dict = {
+    "notifications-rpe-reminders": {
+        "task": "app.tasks.notification_tasks.rpe_reminders",
+        "schedule": crontab(minute="*/10"),
+    },
+    "notifications-wellness-reminders": {
+        "task": "app.tasks.notification_tasks.wellness_reminders",
+        "schedule": crontab(minute="*/15"),
+    },
+    "notifications-cleanup": {
+        "task": "app.tasks.notification_tasks.cleanup",
+        "schedule": crontab(hour=3, minute=30),
+    },
+}
 if settings.nightly_recalc_enabled:
-    celery_app.conf.beat_schedule = {
-        "nightly-recalc-all": {
-            "task": "app.tasks.analytics_tasks.recalc_all",
-            "schedule": crontab(hour=settings.nightly_recalc_hour_utc, minute=0),
-        },
+    _beat_schedule["nightly-recalc-all"] = {
+        "task": "app.tasks.analytics_tasks.recalc_all",
+        "schedule": crontab(hour=settings.nightly_recalc_hour_utc, minute=0),
     }
+celery_app.conf.beat_schedule = _beat_schedule
 
 
 @worker_process_init.connect

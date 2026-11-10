@@ -56,14 +56,14 @@ async def team_events(
 async def update_event(event_id: uuid.UUID, data: EventUpdateIn, user: CurrentUser, db: DbSession):
     event = await events_service.get_event(db, event_id)
     await _require_manage(db, user, event)
-    return await events_service.update_event(db, event, data)
+    return await events_service.update_event(db, event, data, user.id)
 
 
 @router.delete("/{event_id}", status_code=204)
 async def delete_event(event_id: uuid.UUID, user: CurrentUser, db: DbSession):
     event = await events_service.get_event(db, event_id)
     await _require_manage(db, user, event)
-    await events_service.delete_event(db, event)
+    await events_service.delete_event(db, event, user.id)
 
 
 @router.put("/{event_id}/attendance", response_model=AttendanceOut)

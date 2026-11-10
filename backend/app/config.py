@@ -85,6 +85,15 @@ class Settings(BaseSettings):
     nightly_recalc_enabled: bool = True
     nightly_recalc_hour_utc: int = 2
 
+    # Колокольчик (docs/plan-notifications.md). Напоминание о wellness: локальный час
+    # организации; у личного режима таймзоны нет, берём default_timezone.
+    wellness_reminder_hour: int = 8
+    default_timezone: str = "Europe/Moscow"
+    # Напоминание об RPE: через сколько минут после конца события и до какого предела.
+    rpe_reminder_delay_min: int = 30
+    rpe_reminder_window_hours: int = 6
+    notification_retention_days: int = 90
+
     # Celery: пересчёт DailyMetric в отдельном воркере (docs/plan-celery-recalc.md).
     # Тот же Redis, что и OTP, но другие логические БД (OTP — /0).
     celery_broker_url: str = "redis://localhost:6379/1"

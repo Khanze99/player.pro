@@ -1,7 +1,8 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { api, apiBlobUri, patch, post, upload } from './client';
 import type {
+  AppNotification,
   AthleteProfile,
   Attendance,
   CycleLog,
@@ -11,6 +12,7 @@ import type {
   FoodItem,
   FoodItemPayload,
   FoodLogPayload,
+  NotificationPage,
   NutritionDay,
   NutritionTarget,
   Consent,
@@ -53,7 +55,7 @@ export const useMyTeams = (enabled = true) =>
   useQuery({
     queryKey: ['teams'],
     enabled,
-    queryFn: () => api<{ id: string; name: string }[]>('/teams'),
+    queryFn: () => api<{ id: string; name: string; short_name?: string | null }[]>('/teams'),
   });
 
 export const useMetrics = (days = 28) =>
@@ -521,5 +523,44 @@ export function useUpdateMe() {
       locale?: string;
     }) => patch<Me>('/users/me', body),
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['me'] }),
+  });
+}
+
+// ------------------------------------------------------------------ колокольчик
+
+/** Счётчик непрочитанных: раз в минуту; возврат в приложение ловит NotificationBell. */
+export const useUnreadCount = (enabled = true) =>
+  useQuery({
+    queryKey: ['notifications', 'unread'],
+    enabled,
+    queryFn: () => api<{ count: number }>('/notifications/unread-count'),
+    refetchInterval: 60_000,
+    staleTime: 15_000,
+  });
+
+export const useNotifications = () =>
+  useInfiniteQuery({
+    queryKey: ['notifications', 'feed'],
+    initialPageParam: null as string | null,
+    queryFn: ({ pageParam }) =>
+      api<NotificationPage>(
+        `/notifications?limit=30${pageParam ? `&cursor=${encodeURIComponent(pageParam)}` : ''}`,
+      ),
+    getNextPageParam: (last) => last.next_cursor,
+  });
+
+export function useMarkNotificationRead() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (n: AppNotification) => post<void>(`/notifications/${n.id}/read`, {}),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['notifications'] }),
+  });
+}
+
+export function useMarkAllNotificationsRead() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => post<void>('/notifications/read-all', {}),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['notifications'] }),
   });
 }

@@ -213,3 +213,20 @@ class RecoveryMethod(str, enum.Enum):
     compression = "compression"
     cryo_compression = "cryo_compression"
     physio = "physio"
+
+
+class NotificationType(str, enum.Enum):
+    """Колокольчик (docs/plan-notifications.md). Текст собирает клиент по коду."""
+
+    # Тренеру и врачу
+    athlete_injury = "athlete_injury"
+    athlete_illness = "athlete_illness"
+    athlete_pain = "athlete_pain"
+    athlete_risk = "athlete_risk"
+    # Спортсмену
+    event_created = "event_created"
+    event_updated = "event_updated"
+    event_cancelled = "event_cancelled"
+    rpe_reminder = "rpe_reminder"
+    wellness_reminder = "wellness_reminder"
+    availability_changed = "availability_changed"

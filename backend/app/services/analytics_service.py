@@ -133,7 +133,7 @@ def enqueue_recalc_athlete(athlete_id: uuid.UUID, end_date: date | None = None) 
     from app.tasks.analytics_tasks import recalc_athlete as _recalc_athlete_task
 
     try:
-        _recalc_athlete_task.delay(str(athlete_id), end_date.isoformat() if end_date else None)
+        _recalc_athlete_task.delay(str(athlete_id), end_date.isoformat() if end_date else None, notify=True)
     except Exception:  # noqa: BLE001 — брокер недоступен, сабмит важнее пересчёта
         logger.exception("Не удалось поставить пересчёт игрока %s в очередь", athlete_id)
 

@@ -35,6 +35,7 @@ import type { AthleteProfile, RpeEntry, RpeSession, WeightGoal, WellnessEntry } 
 import { ActionCard } from '@/components/ActionCard';
 import { ActivityHeatmap } from '@/components/ActivityHeatmap';
 import { Button } from '@/components/Button';
+import { NotificationBell } from '@/components/NotificationBell';
 import { TeamBadge } from '@/components/TeamBadge';
 import { CoachHome } from '@/components/CoachHome';
 import { Guide } from '@/components/Guide';
@@ -335,7 +336,10 @@ function PlayerHome() {
               {firstName ? t('home.greeting', { name: firstName }) : t('home.greetingNoName')}
             </Text>
           </View>
-          <TeamBadge />
+          <View style={styles.headerRight}>
+            <TeamBadge inline />
+            <NotificationBell />
+          </View>
         </View>
 
         <View style={styles.ringWrap}>
@@ -399,6 +403,14 @@ function PlayerHome() {
 const makeStyles = (th: Theme) => StyleSheet.create({
   content: { padding: spacing.screen, paddingBottom: 40 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.s,
+    marginTop: -6,
+    maxWidth: '60%',
+    flexShrink: 1,
+  },
   date: {
     fontFamily: th.font.semibold,
     fontSize: 11,

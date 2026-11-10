@@ -18,9 +18,12 @@ interface Props {
   /** Явная команда — для экранов с переключателем: у тренера их несколько,
    *  и бейдж обязан показывать выбранную, а не первую в списке. */
   teamName?: string;
+  /** Бейдж внутри своего контейнера (шапка с колокольчиком): ширину ограничивает
+   *  контейнер. Процентный maxWidth посчитался бы от него же и резал название. */
+  inline?: boolean;
 }
 
-export function TeamBadge({ showPersonal = false, teamName: explicitTeam }: Props) {
+export function TeamBadge({ showPersonal = false, teamName: explicitTeam, inline = false }: Props) {
   const th = useTheme();
   const styles = useStyles(makeStyles);
   const { t } = useTranslation();
@@ -31,8 +34,12 @@ export function TeamBadge({ showPersonal = false, teamName: explicitTeam }: Prop
 
   // Явная команда (экраны со своим гейтом/пропсом) > выбранная в сторе (staff
   // с несколькими командами) > первая из списка (игрок — у него она обычно одна).
-  const activeTeamName = teams.data?.find((team) => team.id === activeTeamId)?.name;
-  const teamName = explicitTeam ?? activeTeamName ?? teams.data?.[0]?.name;
+  const activeTeam = teams.data?.find((team) => team.id === activeTeamId) ?? teams.data?.[0];
+  // В тесной шапке с колокольчиком: короткое имя, если админ его задал; иначе
+  // полное название в две строки (дальше многоточие).
+  const shortName = inline && !explicitTeam ? activeTeam?.short_name : null;
+  const teamName = explicitTeam ?? shortName ?? activeTeam?.name;
+  const lines = inline && !shortName ? 2 : 1;
   const logo = logoUri(branding);
   if (!teamName && !showPersonal) return null;
 
@@ -40,7 +47,7 @@ export function TeamBadge({ showPersonal = false, teamName: explicitTeam }: Prop
   const withLogo = Boolean(teamName && logo) && !broken;
 
   return (
-    <View style={styles.wrap}>
+    <View style={[styles.wrap, inline && styles.inline]}>
       {withLogo ? null : (
         <View
           style={[
@@ -52,7 +59,7 @@ export function TeamBadge({ showPersonal = false, teamName: explicitTeam }: Prop
           ]}
         />
       )}
-      <Text style={styles.label} numberOfLines={1}>
+      <Text style={[styles.label, lines > 1 && styles.labelWrap]} numberOfLines={lines}>
         {(teamName ?? t('home.personalMode')).toUpperCase()}
       </Text>
       {withLogo ? (
@@ -70,6 +77,8 @@ export function TeamBadge({ showPersonal = false, teamName: explicitTeam }: Prop
 
 const makeStyles = (th: Theme) => StyleSheet.create({
   wrap: { flexDirection: 'row', alignItems: 'center', gap: spacing.s, maxWidth: '55%' },
+  inline: { maxWidth: undefined, flexShrink: 1 },
+  labelWrap: { textAlign: 'right', lineHeight: 14 },
   label: { fontFamily: th.font.semibold, fontSize: 10.5, color: th.text, letterSpacing: 1, flexShrink: 1 },
   // Герб вписан в квадрат по длинной стороне, поэтому без скругления и обрезки
   logo: { width: 24, height: 24 },

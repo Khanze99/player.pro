@@ -14,6 +14,7 @@ import type {
   Me,
   MedicalExamKind,
   MedicalExams,
+  NotificationPage,
   ReadinessBreakdown,
   ReadinessBreakdownAverage,
   RpeEntry,
@@ -89,6 +90,15 @@ function qs(params: Record<string, string | undefined>): string {
 }
 
 export const api = {
+  notifications: (token: string, limit: number, cursor?: string | null) =>
+    request<NotificationPage>(
+      `/notifications?limit=${limit}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`,
+      token,
+    ),
+  notificationsUnread: (token: string) => request<{ count: number }>("/notifications/unread-count", token),
+  markNotificationRead: (id: string, token: string) =>
+    post<void>(`/notifications/${encodeURIComponent(id)}/read`, token, {}),
+  markAllNotificationsRead: (token: string) => post<void>("/notifications/read-all", token, {}),
   me: (token: string) => request<Me>("/auth/me", token),
 
   teams: (token: string) => request<Team[]>("/teams", token),

@@ -14,6 +14,7 @@ export interface Team {
   org_id: string;
   name: string;
   sport: string | null;
+  short_name: string | null;
 }
 
 // Состав команды + перевод между командами (docs/plan-player-transfer.md).
@@ -435,4 +436,34 @@ export interface TeamBenchmark {
   score_per_90: number | null;
   assists_per_90: number | null;
   metrics: TeamBenchmarkMetric[];
+}
+
+// Колокольчик (docs/plan-notifications.md). Текст собирается на клиенте по type.
+export type NotificationType =
+  | "athlete_injury"
+  | "athlete_illness"
+  | "athlete_pain"
+  | "athlete_risk"
+  | "event_created"
+  | "event_updated"
+  | "event_cancelled"
+  | "rpe_reminder"
+  | "wellness_reminder"
+  | "availability_changed";
+
+export interface AppNotification {
+  id: string;
+  type: NotificationType;
+  created_at: string;
+  read_at: string | null;
+  team_id: string | null;
+  athlete: { id: string; name: string } | null;
+  event: { id: string | null; type: string; title: string | null; planned_start: string } | null;
+  reasons: string[];
+  status: AvailabilityStatus | null;
+}
+
+export interface NotificationPage {
+  items: AppNotification[];
+  next_cursor: string | null;
 }

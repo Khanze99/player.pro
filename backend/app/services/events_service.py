@@ -11,6 +11,7 @@ from app.models.enums import AttendanceStatus
 from app.models.event import Attendance, Event
 from app.models.team import TeamMembership
 from app.schemas.event import EventCreateIn, EventUpdateIn
+from app.services import notifications_service
 
 
 async def create_event(db: AsyncSession, creator_id: uuid.UUID, data: EventCreateIn) -> Event:
@@ -24,6 +25,8 @@ async def create_event(db: AsyncSession, creator_id: uuid.UUID, data: EventCreat
         created_by=creator_id,
     )
     db.add(event)
+    await db.flush()
+    await notifications_service.notify_event_created(db, event, creator_id)
     await db.commit()
     await db.refresh(event)
     return event
@@ -36,15 +39,20 @@ async def get_event(db: AsyncSession, event_id: uuid.UUID) -> Event:
     return event
 
 
-async def update_event(db: AsyncSession, event: Event, data: EventUpdateIn) -> Event:
+async def update_event(db: AsyncSession, event: Event, data: EventUpdateIn, actor_id: uuid.UUID) -> Event:
+    changed: set[str] = set()
     for field, value in data.model_dump(exclude_unset=True).items():
+        if getattr(event, field) != value:
+            changed.add(field)
         setattr(event, field, value)
+    await notifications_service.notify_event_updated(db, event, changed, actor_id)
     await db.commit()
     await db.refresh(event)
     return event
 
 
-async def delete_event(db: AsyncSession, event: Event) -> None:
+async def delete_event(db: AsyncSession, event: Event, actor_id: uuid.UUID) -> None:
+    await notifications_service.notify_event_cancelled(db, event, actor_id)
     await db.delete(event)
     await db.commit()
 

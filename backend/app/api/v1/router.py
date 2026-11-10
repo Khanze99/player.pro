@@ -14,6 +14,7 @@ from app.api.v1 import (
     features,
     injuries,
     medical_exams,
+    notifications,
     nutrition,
     organizations,
     rpe,
@@ -48,6 +49,7 @@ router.include_router(organizations.router, dependencies=[_consented])
 router.include_router(teams.router, dependencies=[_consented])
 router.include_router(wellness.router, dependencies=[_consented])
 router.include_router(rpe.router, dependencies=[_consented])
+router.include_router(notifications.router, dependencies=[_consented])
 router.include_router(events.router, dependencies=[_consented])
 router.include_router(availability.router, dependencies=[_consented])
 router.include_router(injuries.router, dependencies=[_consented])

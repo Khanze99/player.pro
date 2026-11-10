@@ -274,7 +274,7 @@ async def _event_stats(
 # Самый «дорогой» критерий дня (наибольший deficit в readiness_breakdown) даёт
 # конкретную причину вместо общего low_readiness — то же самое тренер увидит в
 # детальной разбивке по игроку, просто на уровне сводки команды.
-_LOW_READINESS_REASON: dict[str, str] = {
+LOW_READINESS_REASON: dict[str, str] = {
     "sleep_quality": "low_sleep",
     "energy": "low_energy",
     "mood": "low_mood",
@@ -290,7 +290,7 @@ def _alerts(players: list[SquadPlayerOut], weakest_by_athlete: dict[uuid.UUID, s
         reasons: list[str] = []
         if player.readiness_zone == "red":
             weakest = weakest_by_athlete.get(player.athlete_id)
-            reasons.append(_LOW_READINESS_REASON.get(weakest, "low_readiness"))
+            reasons.append(LOW_READINESS_REASON.get(weakest, "low_readiness"))
         if player.load_zone == "high_risk":
             reasons.append("high_load")
         elif player.load_zone == "overreaching":

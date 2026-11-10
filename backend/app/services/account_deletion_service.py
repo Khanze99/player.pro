@@ -87,6 +87,8 @@ OWNED = [
     (AvailabilityRecord, AvailabilityRecord.athlete_id),
     (SeasonPlayerStats, SeasonPlayerStats.athlete_id),
     (Notification, Notification.user_id),
+    # Уведомления штабу об этом игроке (травма, боль, риск): тоже его данные.
+    (Notification, Notification.athlete_id),
     (TeamMembership, TeamMembership.user_id),
     (RefreshToken, RefreshToken.user_id),
 ]

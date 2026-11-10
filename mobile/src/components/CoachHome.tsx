@@ -14,6 +14,7 @@ import { activeTeamStore } from '@/auth/activeTeam';
 import { RefreshableScroll } from '@/components/PullToRefresh';
 import { Screen } from '@/components/Screen';
 import { StatTile } from '@/components/StatTile';
+import { NotificationBell } from '@/components/NotificationBell';
 import { TeamBadge } from '@/components/TeamBadge';
 import { ScreenTitle } from '@/components/Typography';
 import { loadZoneColor, readinessColor, spacing, type Theme, useStyles, useTheme } from '@/theme';
@@ -120,7 +121,10 @@ export function CoachHome() {
             <Text style={styles.date}>{dateLabel}</Text>
             <ScreenTitle>{t('coach.title')}</ScreenTitle>
           </View>
-          <TeamBadge />
+          <View style={styles.headerRight}>
+            <TeamBadge inline />
+            <NotificationBell />
+          </View>
         </View>
 
         <View style={styles.tiles}>
@@ -157,6 +161,14 @@ const makeStyles = (th: Theme) => StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.s,
+    marginTop: -6,
+    maxWidth: '60%',
+    flexShrink: 1,
   },
   date: {
     fontFamily: th.font.semibold,

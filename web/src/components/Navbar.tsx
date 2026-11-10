@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { LogoutButton } from "@/components/LogoutButton";
+import { NotificationBell } from "@/components/NotificationBell";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import type { GlobalRole } from "@/types";
 
@@ -61,6 +62,7 @@ export function Navbar({
       </div>
 
       <div className="flex items-center justify-end gap-4">
+        <NotificationBell />
         <div className="flex items-center gap-2 text-sm">
           <span className="text-[var(--text-muted)]">{name}</span>
           <span className="text-[var(--text)] font-medium">{roleLabel[role]}</span>

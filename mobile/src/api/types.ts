@@ -599,3 +599,34 @@ export interface FoodItemPayload {
   carbs_100g?: number;
   serving_size_g?: number | null;
 }
+
+// Колокольчик (docs/plan-notifications.md). Текст собирается на клиенте по type.
+export type NotificationType =
+  | 'athlete_injury'
+  | 'athlete_illness'
+  | 'athlete_pain'
+  | 'athlete_risk'
+  | 'event_created'
+  | 'event_updated'
+  | 'event_cancelled'
+  | 'rpe_reminder'
+  | 'wellness_reminder'
+  | 'availability_changed';
+
+export interface AppNotification {
+  id: string;
+  type: NotificationType;
+  created_at: string;
+  read_at: string | null;
+  team_id: string | null;
+  athlete: { id: string; name: string } | null;
+  /** id = null у отменённого события: осталось только описание. */
+  event: { id: string | null; type: EventType; title: string | null; planned_start: string } | null;
+  reasons: string[];
+  status: AvailabilityStatus | null;
+}
+
+export interface NotificationPage {
+  items: AppNotification[];
+  next_cursor: string | null;
+}

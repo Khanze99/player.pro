@@ -14,7 +14,7 @@ from app.models.recovery_method import RecoveryMethodLog
 from app.models.user import AthleteProfile
 from app.models.wellness import WellnessEntry
 from app.schemas.wellness import WellnessCreateIn
-from app.services import analytics_service, cycle_service, streaks_service
+from app.services import analytics_service, cycle_service, notifications_service, streaks_service
 
 
 async def create_entry(
@@ -46,6 +46,8 @@ async def create_entry(
     await db.flush()
     if data.weight_kg is not None:
         await _sync_latest_weight(db, athlete_id, data.date, data.weight_kg)
+    # Травма/болезнь/боль: штабу сразу, в одной транзакции с опросом.
+    await notifications_service.notify_wellness_flags(db, entry)
     await db.commit()
     await cycle_service.record_from_wellness(db, athlete_id, data.date, period_day, period_pain_level)
     # expire_on_commit=False → объект и загруженная коллекция pain_points остаются доступны

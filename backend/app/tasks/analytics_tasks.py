@@ -11,21 +11,22 @@ from datetime import date
 from sqlalchemy.exc import OperationalError
 
 from app.celery_app import celery_app
-from app.services import analytics_service
+from app.services import analytics_service, notifications_service
 from app.tasks import runtime
 
 _ATHLETE_LOCK_TTL = 600
 _ALL_LOCK_TTL = 3600
 
 
-async def _recalc_athlete(athlete_id: str, end_date: str | None) -> dict:
+async def _recalc_athlete(athlete_id: str, end_date: str | None, notify: bool) -> dict:
+    day = date.fromisoformat(end_date) if end_date else None
     async with runtime.session_factory()() as db:
-        days = await analytics_service.recalc_athlete(
-            db,
-            uuid.UUID(athlete_id),
-            end_date=date.fromisoformat(end_date) if end_date else None,
-            commit=True,
-        )
+        days = await analytics_service.recalc_athlete(db, uuid.UUID(athlete_id), end_date=day, commit=True)
+        if notify:
+            # Только live-пересчёт после сабмита: ночной прогон штаб не будит
+            # (docs/plan-notifications.md). Повтор задачи безопасен: дедуп по ключу.
+            await notifications_service.notify_risk(db, uuid.UUID(athlete_id), day or date.today())
+            await db.commit()
     return {"athlete_id": athlete_id, "recalculated_days": days}
 
 
@@ -45,12 +46,12 @@ async def _recalc_all(end_date: str | None) -> dict:
     retry_backoff=True,
     retry_backoff_max=60,
 )
-def recalc_athlete(self, athlete_id: str, end_date: str | None = None) -> dict:
+def recalc_athlete(self, athlete_id: str, end_date: str | None = None, notify: bool = False) -> dict:
     with runtime.redis_lock(f"athlete:{athlete_id}", _ATHLETE_LOCK_TTL) as acquired:
         if not acquired:
             # Ряд уже пересчитывает другой прогон — подождём и повторим.
             raise self.retry(countdown=10)
-        return runtime.run_async(_recalc_athlete(athlete_id, end_date))
+        return runtime.run_async(_recalc_athlete(athlete_id, end_date, notify))
 
 
 @celery_app.task(name="app.tasks.analytics_tasks.recalc_all")

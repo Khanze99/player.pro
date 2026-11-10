@@ -282,7 +282,7 @@ def test_beat_schedule_registered_when_enabled():
     from app.celery_app import celery_app
     from app.config import settings
 
-    if settings.nightly_recalc_enabled:
-        assert "nightly-recalc-all" in celery_app.conf.beat_schedule
-    else:
-        assert not celery_app.conf.beat_schedule
+    assert ("nightly-recalc-all" in celery_app.conf.beat_schedule) == settings.nightly_recalc_enabled
+    # Напоминания колокольчика от этого флага не зависят (docs/plan-notifications.md).
+    assert "notifications-rpe-reminders" in celery_app.conf.beat_schedule
+    assert "notifications-wellness-reminders" in celery_app.conf.beat_schedule

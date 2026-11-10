@@ -13,7 +13,7 @@ from app.core.calculations import availability_percent
 from app.models.availability import AvailabilityRecord
 from app.models.enums import AvailabilityStatus
 from app.schemas.availability import AvailabilitySummaryOut
-from app.services import audit_service
+from app.services import audit_service, notifications_service
 
 WINDOW_DAYS = 90
 
@@ -45,6 +45,7 @@ async def set_status(
         athlete_id,
         {"date": day.isoformat(), "status": new_status.value},
     )
+    await notifications_service.notify_availability_changed(db, actor_id, athlete_id, day, new_status)
     await db.commit()
     await db.refresh(record)
     return record
