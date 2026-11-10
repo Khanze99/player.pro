@@ -2,7 +2,7 @@
 // обязательная привязка к завершённой сессии дня (длительность подтягивается из
 // расписания — ТЗ 3.1), живой предпросмотр session load = RPE × мин.
 
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
@@ -26,6 +26,9 @@ export default function Rpe() {
   const router = useRouter();
   const toast = useToast((s) => s.show);
   const submit = useSubmitRpe();
+  // Из выполнения тренировки (workout-run.tsx): событие и фактическая длительность
+  const params = useLocalSearchParams<{ eventId?: string; duration?: string }>();
+  const factDuration = Number(params.duration);
 
   const today = todayISO();
   const sessions = useRpeSessions(today);
@@ -37,6 +40,20 @@ export default function Rpe() {
   const [duration, setDuration] = useState(60);
   const [eventId, setEventId] = useState<string | null>(null);
   const [autoPicked, setAutoPicked] = useState(false);
+
+  // Параметры применяем при каждой смене, а не только при монтировании: экран
+  // может уже стоять в стеке, и роутер отдаст ему новые параметры без перемонтирования.
+  // Событие пришло параметром: автоподстановка не нужна, она перебила бы факт плановой длительностью
+  const paramsKey = `${params.eventId ?? ''}|${params.duration ?? ''}`;
+  const [appliedParams, setAppliedParams] = useState('|');
+  if (paramsKey !== appliedParams) {
+    setAppliedParams(paramsKey);
+    if (params.eventId) {
+      setEventId(params.eventId);
+      setAutoPicked(true);
+    }
+    if (factDuration > 0) setDuration(factDuration);
+  }
 
   const selectSession = (session: RpeSession) => {
     setEventId(session.event_id);

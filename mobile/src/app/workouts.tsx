@@ -6,7 +6,7 @@ import { useRouter } from 'expo-router';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
-import { useFeatures, useMyWorkouts } from '@/api/hooks';
+import { useActiveSession, useFeatures, useMyWorkouts } from '@/api/hooks';
 import { Button } from '@/components/Button';
 import { ChevronIcon, CloseIcon } from '@/components/Icons';
 import { Screen } from '@/components/Screen';
@@ -22,6 +22,7 @@ export default function Workouts() {
   const features = useFeatures();
   const enabled = features.data?.workouts === true;
   const workouts = useMyWorkouts(enabled);
+  const active = useActiveSession(enabled);
 
   return (
     <Screen edges={['top', 'bottom']}>
@@ -38,6 +39,22 @@ export default function Workouts() {
             <CloseIcon color={th.textMuted} />
           </Pressable>
         </View>
+
+        {active.data ? (
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => router.push({ pathname: '/workout-run', params: { id: active.data!.id } })}
+            style={({ pressed }) => [styles.active, pressed && { opacity: 0.8 }]}
+          >
+            <View style={styles.rowMain}>
+              <Text style={styles.activeLabel}>{t('workoutRun.activeBanner')}</Text>
+              <Text style={styles.rowTitle} numberOfLines={1}>
+                {active.data.workout_name}
+              </Text>
+            </View>
+            <Text style={styles.link}>{t('workoutRun.continue')}</Text>
+          </Pressable>
+        ) : null}
 
         {features.isPending || (enabled && workouts.isPending) ? (
           <ActivityIndicator color={th.textMuted} />
@@ -107,6 +124,23 @@ const makeStyles = (th: Theme) => StyleSheet.create({
     borderWidth: 1,
     borderColor: th.border,
     borderRadius: th.radius.card,
+  },
+  active: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.m,
+    padding: spacing.l,
+    borderRadius: th.radius.card,
+    borderWidth: 1,
+    borderColor: th.brandOn,
+    backgroundColor: th.surface,
+  },
+  activeLabel: {
+    fontFamily: th.font.semibold,
+    fontSize: 11,
+    color: th.brandOn,
+    letterSpacing: 1.4,
+    textTransform: 'uppercase',
   },
   emptyTitle: { fontFamily: th.font.semibold, fontSize: 16, color: th.text },
   list: {

@@ -571,3 +571,37 @@ async def test_account_deletion_removes_workouts(client, exercises, db):
     assert (await client.delete(f"{API}/account", headers=h)).status_code == 204
     for model in (Workout, WorkoutItem, WorkoutSession, WorkoutSessionSet):
         assert await db.scalar(select(func.count()).select_from(model)) == 0, model.__name__
+
+
+async def test_rpe_right_after_finish_before_planned_end(client, exercises):
+    """Закончил раньше плана (или начал раньше времени в календаре): RPE доступен
+    сразу после finish, а не после планового конца события."""
+    user = await register_user(client, "early@example.com")
+    h = user["headers"]
+    workout = (await client.post(f"{API}/workouts", json=_workout_body(exercises), headers=h)).json()
+    resp = await client.post(
+        f"{API}/workout-sessions",
+        json={"workout_id": workout["id"], "date": date.today().isoformat()},
+        headers=h,
+    )
+    session = resp.json()
+    rpe = {
+        "date": date.today().isoformat(),
+        "exertion": 6,
+        "performance": 7,
+        "duration_min": 5,
+        "event_id": session["event_id"],
+    }
+
+    # Пока тренировка идёт и плановый конец не наступил, оценка закрыта
+    resp = await client.post(f"{API}/rpe", json=rpe, headers=h)
+    assert resp.status_code == 422
+
+    resp = await client.post(f"{API}/workout-sessions/{session['id']}/finish", headers=h)
+    finish = resp.json()
+    resp = await client.get(f"{API}/rpe/sessions?day={date.today().isoformat()}", headers=h)
+    row = next(r for r in resp.json() if r["event_id"] == finish["event_id"])
+    assert row["finished"] is True and row["rpe_submitted"] is False
+
+    resp = await client.post(f"{API}/rpe", json={**rpe, "duration_min": finish["elapsed_min"]}, headers=h)
+    assert resp.status_code == 201, resp.text

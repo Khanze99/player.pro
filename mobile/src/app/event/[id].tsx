@@ -6,17 +6,20 @@ import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View } from '
 import { useTranslation } from 'react-i18next';
 
 import { ApiError } from '@/api/client';
+import { useStartWorkout } from '@/api/useStartWorkout';
 import { exerciseName, formatTarget } from '@/api/exercises';
 import {
   useAttendance,
   useDeleteEvent,
   useFeatures,
   useMe,
+  useMyWorkoutSessions,
   useSetAttendance,
   useTeamMembers,
   useWorkout,
 } from '@/api/hooks';
 import type { AttendanceStatus, EventType } from '@/api/types';
+import { Button } from '@/components/Button';
 import { Chip } from '@/components/Chip';
 import { ChevronIcon, CloseIcon, EditIcon, TrashIcon } from '@/components/Icons';
 import { Screen } from '@/components/Screen';
@@ -67,9 +70,19 @@ export default function EventDetail() {
   // План тренировки: шаблон личный, виден только автору события и под флагом
   const features = useFeatures();
   const isOwnPersonal = !isTeamEvent && me.data?.id === params.createdBy;
-  const workout = useWorkout(
-    isOwnPersonal && features.data?.workouts && params.workoutId ? params.workoutId : undefined,
-  );
+  const workoutsOn = isOwnPersonal && features.data?.workouts === true;
+  const workout = useWorkout(workoutsOn && params.workoutId ? params.workoutId : undefined);
+  // Состояние выполнения этого события: не начато / идёт / завершено
+  const sessions = useMyWorkoutSessions(workoutsOn);
+  const eventSession = sessions.data?.find((s) => s.event_id === params.id);
+  const startWorkout = useStartWorkout();
+  const runLabel = !eventSession
+    ? t('workoutRun.start')
+    : eventSession.finished_at
+      ? t('workoutRun.results')
+      : t('workoutRun.continue');
+  const runWorkout = () =>
+    eventSession ? startWorkout.open(eventSession.id) : startWorkout.run({ event_id: params.id });
 
   const athletes = (members.data ?? []).filter((m) => m.team_role === 'athlete');
   const statusByUser = new Map((attendance.data ?? []).map((a) => [a.user_id, a.status]));
@@ -177,6 +190,9 @@ export default function EventDetail() {
                 </View>
               ))}
             </Pressable>
+            {sessions.isSuccess ? (
+              <Button title={runLabel} onPress={runWorkout} loading={startWorkout.isPending} />
+            ) : null}
           </View>
         ) : null}
 

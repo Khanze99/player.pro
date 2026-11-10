@@ -12,7 +12,6 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
@@ -21,6 +20,7 @@ import { ApiError } from '@/api/client';
 import { todayISO } from '@/api/dates';
 import { equipmentLabel, exerciseName, targetLabel } from '@/api/exercises';
 import { useCreateWorkout, useDeleteWorkout, useReplaceWorkout, useWorkout } from '@/api/hooks';
+import { useStartWorkout } from '@/api/useStartWorkout';
 import type { WorkoutItemMode } from '@/api/types';
 import {
   type DraftItem,
@@ -33,6 +33,7 @@ import { Button } from '@/components/Button';
 import { confirmAction } from '@/components/confirm';
 import { ExerciseThumb } from '@/components/ExerciseThumb';
 import { Field } from '@/components/Field';
+import { NumField } from '@/components/NumField';
 import { CalendarIcon, ChevronIcon, CloseIcon, PlusIcon, TrashIcon } from '@/components/Icons';
 import { OutlineButton } from '@/components/OutlineButton';
 import { Screen } from '@/components/Screen';
@@ -42,47 +43,6 @@ import { MicroLabel, ScreenTitle } from '@/components/Typography';
 import { spacing, type Theme, useStyles, useTheme } from '@/theme';
 
 const MODES: readonly WorkoutItemMode[] = ['reps', 'time'];
-
-/** Числовое поле цели. Текст держим локально: «12,» или пустое поле в процессе
- *  ввода не должны превращаться в число и прыгать под пальцем. */
-function NumField({
-  label,
-  value,
-  onChange,
-  decimal = false,
-  invalid = false,
-}: {
-  label: string;
-  value: number | null;
-  onChange: (value: number | null) => void;
-  decimal?: boolean;
-  invalid?: boolean;
-}) {
-  const th = useTheme();
-  const styles = useStyles(makeStyles);
-  const [text, setText] = useState(value == null ? '' : String(value));
-  return (
-    <View style={styles.numWrap}>
-      <Text style={styles.numLabel} numberOfLines={1}>
-        {label}
-      </Text>
-      <TextInput
-        style={[styles.numInput, invalid && { borderColor: th.risk }]}
-        value={text}
-        onChangeText={(raw) => {
-          const cleaned = decimal ? raw.replace(',', '.').replace(/[^0-9.]/g, '') : raw.replace(/\D/g, '');
-          setText(cleaned);
-          const parsed = cleaned === '' ? null : Number(cleaned);
-          onChange(parsed != null && Number.isFinite(parsed) ? parsed : null);
-        }}
-        keyboardType={decimal ? 'decimal-pad' : 'number-pad'}
-        accessibilityLabel={label}
-        selectTextOnFocus
-        maxLength={decimal ? 6 : 4}
-      />
-    </View>
-  );
-}
 
 function ItemCard({ item, index, count }: { item: DraftItem; index: number; count: number }) {
   const th = useTheme();
@@ -214,6 +174,7 @@ export default function WorkoutEdit() {
   const replaceWorkout = useReplaceWorkout(draft.workoutId ?? '');
   const deleteWorkout = useDeleteWorkout();
   const [error, setError] = useState<string | null>(null);
+  const startWorkout = useStartWorkout();
 
   // Черновик загружаем, когда в сторе не этот шаблон. Повторный ответ запроса
   // (фокус, инвалидация) его не затирает: id уже совпадает. На закрытии экрана
@@ -360,6 +321,14 @@ export default function WorkoutEdit() {
           />
 
           {isEdit ? (
+            <Button
+              title={t('workoutRun.startNow')}
+              onPress={() => draft.workoutId && startWorkout.run({ workout_id: draft.workoutId, date: todayISO() })}
+              disabled={draft.dirty}
+              loading={startWorkout.isPending}
+            />
+          ) : null}
+          {isEdit ? (
             <View style={styles.row}>
               <OutlineButton
                 title={t('workouts.schedule')}
@@ -415,20 +384,6 @@ const makeStyles = (th: Theme) => StyleSheet.create({
   itemMeta: { fontFamily: th.font.regular, fontSize: 12, color: th.textMuted },
 
   numRow: { flexDirection: 'row', gap: spacing.s },
-  numWrap: { flex: 1, gap: spacing.xs },
-  numLabel: { fontFamily: th.font.semibold, fontSize: 10, color: th.textMuted, letterSpacing: 0.8 },
-  numInput: {
-    minHeight: 44,
-    borderRadius: th.radius.chip,
-    borderWidth: 1,
-    borderColor: th.border,
-    backgroundColor: th.surface2,
-    color: th.text,
-    fontFamily: th.font.semibold,
-    fontSize: 16,
-    textAlign: 'center',
-    fontVariant: ['tabular-nums'],
-  },
 
   itemActions: { flexDirection: 'row', alignItems: 'center', gap: spacing.s },
   iconButton: {

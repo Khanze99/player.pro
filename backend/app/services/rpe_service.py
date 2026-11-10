@@ -16,6 +16,7 @@ from app.models.enums import StreakType
 from app.models.event import Event
 from app.models.rpe import RpeEntry
 from app.models.team import TeamMembership
+from app.models.workout import WorkoutSession
 from app.schemas.rpe import RpeCreateIn, RpeSessionOut
 from app.services import analytics_service, events_service, streaks_service
 
@@ -31,6 +32,20 @@ def _session_end(event: Event) -> datetime:
     return _aware(event.planned_start) + timedelta(minutes=event.planned_duration_min)
 
 
+async def _finished_by_workout(db: AsyncSession, event_ids: list[uuid.UUID]) -> set[uuid.UUID]:
+    """События, у которых завершено выполнение тренировки (docs/plan-workout-builder.md).
+    Такое событие закончилось фактически, даже если по плану ещё идёт: закончил
+    раньше оценки длительности или начал раньше времени в календаре."""
+    if not event_ids:
+        return set()
+    rows = await db.execute(
+        select(WorkoutSession.event_id).where(
+            WorkoutSession.event_id.in_(event_ids), WorkoutSession.finished_at.is_not(None)
+        )
+    )
+    return set(rows.scalars())
+
+
 async def _resolve_session(db: AsyncSession, athlete_id: uuid.UUID, event_id: uuid.UUID) -> Event:
     """Событие должно быть доступно игроку, уже закончиться и ещё не иметь оценки."""
     event = await db.get(Event, event_id)
@@ -44,7 +59,7 @@ async def _resolve_session(db: AsyncSession, athlete_id: uuid.UUID, event_id: uu
     elif event.created_by != athlete_id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Событие не найдено")
 
-    if _session_end(event) > datetime.now(UTC):
+    if _session_end(event) > datetime.now(UTC) and not await _finished_by_workout(db, [event.id]):
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="Оценить нагрузку можно после окончания тренировки",
@@ -81,6 +96,7 @@ async def day_sessions(
         )
     )
     rated_ids = set(rated.scalars())
+    done_by_workout = await _finished_by_workout(db, [event.id for event in events])
 
     now = datetime.now(UTC)
     return [
@@ -91,7 +107,7 @@ async def day_sessions(
             planned_start=_aware(event.planned_start),
             planned_duration_min=event.planned_duration_min,
             ends_at=_session_end(event),
-            finished=_session_end(event) <= now,
+            finished=_session_end(event) <= now or event.id in done_by_workout,
             rpe_submitted=event.id in rated_ids,
         )
         for event in events
