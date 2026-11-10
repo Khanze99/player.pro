@@ -224,6 +224,9 @@ export interface CalendarEvent {
   planned_duration_min: number;
   location_id: string | null;
   created_by: string;
+  /** Шаблон тренировки (только личные события); null, если плана нет или шаблон удалён. */
+  workout_id?: string | null;
+  workout_name?: string | null;
 }
 
 export interface EventPayload {
@@ -232,6 +235,7 @@ export interface EventPayload {
   title?: string | null;
   planned_start: string;
   planned_duration_min: number;
+  workout_id?: string | null;
 }
 
 /** Правка события (EventUpdateIn) — без team_id: команду события не меняют. */
@@ -240,6 +244,8 @@ export interface EventUpdatePayload {
   title?: string | null;
   planned_start?: string;
   planned_duration_min?: number;
+  /** null снимает шаблон с события, отсутствие поля его не трогает */
+  workout_id?: string | null;
 }
 
 export interface Attendance {
@@ -519,6 +525,8 @@ export type CustomFoodKind = 'homemade' | 'new_product' | 'restaurant' | 'other'
 export interface Features {
   cycle: boolean;
   nutrition: boolean;
+  /** Конструктор тренировок (docs/plan-workout-builder.md). Старый бэкенд поля не знает. */
+  workouts?: boolean;
 }
 
 export interface FoodItem {
@@ -630,3 +638,179 @@ export interface NotificationPage {
   items: AppNotification[];
   next_cursor: string | null;
 }
+
+// ---------------------------------------------------------------- тренировки
+// docs/plan-workout-builder.md. Названия и шаги приходят на трёх языках,
+// язык выбирает клиент (exerciseName в src/api/exercises.ts).
+
+export type ExerciseBodyPart =
+  | 'back'
+  | 'cardio'
+  | 'chest'
+  | 'lower_arms'
+  | 'lower_legs'
+  | 'neck'
+  | 'shoulders'
+  | 'upper_arms'
+  | 'upper_legs'
+  | 'waist';
+
+export interface ExerciseShort {
+  id: string;
+  name_ru: string;
+  name_en: string;
+  name_es: string;
+  body_part: ExerciseBodyPart;
+  equipment: string;
+  target: string;
+  has_image: boolean;
+}
+
+export interface Exercise extends ExerciseShort {
+  muscle_group: string;
+  secondary_muscles: string[];
+  steps_ru: string[];
+  steps_en: string[];
+  steps_es: string[];
+  attribution: string | null;
+  has_gif: boolean;
+}
+
+export interface ExercisePage {
+  items: ExerciseShort[];
+  total: number;
+}
+
+export interface FacetValue {
+  value: string;
+  count: number;
+}
+
+export interface ExerciseFacets {
+  body_parts: FacetValue[];
+  equipment: FacetValue[];
+}
+
+export type WorkoutItemMode = 'reps' | 'time';
+
+export interface WorkoutItemPayload {
+  exercise_id: string;
+  mode: WorkoutItemMode;
+  sets: number;
+  reps?: number | null;
+  weight_kg?: number | null;
+  duration_sec?: number | null;
+  rest_sec?: number | null;
+  notes?: string | null;
+}
+
+export interface WorkoutPayload {
+  name: string;
+  notes?: string | null;
+  items: WorkoutItemPayload[];
+}
+
+export interface WorkoutItem {
+  id: string;
+  position: number;
+  exercise: ExerciseShort;
+  mode: WorkoutItemMode;
+  sets: number;
+  reps: number | null;
+  weight_kg: number | null;
+  duration_sec: number | null;
+  rest_sec: number | null;
+  notes: string | null;
+}
+
+export interface Workout {
+  id: string;
+  name: string;
+  notes: string | null;
+  items: WorkoutItem[];
+  est_duration_min: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface WorkoutShort {
+  id: string;
+  name: string;
+  items_count: number;
+  est_duration_min: number;
+  updated_at: string;
+}
+
+export interface SessionSet {
+  position: number;
+  exercise_id: string;
+  set_index: number;
+  mode: WorkoutItemMode;
+  planned_reps: number | null;
+  planned_weight_kg: number | null;
+  planned_duration_sec: number | null;
+  reps: number | null;
+  weight_kg: number | null;
+  duration_sec: number | null;
+  done: boolean;
+}
+
+export interface LastResult {
+  exercise_id: string;
+  date: string;
+  sets: { reps: number | null; weight_kg: number | null; duration_sec: number | null }[];
+}
+
+export interface WorkoutSession {
+  id: string;
+  event_id: string | null;
+  workout_id: string | null;
+  workout_name: string;
+  date: string;
+  started_at: string;
+  finished_at: string | null;
+  sets: SessionSet[];
+  exercises: ExerciseShort[];
+  /** Ключ: позиция упражнения строкой (JSON-объект) */
+  rest_sec_by_position: Record<string, number>;
+  last_results: LastResult[];
+}
+
+export interface WorkoutSessionShort {
+  id: string;
+  event_id: string | null;
+  workout_name: string;
+  date: string;
+  started_at: string;
+  finished_at: string | null;
+  exercises_count: number;
+  sets_done: number;
+  sets_total: number;
+}
+
+export interface WorkoutSessionFinish {
+  event_id: string | null;
+  elapsed_min: number;
+}
+
+export interface ExerciseHistory {
+  session_id: string;
+  date: string;
+  workout_name: string;
+  mode: WorkoutItemMode;
+  sets: {
+    set_index: number;
+    reps: number | null;
+    weight_kg: number | null;
+    duration_sec: number | null;
+    done: boolean;
+  }[];
+}
+
+/** 409 по тренировкам: detail приходит объектом (см. app/schemas/workout.py). */
+export interface WorkoutConflict {
+  code: 'active_session' | 'event_has_session' | 'session_finished';
+  message: string;
+  session_id: string | null;
+}
+

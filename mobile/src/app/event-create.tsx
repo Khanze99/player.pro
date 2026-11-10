@@ -2,13 +2,13 @@
 // игрок — индивидуальное (личная тренировка, кардио). Дата приходит из календаря.
 
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { ApiError } from '@/api/client';
 import { toLocalISO } from '@/api/dates';
-import { useCreateEvent, useMe, useMyTeams, useUpdateEvent } from '@/api/hooks';
+import { useCreateEvent, useFeatures, useMe, useMyTeams, useMyWorkouts, useUpdateEvent } from '@/api/hooks';
 import type { EventType } from '@/api/types';
 import { Button } from '@/components/Button';
 import { Field } from '@/components/Field';
@@ -52,6 +52,8 @@ export default function EventCreate() {
     start?: string;
     duration?: string;
     teamId?: string;
+    /** Шаблон тренировки: из карточки события при правке или из конструктора */
+    workoutId?: string;
   }>();
   const isEdit = !!params.id;
   const prefillStart = params.start ? new Date(params.start) : null;
@@ -63,6 +65,11 @@ export default function EventCreate() {
 
   const isStaff = me.data != null && me.data.global_role !== 'player';
   const types = isStaff ? TEAM_TYPES : PERSONAL_TYPES;
+  // Шаблон ставится только на личное событие (docs/plan-workout-builder.md)
+  const isPersonal = isEdit ? !params.teamId : !isStaff;
+  const features = useFeatures();
+  const workoutsEnabled = features.data?.workouts === true && isPersonal;
+  const workouts = useMyWorkouts(workoutsEnabled);
 
   const day = prefillStart ? toLocalISO(prefillStart) : (params.date ?? toLocalISO(new Date()));
 
@@ -76,6 +83,23 @@ export default function EventCreate() {
       : addMinutes(atTime(day, DEFAULT_START_HOUR, 0), DEFAULT_DURATION_MIN),
   );
   const [error, setError] = useState<string | null>(null);
+  const [workoutId, setWorkoutId] = useState<string | null>(params.workoutId || null);
+
+  /** Выбор шаблона подставляет его оценку длительности: обычно её и планируют. */
+  const pickWorkout = (id: string | null) => {
+    setWorkoutId(id);
+    const estimate = workouts.data?.find((w) => w.id === id)?.est_duration_min;
+    if (estimate) setEnd(addMinutes(start, Math.min(estimate, MAX_DURATION_MIN)));
+  };
+
+  // Открыто из конструктора: длительность из шаблона, как только придёт список
+  const prefilledFromWorkout = useRef(false);
+  useEffect(() => {
+    if (prefilledFromWorkout.current || isEdit || !params.workoutId || !workouts.data) return;
+    prefilledFromWorkout.current = true;
+    pickWorkout(params.workoutId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [workouts.data]);
 
   const activeTeamId = teamId ?? teams.data?.[0]?.id ?? null;
   const duration = minutesBetween(start, end);
@@ -127,6 +151,8 @@ export default function EventCreate() {
           title: title.trim() || null,
           planned_start: start.toISOString(),
           planned_duration_min: duration,
+          // null снимает шаблон; у командного события поле не трогаем
+          ...(isPersonal && workoutsEnabled ? { workout_id: workoutId } : {}),
         },
         onSettled,
       );
@@ -139,6 +165,7 @@ export default function EventCreate() {
         title: title.trim() || null,
         planned_start: start.toISOString(),
         planned_duration_min: duration,
+        workout_id: workoutsEnabled ? workoutId : null,
       },
       onSettled,
     );
@@ -192,6 +219,18 @@ export default function EventCreate() {
           onChangeText={setTitle}
           placeholder={t('eventCreate.titlePlaceholder')}
         />
+
+        {workoutsEnabled && (workouts.data?.length ?? 0) > 0 ? (
+          <View style={styles.section}>
+            <MicroLabel>{t('eventCreate.workoutLabel')}</MicroLabel>
+            <OptionChips
+              options={workouts.data?.map((w) => w.id) ?? []}
+              value={workoutId}
+              onSelect={pickWorkout}
+              labelFor={(id) => workouts.data?.find((w) => w.id === id)?.name ?? ''}
+            />
+          </View>
+        ) : null}
 
         <View style={styles.section}>
           <TimeField label={t('eventCreate.startLabel')} value={start} onChange={changeStart} />

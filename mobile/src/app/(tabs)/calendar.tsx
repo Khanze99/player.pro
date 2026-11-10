@@ -92,6 +92,7 @@ export default function Calendar() {
         duration: String(event.planned_duration_min),
         teamId: event.team_id ?? '',
         createdBy: event.created_by,
+        workoutId: event.workout_id ?? '',
       },
     });
   };
@@ -136,6 +137,7 @@ export default function Calendar() {
                   <Text style={styles.rowMeta}>
                     {t(`calendar.types.${event.type}`)}
                     {event.team_id ? '' : ` · ${t('calendar.personal')}`}
+                    {event.workout_name ? ` · ${event.workout_name}` : ''}
                   </Text>
                 </View>
                 <View style={styles.rowSide}>

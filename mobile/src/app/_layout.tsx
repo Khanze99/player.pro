@@ -165,6 +165,10 @@ function AppStack({ fontsReady }: { fontsReady: boolean }) {
           <Stack.Screen name="delete-account" options={{ presentation: 'modal' }} />
           <Stack.Screen name="legal/[doc]" options={{ presentation: 'modal' }} />
           <Stack.Screen name="cycle" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="workouts" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="workout-edit" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="exercise-picker" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="exercise/[id]" options={{ presentation: 'modal' }} />
         </Stack>
       ) : (
         <View style={[styles.loading, { backgroundColor: th.bg }]}>

@@ -6,10 +6,19 @@ import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View } from '
 import { useTranslation } from 'react-i18next';
 
 import { ApiError } from '@/api/client';
-import { useAttendance, useDeleteEvent, useMe, useSetAttendance, useTeamMembers } from '@/api/hooks';
+import { exerciseName, formatTarget } from '@/api/exercises';
+import {
+  useAttendance,
+  useDeleteEvent,
+  useFeatures,
+  useMe,
+  useSetAttendance,
+  useTeamMembers,
+  useWorkout,
+} from '@/api/hooks';
 import type { AttendanceStatus, EventType } from '@/api/types';
 import { Chip } from '@/components/Chip';
-import { CloseIcon, EditIcon, TrashIcon } from '@/components/Icons';
+import { ChevronIcon, CloseIcon, EditIcon, TrashIcon } from '@/components/Icons';
 import { Screen } from '@/components/Screen';
 import { useToast } from '@/components/Toast';
 import { MicroLabel, ScreenTitle } from '@/components/Typography';
@@ -42,6 +51,7 @@ export default function EventDetail() {
     duration: string;
     teamId: string;
     createdBy: string;
+    workoutId?: string;
   }>();
 
   const me = useMe();
@@ -54,6 +64,12 @@ export default function EventDetail() {
   const attendance = useAttendance(params.id, showAttendance);
   const setAttendance = useSetAttendance(params.id);
   const deleteEvent = useDeleteEvent();
+  // План тренировки: шаблон личный, виден только автору события и под флагом
+  const features = useFeatures();
+  const isOwnPersonal = !isTeamEvent && me.data?.id === params.createdBy;
+  const workout = useWorkout(
+    isOwnPersonal && features.data?.workouts && params.workoutId ? params.workoutId : undefined,
+  );
 
   const athletes = (members.data ?? []).filter((m) => m.team_role === 'athlete');
   const statusByUser = new Map((attendance.data ?? []).map((a) => [a.user_id, a.status]));
@@ -102,6 +118,7 @@ export default function EventDetail() {
         start: params.start,
         duration: params.duration,
         teamId: params.teamId,
+        workoutId: params.workoutId ?? '',
       },
     });
   };
@@ -131,6 +148,37 @@ export default function EventDetail() {
             {timeLabel} · {t('calendar.durationMin', { min: params.duration })}
           </Text>
         </View>
+
+        {workout.data ? (
+          <View style={styles.section}>
+            <MicroLabel>{t('eventDetail.plan')}</MicroLabel>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() =>
+                router.push({ pathname: '/workout-edit', params: { id: workout.data.id } })
+              }
+              style={({ pressed }) => [styles.list, pressed && { opacity: 0.7 }]}
+            >
+              <View style={styles.planHead}>
+                <Text style={styles.rowName} numberOfLines={1}>
+                  {workout.data.name}
+                </Text>
+                <ChevronIcon color={th.textMuted} />
+              </View>
+              {workout.data.items.map((item, i, all) => (
+                <View
+                  key={item.id}
+                  style={[styles.planRow, i === all.length - 1 && { borderBottomWidth: 0 }]}
+                >
+                  <Text style={styles.planName} numberOfLines={1}>
+                    {exerciseName(item.exercise, i18n.language)}
+                  </Text>
+                  <Text style={styles.planTarget}>{formatTarget(item, t)}</Text>
+                </View>
+              ))}
+            </Pressable>
+          </View>
+        ) : null}
 
         {showAttendance && (
           <View style={styles.section}>
@@ -248,6 +296,27 @@ const makeStyles = (th: Theme) => StyleSheet.create({
   statusText: { fontFamily: th.font.medium, fontSize: 12, color: th.textMuted },
   // заливка чипа — статусный цвет, а он темой не подменяется
   statusTextActive: { color: '#FFFFFF', fontFamily: th.font.semibold },
+  planHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.s,
+    paddingHorizontal: spacing.l,
+    paddingVertical: spacing.m,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: th.border,
+  },
+  planRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.m,
+    paddingHorizontal: spacing.l,
+    paddingVertical: spacing.s,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: th.border,
+  },
+  planName: { flex: 1, fontFamily: th.font.regular, fontSize: 14, color: th.text },
+  planTarget: { fontFamily: th.font.medium, fontSize: 13, color: th.textMuted, fontVariant: ['tabular-nums'] },
   emptyText: { fontFamily: th.font.regular, fontSize: 14, color: th.textMuted },
   manageRow: { flexDirection: 'row', gap: spacing.m },
   manageButton: {

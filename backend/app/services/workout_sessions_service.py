@@ -118,7 +118,8 @@ async def start(
         # «Начать сейчас» тоже событие: RPE, напоминание и календарь работают как обычно
         event = Event(
             team_id=None,
-            type=EventType.training,
+            # Тип личного события, как в event-create.tsx (PERSONAL_TYPES)
+            type=EventType.individual,
             title=workout.name,
             planned_start=datetime.now(UTC),
             planned_duration_min=workouts_service.estimate_duration_min(workout.items),

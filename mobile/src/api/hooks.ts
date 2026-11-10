@@ -43,6 +43,18 @@ import type {
   WeightGoal,
   WellnessEntry,
   WellnessPayload,
+  Exercise,
+  ExerciseBodyPart,
+  ExerciseFacets,
+  ExerciseHistory,
+  ExercisePage,
+  SessionSet,
+  Workout,
+  WorkoutPayload,
+  WorkoutSession,
+  WorkoutSessionFinish,
+  WorkoutSessionShort,
+  WorkoutShort,
 } from './types';
 import { daysAgoISO, localDayBounds, todayISO, tzOffsetMin } from './dates';
 
@@ -564,3 +576,189 @@ export function useMarkAllNotificationsRead() {
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['notifications'] }),
   });
 }
+
+// ---------------------------------------------------------------- тренировки
+// docs/plan-workout-builder.md. Справочник бесплатный и открыт всегда;
+// шаблоны и выполнение гейтятся features.workouts на экранах.
+
+const EXERCISE_PAGE = 50;
+
+export interface ExerciseFilter {
+  query: string;
+  bodyPart: ExerciseBodyPart | null;
+  equipment: string | null;
+  lang: string;
+}
+
+export const useExerciseSearch = (filter: ExerciseFilter) =>
+  useInfiniteQuery({
+    queryKey: ['exercises', filter],
+    initialPageParam: 0,
+    queryFn: ({ pageParam }) => {
+      const params = new URLSearchParams({
+        lang: filter.lang,
+        limit: String(EXERCISE_PAGE),
+        offset: String(pageParam),
+      });
+      const q = filter.query.trim();
+      if (q.length >= 2) params.set('q', q);
+      if (filter.bodyPart) params.set('body_part', filter.bodyPart);
+      if (filter.equipment) params.set('equipment', filter.equipment);
+      return api<ExercisePage>(`/exercises?${params.toString()}`);
+    },
+    getNextPageParam: (last, pages) => {
+      const loaded = pages.reduce((n, page) => n + page.items.length, 0);
+      return loaded < last.total ? loaded : undefined;
+    },
+    // Справочник меняется только реимпортом
+    staleTime: 60 * 60_000,
+  });
+
+export const useExerciseFacets = () =>
+  useQuery({
+    queryKey: ['exercise-facets'],
+    staleTime: 60 * 60_000,
+    queryFn: () => api<ExerciseFacets>('/exercises/facets'),
+  });
+
+export const useExercise = (id: string | undefined) =>
+  useQuery({
+    queryKey: ['exercise', id],
+    enabled: !!id,
+    staleTime: 60 * 60_000,
+    queryFn: () => api<Exercise>(`/exercises/${id}`),
+  });
+
+/** Картинка/GIF под токеном → data-URI, как аватар. Контент не меняется, кэш вечный. */
+export const useExerciseMedia = (id: string, kind: 'image' | 'gif', enabled: boolean) =>
+  useQuery({
+    queryKey: ['exercise-media', id, kind],
+    enabled,
+    staleTime: Infinity,
+    gcTime: 30 * 60_000,
+    queryFn: () => apiBlobUri(`/exercises/${id}/${kind}`),
+  });
+
+export const useExerciseHistory = (id: string | undefined, enabled: boolean) =>
+  useQuery({
+    queryKey: ['exercise-history', id],
+    enabled: !!id && enabled,
+    queryFn: () => api<ExerciseHistory[]>(`/exercises/${id}/history`),
+  });
+
+export const useMyWorkouts = (enabled = true) =>
+  useQuery({ queryKey: ['workouts'], enabled, queryFn: () => api<WorkoutShort[]>('/workouts/me') });
+
+export const useWorkout = (id: string | undefined) =>
+  useQuery({
+    queryKey: ['workout', id],
+    enabled: !!id,
+    queryFn: () => api<Workout>(`/workouts/${id}`),
+  });
+
+function useInvalidateWorkouts() {
+  const qc = useQueryClient();
+  return () => {
+    void qc.invalidateQueries({ queryKey: ['workouts'] });
+    void qc.invalidateQueries({ queryKey: ['workout'] });
+    // Название шаблона показывается в календаре
+    void qc.invalidateQueries({ queryKey: ['events'] });
+  };
+}
+
+export function useCreateWorkout() {
+  const invalidate = useInvalidateWorkouts();
+  return useMutation({
+    mutationFn: (body: WorkoutPayload) => post<Workout>('/workouts', body),
+    onSuccess: invalidate,
+  });
+}
+
+export function useReplaceWorkout(id: string) {
+  const invalidate = useInvalidateWorkouts();
+  return useMutation({
+    mutationFn: (body: WorkoutPayload) =>
+      api<Workout>(`/workouts/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
+    onSuccess: invalidate,
+  });
+}
+
+export function useDeleteWorkout() {
+  const invalidate = useInvalidateWorkouts();
+  return useMutation({
+    mutationFn: (id: string) => api<void>(`/workouts/${id}`, { method: 'DELETE' }),
+    onSuccess: invalidate,
+  });
+}
+
+// Выполнение
+
+export const useActiveSession = (enabled = true) =>
+  useQuery({
+    queryKey: ['workout-session', 'active'],
+    enabled,
+    // 204 → undefined; react-query не хранит undefined, поэтому null
+    queryFn: async () => (await api<WorkoutSession | undefined>('/workout-sessions/active')) ?? null,
+  });
+
+export const useWorkoutSession = (id: string | undefined) =>
+  useQuery({
+    queryKey: ['workout-session', id],
+    enabled: !!id,
+    queryFn: () => api<WorkoutSession>(`/workout-sessions/${id}`),
+  });
+
+export const useMyWorkoutSessions = (enabled = true) =>
+  useQuery({
+    queryKey: ['workout-sessions'],
+    enabled,
+    queryFn: () => api<WorkoutSessionShort[]>('/workout-sessions/me'),
+  });
+
+function useInvalidateSessions() {
+  const qc = useQueryClient();
+  return () => {
+    void qc.invalidateQueries({ queryKey: ['workout-session'] });
+    void qc.invalidateQueries({ queryKey: ['workout-sessions'] });
+    void qc.invalidateQueries({ queryKey: ['exercise-history'] });
+    void qc.invalidateQueries({ queryKey: ['events'] });
+  };
+}
+
+export type StartSessionPayload = { event_id: string } | { workout_id: string; date: string };
+
+export function useStartSession() {
+  const invalidate = useInvalidateSessions();
+  return useMutation({
+    mutationFn: (body: StartSessionPayload) => post<WorkoutSession>('/workout-sessions', body),
+    onSuccess: invalidate,
+  });
+}
+
+/** Сохранение подходов по ходу тренировки. Кэш сессии обновляем ответом, без
+ *  инвалидации: экран держит свой черновик, и перезапрос не должен его сбивать. */
+export function useSaveSessionSets(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (sets: SessionSet[]) =>
+      api<WorkoutSession>(`/workout-sessions/${id}/sets`, { method: 'PUT', body: JSON.stringify({ sets }) }),
+    onSuccess: (session) => qc.setQueryData(['workout-session', id], session),
+  });
+}
+
+export function useFinishSession(id: string) {
+  const invalidate = useInvalidateSessions();
+  return useMutation({
+    mutationFn: () => post<WorkoutSessionFinish>(`/workout-sessions/${id}/finish`, {}),
+    onSuccess: invalidate,
+  });
+}
+
+export function useDiscardSession() {
+  const invalidate = useInvalidateSessions();
+  return useMutation({
+    mutationFn: (id: string) => api<void>(`/workout-sessions/${id}`, { method: 'DELETE' }),
+    onSuccess: invalidate,
+  });
+}
+

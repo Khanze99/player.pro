@@ -462,6 +462,13 @@ export default function Profile() {
               <ChevronIcon color={th.textMuted} />
             </Pressable>
           ) : null}
+          {/* Конструктор тренировок: личный режим, доступен любой роли, под флагом */}
+          {features.data?.workouts ? (
+            <Pressable style={styles.row} accessibilityRole="button" onPress={() => router.push('/workouts')}>
+              <Text style={styles.rowText}>{t('profile.workouts')}</Text>
+              <ChevronIcon color={th.textMuted} />
+            </Pressable>
+          ) : null}
           {canSharePrivate ? (
             <Pressable style={styles.row} accessibilityRole="button" onPress={() => router.push('/privacy')}>
               <Text style={styles.rowText}>{t('profile.privacy')}</Text>

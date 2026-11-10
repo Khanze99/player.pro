@@ -40,6 +40,9 @@ export class ApiError extends Error {
   constructor(
     public status: number,
     public detail: string,
+    /** Структурированный detail (объект), если сервер его прислал: например,
+     *  409 тренировок с { code, message, session_id }. detail тогда = message. */
+    public payload?: unknown,
   ) {
     super(detail);
   }
@@ -98,12 +101,18 @@ export async function api<T>(path: string, init: RequestInit = {}, retried = fal
   }
   if (!resp.ok) {
     let detail = resp.statusText;
+    let payload: unknown;
     try {
-      detail = (await resp.json()).detail ?? detail;
+      const raw = (await resp.json()).detail;
+      if (typeof raw === 'string') detail = raw;
+      else if (raw && typeof raw === 'object' && typeof raw.message === 'string') {
+        detail = raw.message;
+        payload = raw;
+      }
     } catch {
       // тело не JSON — оставляем statusText
     }
-    throw new ApiError(resp.status, detail);
+    throw new ApiError(resp.status, detail, payload);
   }
   if (resp.status === 204) return undefined as T;
   return (await resp.json()) as T;
