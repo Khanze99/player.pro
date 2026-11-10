@@ -1,6 +1,6 @@
 # План: конструктор тренировок в личном режиме
 
-Статус: **шаги 1-2 сделаны (2026-11-10), дальше контракт API.** Дата составления: 2026-11-10.
+Статус: **шаги 1-3 сделаны (2026-11-10), дальше модели и миграция.** Дата составления: 2026-11-10.
 
 Дополняет `PlayerPro_TZ_final.md`: раздела про библиотеку упражнений и конструктор
 тренировок в ТЗ нет. Строится поверх справочника упражнений из ветки
@@ -228,7 +228,7 @@ has_image`. `ExerciseOut` добавляет `secondary_muscles`, `steps_ru/en/e
 | POST | `/workout-sessions` | `{ event_id }` или `{ workout_id, date }` → `WorkoutSessionOut` 201 |
 | GET | `/workout-sessions/active` | `WorkoutSessionOut` или 204 |
 | GET | `/workout-sessions/{id}` | `WorkoutSessionOut` |
-| PUT | `/workout-sessions/{id}/sets` | `SessionSetIn[]` → `WorkoutSessionOut` (полная замена подходов) |
+| PUT | `/workout-sessions/{id}/sets` | `{ sets: SessionSetIn[] }` → `WorkoutSessionOut` (полная замена подходов) |
 | POST | `/workout-sessions/{id}/finish` | → `{ event_id, elapsed_min }` |
 | DELETE | `/workout-sessions/{id}` | 204, отмена (событие остаётся) |
 | GET | `/workout-sessions/me?from=&to=` | `WorkoutSessionShortOut[]` для истории |
@@ -238,10 +238,19 @@ has_image`. `ExerciseOut` добавляет `secondary_muscles`, `steps_ru/en/e
 - `POST` с `workout_id`: «начать сейчас», сервис создаёт личное событие типа
   `training` (старт сейчас, длительность = оценка шаблона) и сессию в одной
   транзакции.
-- `WorkoutSessionOut` содержит `last_result` по каждому упражнению (прошлый раз:
-  подходы × повторы × вес), чтобы экран выполнения не делал N запросов истории.
-- Ошибки: активная сессия уже есть 409 `{ active_session_id }`; на событие уже
-  есть сессия 409; правка подходов завершённой сессии 409; чужое 404.
+- `WorkoutSessionOut` содержит всё для экрана выполнения одним запросом:
+  подходы, карточки упражнений (`exercises`), отдых из шаблона
+  (`rest_sec_by_position`) и `last_results` (прошлый раз по каждому упражнению:
+  последняя завершённая сессия, только выполненные подходы).
+- Подходы в `PUT .../sets`: пара `(position, set_index)` уникальна, на одной
+  позиции одно упражнение; иначе 422.
+- Ошибки 409 структурированы: `detail = { code, message, session_id }`, где
+  `code` = `active_session` (уже есть незавершённая, `session_id` = она),
+  `event_has_session` (у события уже есть выполнение) или `session_finished`
+  (правка подходов завершённой сессии). Чужое 404.
+- Схемы: `app/schemas/exercise.py`, `app/schemas/workout.py`, поля в
+  `app/schemas/event.py`. Пути к файлам медиа наружу не отдаются, только
+  `has_image`/`has_gif`.
 - `finish`: `elapsed_min` = минуты от `started_at` до `finished_at`, в пределах
   1–600. Клиент открывает RPE с этим событием и длительностью.
 
@@ -334,7 +343,7 @@ has_image`. `ExerciseOut` добавляет `secondary_muscles`, `steps_ru/en/e
 |---|---|---|---|
 | 1 | python-senior | ветка `feat/workout-builder`, влить `feat/exercise-catalog`, удалить старую миграцию, `make migration m="exercises catalog"` | `make upgrade`, `make downgrade`, снова `make upgrade` чисто; тесты импорта зелёные ✅ Сделано: миграция `7cace068acf9`, `Exercise.created_by` добавлен в `OWNED` удаления аккаунта |
 | 2 | я + ревью пользователя | перевод 1174 названий ru/es в `exercise_translations.json` | тест: у всех 1324 записей датасета есть ru и es, ни одно не равно `name_en` случайно (список осознанных исключений в тесте) ✅ Сделано: 1324/1324, тесты полноты и уникальности в `test_exercise_import.py` |
-| 3 | api-designer | схемы справочника, шаблонов, сессий, расширение `EventIn/Out` | схемы и коды ошибок совпадают с разделом «API» |
+| 3 | api-designer | схемы справочника, шаблонов, сессий, расширение `EventIn/Out` | схемы и коды ошибок совпадают с разделом «API» ✅ Сделано: схемы + enum `WorkoutItemMode`, валидация проверена на граничных случаях |
 | 4 | db-architect | модели `Workout`, `WorkoutItem`, `WorkoutSession`, `WorkoutSessionSet`, `Event.workout_id`, enum `WorkoutItemMode`, миграция | `make upgrade`/`make downgrade` проходят; индексы и частичные уникальные на месте |
 | 5 | python-senior | `exercise_service` (поиск, фасеты, карточка, история), `workouts_service`, `workout_sessions_service`, правила в `authz`, флаг, `OWNED` | `make lint` чист |
 | 6 | python-senior | роуты `/exercises`, `/workouts`, `/workout-sessions`, расширение `/events` | в роутах нет логики и запросов к БД |

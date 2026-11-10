@@ -13,6 +13,9 @@ class EventCreateIn(BaseModel):
     planned_start: datetime
     planned_duration_min: int = Field(ge=1, le=600)
     location_id: uuid.UUID | None = None
+    # Шаблон тренировки (docs/plan-workout-builder.md): только у личного события,
+    # у командного 422. Чужой шаблон 404.
+    workout_id: uuid.UUID | None = None
 
 
 class EventUpdateIn(BaseModel):
@@ -21,6 +24,8 @@ class EventUpdateIn(BaseModel):
     planned_start: datetime | None = None
     planned_duration_min: int | None = Field(default=None, ge=1, le=600)
     location_id: uuid.UUID | None = None
+    # null снимает шаблон с события, отсутствие поля его не трогает
+    workout_id: uuid.UUID | None = None
 
 
 class EventOut(BaseModel):
@@ -34,6 +39,10 @@ class EventOut(BaseModel):
     planned_duration_min: int
     location_id: uuid.UUID | None
     created_by: uuid.UUID
+    # Название шаблона для календаря без второго запроса; null, если шаблона нет
+    # или его удалили (ON DELETE SET NULL).
+    workout_id: uuid.UUID | None = None
+    workout_name: str | None = None
 
 
 class AttendanceIn(BaseModel):

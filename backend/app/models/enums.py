@@ -258,3 +258,13 @@ class ExerciseBodyPart(str, enum.Enum):
     upper_arms = "upper_arms"
     upper_legs = "upper_legs"
     waist = "waist"
+
+
+class WorkoutItemMode(str, enum.Enum):
+    """Как задаётся цель упражнения в шаблоне тренировки (docs/plan-workout-builder.md).
+
+    reps: подходы × повторы, вес опционален; time: подходы × секунды (планка, кардио).
+    """
+
+    reps = "reps"
+    time = "time"
