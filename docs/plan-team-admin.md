@@ -29,6 +29,9 @@
 ## Бэкенд: что добавить
 
 1. **`PATCH /teams/{id}`** — rename + `sport`. `authz.require_org_admin` + проверка `team.org_id == user.org_id`.
+   **Сделано 2026-11-10** вместе с `short_name` (до 12 символов, для шапки с колокольчиком,
+   docs/plan-notifications.md): `PATCH /teams/{id}` принимает `name`, `sport`, `short_name`,
+   доступ через `authz.require_org_admin_for_teams` (чужая организация: 404). UI формы пока нет.
 2. **Архивация вместо hard delete.** FK на `team_id` (`team_memberships`, `locations`, `events`, `invitations`) объявлены без `ondelete=CASCADE` → Postgres сам заблокирует `DELETE` при живых связях (NO ACTION/RESTRICT по умолчанию). Поэтому:
    - добавить `Team.archived_at: datetime | None`;
    - `DELETE /teams/{id}` = проставить `archived_at`, не физическое удаление;

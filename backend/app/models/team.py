@@ -16,6 +16,9 @@ class Team(Base):
     org_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organizations.id"), index=True)
     name: Mapped[str] = mapped_column(String(255))
     sport: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    # Короткое имя для тесных мест (шапка рядом с колокольчиком): «U-19», «Дубль».
+    # Нет: клиент показывает полное название в две строки.
+    short_name: Mapped[str | None] = mapped_column(String(12), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 

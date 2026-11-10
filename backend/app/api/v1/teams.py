@@ -11,6 +11,7 @@ from app.schemas.team import (
     MemberOut,
     TeamCreateIn,
     TeamOut,
+    TeamUpdateIn,
     TransferIn,
 )
 from app.services import teams_service
@@ -27,6 +28,13 @@ async def create_team(data: TeamCreateIn, user: CurrentUser, db: DbSession):
 @router.get("", response_model=list[TeamOut])
 async def my_teams(user: CurrentUser, db: DbSession):
     return await teams_service.list_my_teams(db, user)
+
+
+@router.patch("/{team_id}", response_model=TeamOut)
+async def update_team(team_id: uuid.UUID, data: TeamUpdateIn, user: CurrentUser, db: DbSession):
+    """Название, вид спорта, короткое имя: только админ этой организации."""
+    (team,) = await authz.require_org_admin_for_teams(db, user, team_id)
+    return await teams_service.update_team(db, team, data)
 
 
 @router.get("/{team_id}/members", response_model=list[MemberOut])

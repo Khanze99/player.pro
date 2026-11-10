@@ -43,3 +43,44 @@ async def test_admin_without_cross_org_membership_sees_only_own_org(client):
     assert resp.status_code == 200
     names = {team["name"] for team in resp.json()}
     assert names == {"Solo Team"}
+
+
+# ------------------------------------------------------------------ короткое имя (шапка с колокольчиком)
+
+
+async def test_short_name_set_trimmed_and_cleared(client):
+    from tests.test_authz import build_org
+
+    org = await build_org(client)
+    url = f"/api/v1/teams/{org['team_id']}"
+    admin = org["admin"]["headers"]
+
+    resp = await client.patch(url, json={"short_name": "  U-19  "}, headers=admin)
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["short_name"] == "U-19"
+    assert resp.json()["name"] == "First Team"
+
+    # Видно всем участникам через GET /teams.
+    teams = (await client.get("/api/v1/teams", headers=org["athlete1"]["headers"])).json()
+    assert teams[0]["short_name"] == "U-19"
+
+    # Пустая строка убирает короткое имя.
+    resp = await client.patch(url, json={"short_name": ""}, headers=admin)
+    assert resp.json()["short_name"] is None
+
+    resp = await client.patch(url, json={"short_name": "x" * 13}, headers=admin)
+    assert resp.status_code == 422
+
+
+async def test_only_own_org_admin_can_update_team(client):
+    from tests.test_authz import build_org
+
+    org = await build_org(client)
+    other = await build_org(client, suffix="-2")
+    url = f"/api/v1/teams/{org['team_id']}"
+    for who in ("coach", "medic", "athlete1"):
+        resp = await client.patch(url, json={"short_name": "X"}, headers=org[who]["headers"])
+        assert resp.status_code == 403, who
+    # Админ чужой организации: 404, существование команды не подтверждаем.
+    resp = await client.patch(url, json={"short_name": "X"}, headers=other["admin"]["headers"])
+    assert resp.status_code == 404

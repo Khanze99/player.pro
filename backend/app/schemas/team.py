@@ -1,14 +1,34 @@
 import uuid
 from datetime import date
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from app.models.enums import TeamRole
+
+
+def _blank_to_none(value: str | None) -> str | None:
+    if value is None:
+        return None
+    value = value.strip()
+    return value or None
 
 
 class TeamCreateIn(BaseModel):
     name: str = Field(min_length=1, max_length=255)
     sport: str | None = None
+    short_name: str | None = Field(default=None, max_length=12)
+
+    _short = field_validator("short_name", mode="before")(_blank_to_none)
+
+
+class TeamUpdateIn(BaseModel):
+    """PATCH /teams/{id}: только переданные поля. short_name "" или null: убрать короткое имя."""
+
+    name: str | None = Field(default=None, min_length=1, max_length=255)
+    sport: str | None = None
+    short_name: str | None = Field(default=None, max_length=12)
+
+    _short = field_validator("short_name", mode="before")(_blank_to_none)
 
 
 class TeamOut(BaseModel):
@@ -18,6 +38,7 @@ class TeamOut(BaseModel):
     org_id: uuid.UUID
     name: str
     sport: str | None
+    short_name: str | None = None
 
 
 class MemberIn(BaseModel):

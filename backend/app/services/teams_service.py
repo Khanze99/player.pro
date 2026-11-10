@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.enums import STAFF_ROLES, TeamRole
 from app.models.team import Location, Team, TeamMembership
 from app.models.user import User, display_name
-from app.schemas.team import LocationIn, MemberOut, TeamCreateIn, TransferIn
+from app.schemas.team import LocationIn, MemberOut, TeamCreateIn, TeamUpdateIn, TransferIn
 from app.services import audit_service
 
 
@@ -47,11 +47,22 @@ async def ensure_single_role_category(
 
 async def create_team(db: AsyncSession, admin: User, data: TeamCreateIn) -> Team:
     await ensure_single_role_category(db, admin.id, TeamRole.head_coach)
-    team = Team(org_id=admin.org_id, name=data.name, sport=data.sport)
+    team = Team(org_id=admin.org_id, name=data.name, sport=data.sport, short_name=data.short_name)
     db.add(team)
     await db.flush()
     # Создатель-админ автоматически становится главным тренером новой команды
     db.add(TeamMembership(user_id=admin.id, team_id=team.id, team_role=TeamRole.head_coach))
+    await db.commit()
+    await db.refresh(team)
+    return team
+
+
+async def update_team(db: AsyncSession, team: Team, data: TeamUpdateIn) -> Team:
+    """Только переданные поля (docs/plan-team-admin.md, п.1). name null не стираем: он обязателен."""
+    for field, value in data.model_dump(exclude_unset=True).items():
+        if field == "name" and value is None:
+            continue
+        setattr(team, field, value)
     await db.commit()
     await db.refresh(team)
     return team
