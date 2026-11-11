@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PlayerPro · дашборд тренера · цвета прежние, структура новая</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Inter+Tight:wght@600;700&family=Unbounded:wght@600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --page: #e9e9e6;
+    --sans: Inter, -apple-system, "SF Pro Text", "Helvetica Neue", system-ui, sans-serif;
+    --tight: "Inter Tight", Inter, -apple-system, "Helvetica Neue", sans-serif;
+    /* токены из mobile/src/theme/tokens.ts, без изменений */
+    --bg: #0A0D13; --bgTop: #10161F; --surface: #131A26; --surface2: #1B2432;
+    --border: #26303F; --text: #EDF2F9; --muted: #8A99AD; --brand: #2D8CFF;
+    --good: #2FD27A; --caution: #FFB02E; --risk: #FF5C5C; --low: #6B7A8D;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--page); font-family: var(--sans); color: #111; }
+  .intro { max-width: 1400px; margin: 0 auto; padding: 36px 32px 8px; }
+  .intro h1 { font: 700 22px/1.2 var(--sans); margin: 0 0 8px; }
+  .intro p { margin: 0; font-size: 14px; color: #444; max-width: 900px; }
+  .board { display: grid; grid-template-columns: repeat(3, 390px); gap: 28px; padding: 24px 32px 64px; max-width: 1400px; margin: 0 auto; overflow-x: auto; }
+  .col h2 { font: 600 13px/1.3 var(--sans); color: #222; margin: 0 0 4px; }
+  .col .ref { font-size: 12px; color: #666; margin: 0 0 12px; min-height: 64px; }
+  .phone { width: 390px; border-radius: 28px; overflow: hidden; box-shadow: 0 2px 0 rgba(0,0,0,.08), 0 24px 48px -24px rgba(0,0,0,.35); }
+  .screen { min-height: 1180px; padding: 54px 20px 32px; background: linear-gradient(var(--bgTop), var(--bg)); color: var(--text); }
+  .num { font-variant-numeric: tabular-nums; }
+  .zg { color: var(--good); } .zy { color: var(--caution); } .zr { color: var(--risk); } .zm { color: var(--muted); } .zb { color: var(--brand); }
+  .bg-g { background: var(--good); } .bg-y { background: var(--caution); } .bg-r { background: var(--risk); } .bg-m { background: var(--low); }
+
+  /* ======================= 0. СЕЙЧАС ======================= */
+  .now .date { font: 600 11px var(--sans); letter-spacing: 1.4px; color: var(--muted); margin-bottom: 4px; }
+  .now .title { font: 600 24px Unbounded, var(--tight); margin: 0 0 16px; }
+  .now .seg { display: flex; background: var(--surface2); border-radius: 14px; padding: 4px; margin-bottom: 16px; }
+  .now .seg span { flex: 1; text-align: center; font: 600 13px var(--sans); color: var(--muted); padding: 8px; border-radius: 8px; }
+  .now .seg .on { background: var(--brand); color: #fff; }
+  .now .donuts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 16px; }
+  .now .donut { background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 14px; display: flex; gap: 12px; align-items: center; }
+  .now .ring { width: 72px; height: 72px; border-radius: 50%; display: grid; place-items: center; position: relative; flex: none; }
+  .now .ring::after { content: ""; position: absolute; inset: 7px; border-radius: 50%; background: var(--surface); }
+  .now .ring b { position: relative; z-index: 1; font: 600 15px Unbounded, var(--tight); }
+  .now .dl { font: 600 10px var(--sans); letter-spacing: 1.2px; color: var(--muted); }
+  .now .dc { font: 500 12px var(--sans); margin-top: 2px; }
+  .now .card { background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 16px; margin-bottom: 16px; }
+  .now .micro { font: 600 10px var(--sans); letter-spacing: 1.2px; color: var(--muted); margin-bottom: 8px; }
+  .now .big { font: 600 30px Unbounded, var(--tight); }
+  .now .big small { font-size: 18px; color: var(--muted); }
+  .now .hint { font: 400 13px var(--sans); color: var(--muted); }
+  .now .grid6 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 10px; }
+  .now .cell { background: var(--surface2); border-radius: 8px; padding: 8px; text-align: center; }
+  .now .cell b { display: block; font: 700 16px var(--sans); }
+  .now .cell span { font: 400 10px var(--sans); letter-spacing: .4px; color: var(--muted); }
+  .now .row { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border); }
+  .now .row:last-child { border-bottom: 0; }
+  .now .bar { width: 3px; height: 32px; border-radius: 2px; }
+  .now .rt { font: 600 14px var(--sans); }
+  .now .rh { font: 400 11px var(--sans); color: var(--muted); margin-top: 2px; }
+  .now .rv { font: 700 13px var(--sans); margin-left: auto; text-align: right; }
+  .now .badge { width: 46px; height: 40px; border-radius: 14px; border: 2px solid; display: grid; place-items: center; font: 600 14px Unbounded, var(--tight); flex: none; }
+
+  /* ======================= ПРЕДЛОЖЕНИЕ ======================= */
+  .p .top { display: flex; justify-content: space-between; align-items: baseline; padding-bottom: 12px; }
+  .p .team { font: 500 13px var(--sans); color: var(--muted); }
+  .p .team b { color: var(--text); font-weight: 600; }
+  .p .date { font: 500 13px var(--sans); color: var(--muted); }
+  .p h3 { font: 600 28px/1.1 var(--tight); letter-spacing: -.02em; margin: 0 0 10px; }
+  .p .lede { font: 400 15px/1.45 var(--sans); color: var(--muted); margin: 0 0 20px; }
+  .p .lede b { color: var(--text); font-weight: 600; }
+  .p .tabs { display: flex; gap: 22px; border-bottom: 1px solid var(--border); margin-bottom: 4px; }
+  .p .tabs span { font: 500 14px var(--sans); color: var(--muted); padding: 0 0 10px; }
+  .p .tabs .on { color: var(--text); box-shadow: inset 0 -2px 0 var(--brand); }
+  .p .metric { display: grid; grid-template-columns: 1fr auto; align-items: end; padding: 16px 0 14px; border-bottom: 1px solid var(--border); }
+  .p .metric .k { font: 500 13px var(--sans); color: var(--muted); margin-bottom: 4px; }
+  .p .metric .v { font: 600 44px/1 var(--tight); letter-spacing: -.03em; }
+  .p .metric .v small { font: 500 18px var(--tight); color: var(--muted); margin-left: 3px; letter-spacing: 0; }
+  .p .metric .s { font: 500 13px var(--sans); text-align: right; }
+  .p .metric .dist { display: flex; gap: 3px; margin-top: 8px; justify-content: flex-end; }
+  .p .metric .dist i { display: block; width: 7px; height: 7px; border-radius: 50%; }
+  .p .sect { display: flex; justify-content: space-between; align-items: baseline; font: 500 13px var(--sans); color: var(--muted); margin: 26px 0 4px; }
+  .p .sect a { color: var(--brand); text-decoration: none; font-size: 13px; }
+  .p .line { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border); }
+  .p .line:last-child { border-bottom: 0; }
+  .p .line .n { font: 500 15px var(--sans); }
+  .p .line .w { font: 400 13px var(--sans); color: var(--muted); margin-top: 2px; }
+  .p .line .r { font: 600 15px var(--sans); text-align: right; white-space: nowrap; }
+  .p .line .r small { display: block; font: 400 12px var(--sans); color: var(--muted); }
+  .p .wl { display: flex; align-items: baseline; gap: 10px; margin: 10px 0 14px; }
+  .p .wl b { font: 600 34px/1 var(--tight); letter-spacing: -.03em; }
+  .p .wl span { font: 400 14px/1.4 var(--sans); color: var(--muted); }
+  .p .wl span em { font-style: normal; color: var(--text); }
+  .p .scales { display: grid; grid-template-columns: repeat(3, 1fr); row-gap: 14px; }
+  .p .scales b { display: block; font: 600 20px/1 var(--tight); letter-spacing: -.02em; }
+  .p .scales span { font: 400 12px var(--sans); color: var(--muted); }
+  .p .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 8px; vertical-align: 1px; }
+
+  /* Состав */
+  .p .seg2 { display: flex; gap: 18px; margin: 14px 0 2px; overflow: hidden; }
+  .p .seg2 span { font: 500 14px var(--sans); color: var(--muted); padding-bottom: 8px; white-space: nowrap; }
+  .p .seg2 .on { color: var(--text); box-shadow: inset 0 -2px 0 var(--brand); }
+  .p .legend { display: flex; gap: 14px; font: 400 12px var(--sans); color: var(--muted); padding: 10px 0 2px; border-bottom: 1px solid var(--border); }
+  .p .legend i { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 5px; }
+  .p .prow { display: grid; grid-template-columns: 44px 1fr auto; align-items: center; gap: 12px; padding: 11px 0; border-bottom: 1px solid var(--border); }
+  .p .prow .val { font: 600 20px/1 var(--tight); letter-spacing: -.02em; }
+  .p .prow .nm { font: 500 15px var(--sans); }
+  .p .prow .pos { font: 400 12px var(--sans); color: var(--muted); margin-top: 2px; }
+  .p .prow .side { text-align: right; font: 400 12px var(--sans); color: var(--muted); }
+  .p .prow .side b { display: block; font-weight: 500; }
+  .p .track { height: 3px; background: var(--surface2); border-radius: 2px; margin-top: 6px; overflow: hidden; width: 44px; }
+  .p .track i { display: block; height: 100%; }
+  .p .group { font: 500 12px var(--sans); color: var(--muted); padding: 18px 0 2px; }
+</style>
+</head>
+<body>
+<div class="intro">
+  <h1>Дашборд тренера · цвета прежние, меняется структура</h1>
+  <p>Палитра, светофор и брендовый синий из tokens.ts не тронуты. Уходят карточки, бублики, капс-подписи и Unbounded; приходят крупная цифра с подписью, тонкие линейки и одна фраза-сводка наверху. Так уже выглядит веб-кабинет (статистика игрока), мобилка подтягивается к нему.</p>
+</div>
+
+<div class="board">
+
+<!-- ================= 0. СЕЙЧАС ================= -->
+<div class="col">
+  <h2>0 · Сейчас</h2>
+  <p class="ref">Карточки с радиусом 20 и рамкой, четыре бублика, капс с разрядкой, Unbounded, синяя заливка в переключателе.</p>
+  <div class="phone"><div class="screen now">
+    <div class="date">ВТОРНИК, 11 НОЯБРЯ</div>
+    <div class="title">Дашборд</div>
+    <div class="seg"><span class="on">Обзор</span><span>Статус</span><span>Травмы</span></div>
+    <div class="donuts">
+      <div class="donut"><div class="ring" style="background:conic-gradient(var(--caution) 68%, var(--surface2) 0)"><b>68</b></div><div><div class="dl">ГОТОВНОСТЬ</div><div class="dc zy">Есть просадка</div></div></div>
+      <div class="donut"><div class="ring" style="background:conic-gradient(var(--good) 56%, var(--surface2) 0)"><b>1.12</b></div><div><div class="dl">НАГРУЗКА</div><div class="dc zg">Оптимум</div></div></div>
+      <div class="donut"><div class="ring" style="background:conic-gradient(var(--good) 68%, var(--surface2) 0)"><b>6.8</b></div><div><div class="dl">ПЕРФОМАНС</div><div class="dc zg">В норме</div></div></div>
+      <div class="donut"><div class="ring" style="background:conic-gradient(var(--good) 91%, var(--surface2) 0)"><b>91</b></div><div><div class="dl">ДОСТУПНОСТЬ</div><div class="dc zg">В норме</div></div></div>
+    </div>
+    <div class="card">
+      <div class="micro">УТРЕННИЙ ОТЧЁТ</div>
+      <div class="big">14<small>/18</small></div>
+      <div class="hint">заполнили опрос сегодня</div>
+      <div class="grid6">
+        <div class="cell"><b>3.6</b><span>СОН</span></div><div class="cell"><b>3.4</b><span>ЭНЕРГИЯ</span></div><div class="cell"><b>3.9</b><span>НАСТРОЕНИЕ</span></div>
+        <div class="cell"><b>2.4</b><span>СТРЕСС</span></div><div class="cell"><b>2.1</b><span>БОЛЬ</span></div><div class="cell"><b>7.2</b><span>ЧАСОВ СНА</span></div>
+      </div>
+      <div class="hint" style="margin-top:10px"><span class="zy">с болью: 3</span> &nbsp; <span class="zr">травма: 1</span> &nbsp; <span class="zb">недомогание: 2</span></div>
+      <div class="hint" style="margin-top:4px;font-size:12px">Не заполнили: Морозов, Смирнов, Козлов, Волков</div>
+    </div>
+    <div class="card">
+      <div class="micro">ПРОШЕДШИЕ СОБЫТИЯ</div>
+      <div class="row"><i class="bar" style="width:8px;height:8px;border-radius:4px;background:var(--brand)"></i><div><div class="rt">Сила: ноги</div><div class="rh">10 нояб. · 75 мин · был 16</div></div><div class="rv">6.4<div class="rh">ср. RPE</div></div></div>
+      <div class="row"><i class="bar" style="width:8px;height:8px;border-radius:4px;background:var(--caution)"></i><div><div class="rt">Матч · Зенит-м</div><div class="rh">8 нояб. · 95 мин · был 18</div></div><div class="rv">8.1<div class="rh">ср. RPE</div></div></div>
+    </div>
+    <div class="card">
+      <div class="micro">ОТЧЁТ ПО КОМАНДЕ</div>
+      <div class="row"><i class="bar bg-r"></i><div><div class="rt">Артём Козлов</div><div class="rh">низкая готовность · мало сна</div></div></div>
+      <div class="row"><i class="bar bg-r"></i><div><div class="rt">Максим Волков</div><div class="rh">перегруз · рост нагрузки</div></div></div>
+      <div class="row"><i class="bar bg-y"></i><div><div class="rt">Даниил Морозов</div><div class="rh">нет опроса</div></div></div>
+    </div>
+    <div class="card">
+      <div class="micro">СТАТУС · ГОТОВНОСТЬ</div>
+      <div class="row"><div class="badge" style="border-color:var(--risk)">41</div><div><div class="rt">Артём Козлов</div><div class="rh">ЦЗ</div></div><div class="rv zr">Тревожно</div></div>
+      <div class="row"><div class="badge" style="border-color:var(--risk)">52</div><div><div class="rt">Максим Волков</div><div class="rh">ЦП</div></div><div class="rv zr">Тревожно</div></div>
+      <div class="row"><div class="badge" style="border-color:var(--caution)">63</div><div><div class="rt">Иван Смирнов</div><div class="rh">ЛЗ</div></div><div class="rv zy">Есть просадка</div></div>
+    </div>
+  </div></div>
+</div>
+
+<!-- ================= 1. ОБЗОР ================= -->
+<div class="col">
+  <h2>1 · Предложение · Обзор</h2>
+  <p class="ref">Та же палитра. Сводка словами, четыре метрики столбиком с распределением состава точками, разделы тонкими линейками без карточек. Вкладки как подчёркивание брендовым синим, а не заливка.</p>
+  <div class="phone"><div class="screen p">
+    <div class="top"><span class="team"><b>Демо-команда</b> · 18 игроков</span><span class="date">Вт, 11 ноя</span></div>
+    <h3>Команда сегодня</h3>
+    <p class="lede">Опрос сдали <b>14 из 18</b>. У двоих тревожная готовность, один перегружен. Матч в субботу дал <b>RPE 8.1</b>, нагрузка в оптимуме.</p>
+    <div class="tabs"><span class="on">Обзор</span><span>Состав</span><span>Травмы</span></div>
+
+    <div class="metric"><div><div class="k">Готовность</div><div class="v num">68<small>/100</small></div></div><div><div class="s zy">Есть просадка</div><div class="dist"><i class="bg-g"></i><i class="bg-g"></i><i class="bg-g"></i><i class="bg-g"></i><i class="bg-g"></i><i class="bg-g"></i><i class="bg-g"></i><i class="bg-g"></i><i class="bg-g"></i><i class="bg-y"></i><i class="bg-y"></i><i class="bg-y"></i><i class="bg-r"></i><i class="bg-r"></i><i class="bg-m"></i><i class="bg-m"></i><i class="bg-m"></i><i class="bg-m"></i></div></div></div>
+    <div class="metric"><div><div class="k">Нагрузка, ACWR</div><div class="v num">1.12</div></div><div><div class="s zg">Оптимум</div><div class="dist"><i class="bg-g"></i><i class="bg-g"></i><i class="bg-g"></i><i class="bg-g"></i><i class="bg-g"></i><i class="bg-g"></i><i class="bg-g"></i><i class="bg-g"></i><i class="bg-g"></i><i class="bg-g"></i><i class="bg-g"></i><i class="bg-g"></i><i class="bg-y"></i><i class="bg-y"></i><i class="bg-r"></i><i class="bg-m"></i><i class="bg-m"></i><i class="bg-m"></i></div></div></div>
+    <div class="metric"><div><div class="k">Перфоманс, 7 дней</div><div class="v num">6.8<small>/10</small></div></div><div><div class="s zg">В норме</div></div></div>
+    <div class="metric"><div><div class="k">Доступность, 90 дней</div><div class="v num">91<small>%</small></div></div><div><div class="s zg">16 в строю · 1 ограничен · 1 вне</div></div></div>
+
+    <div class="sect"><span>Утренний отчёт</span><a>Напомнить 4</a></div>
+    <div class="wl"><b class="num">14</b><span>из 18 заполнили · нет: <em>Морозов, Смирнов, Козлов, Волков</em></span></div>
+    <div class="scales">
+      <div><b class="num">3.6</b><span>Сон</span></div><div><b class="num">3.4</b><span>Энергия</span></div><div><b class="num">3.9</b><span>Настроение</span></div>
+      <div><b class="num">2.4</b><span>Стресс</span></div><div><b class="num zy">2.1</b><span>Боль · 3 с болью</span></div><div><b class="num">7.2</b><span>Часов сна</span></div>
+    </div>
+
+    <div class="sect"><span>Требуют внимания</span><span>3 из 18</span></div>
+    <div class="line"><div><div class="n"><i class="dot bg-r"></i>Артём Козлов</div><div class="w">низкая готовность · мало сна</div></div><div class="r num zr">41<small>готовность</small></div></div>
+    <div class="line"><div><div class="n"><i class="dot bg-r"></i>Максим Волков</div><div class="w">перегруз · рост нагрузки</div></div><div class="r num zr">1.62<small>ACWR</small></div></div>
+    <div class="line"><div><div class="n"><i class="dot bg-y"></i>Даниил Морозов</div><div class="w">нет опроса</div></div><div class="r num zm">·</div></div>
+
+    <div class="sect"><span>События</span><a>Календарь</a></div>
+    <div class="line"><div><div class="n">Сила: ноги</div><div class="w">вчера · 75 мин · были 16 из 18</div></div><div class="r num">6.4<small>ср. RPE</small></div></div>
+    <div class="line"><div><div class="n">Матч · Зенит-м</div><div class="w">8 ноя · 95 мин · были 18</div></div><div class="r num">8.1<small>ср. RPE</small></div></div>
+    <div class="line"><div><div class="n">Верх тела</div><div class="w">завтра 10:00 · 75 мин</div></div><div class="r zb" style="font-weight:500">2 игрока</div></div>
+  </div></div>
+</div>
+
+<!-- ================= 2. СОСТАВ ================= -->
+<div class="col">
+  <h2>2 · Предложение · Состав</h2>
+  <p class="ref">Тот же язык на второй вкладке: вместо рамочного бейджа крупная цифра с короткой полосой шкалы под ней, игроки сгруппированы по зоне, разрезы метрик как подчёркнутые вкладки.</p>
+  <div class="phone"><div class="screen p">
+    <div class="top"><span class="team"><b>Демо-команда</b> · 18 игроков</span><span class="date">Вт, 11 ноя</span></div>
+    <h3>Состав</h3>
+    <div class="tabs"><span>Обзор</span><span class="on">Состав</span><span>Травмы</span></div>
+    <div class="seg2"><span class="on">Готовность</span><span>Нагрузка</span><span>Перфоманс</span><span>Доступность</span></div>
+    <div class="legend"><span><i class="bg-r"></i>тревожно 2</span><span><i class="bg-y"></i>просадка 3</span><span><i class="bg-g"></i>в норме 9</span><span><i class="bg-m"></i>нет опроса 4</span></div>
+
+    <div class="group">Тревожно</div>
+    <div class="prow"><div><div class="val num zr">41</div><div class="track"><i class="bg-r" style="width:41%"></i></div></div><div><div class="nm">Артём Козлов</div><div class="pos">ЦЗ · мало сна, боль 7</div></div><div class="side"><b class="zr">травма</b>колено, 6 дн.</div></div>
+    <div class="prow"><div><div class="val num zr">52</div><div class="track"><i class="bg-r" style="width:52%"></i></div></div><div><div class="nm">Максим Волков</div><div class="pos">ЦП · ACWR 1.62</div></div><div class="side"><b>пульс покоя</b>выше нормы</div></div>
+
+    <div class="group">Есть просадка</div>
+    <div class="prow"><div><div class="val num zy">63</div><div class="track"><i class="bg-y" style="width:63%"></i></div></div><div><div class="nm">Иван Смирнов</div><div class="pos">ЛЗ · стресс 4</div></div><div class="side"></div></div>
+    <div class="prow"><div><div class="val num zy">66</div><div class="track"><i class="bg-y" style="width:66%"></i></div></div><div><div class="nm">Кирилл Орлов</div><div class="pos">ПЗ · 5 ч сна</div></div><div class="side"></div></div>
+    <div class="prow"><div><div class="val num zy">71</div><div class="track"><i class="bg-y" style="width:71%"></i></div></div><div><div class="nm">Егор Лебедев</div><div class="pos">ВР</div></div><div class="side"><b class="zy">ограничен</b>до пятницы</div></div>
+
+    <div class="group">В норме</div>
+    <div class="prow"><div><div class="val num zg">81</div><div class="track"><i class="bg-g" style="width:81%"></i></div></div><div><div class="nm">Тест Тест</div><div class="pos">НП</div></div><div class="side"></div></div>
+    <div class="prow"><div><div class="val num zg">84</div><div class="track"><i class="bg-g" style="width:84%"></i></div></div><div><div class="nm">Никита Соколов</div><div class="pos">ЦН</div></div><div class="side"></div></div>
+    <div class="prow"><div><div class="val num zg">88</div><div class="track"><i class="bg-g" style="width:88%"></i></div></div><div><div class="nm">Павел Новиков</div><div class="pos">ЛЗ</div></div><div class="side"></div></div>
+
+    <div class="group">Нет опроса</div>
+    <div class="prow"><div><div class="val num zm">·</div><div class="track"></div></div><div><div class="nm">Даниил Морозов</div><div class="pos">ПЗ · вчера 74</div></div><div class="side"><b class="zb">напомнить</b></div></div>
+    <div class="prow"><div><div class="val num zm">·</div><div class="track"></div></div><div><div class="nm">Роман Фёдоров</div><div class="pos">ЦН · вчера 79</div></div><div class="side"><b class="zb">напомнить</b></div></div>
+  </div></div>
+</div>
+
+</div>
+</body>
+</html>
