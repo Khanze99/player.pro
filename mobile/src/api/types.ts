@@ -224,9 +224,11 @@ export interface CalendarEvent {
   planned_duration_min: number;
   location_id: string | null;
   created_by: string;
-  /** Шаблон тренировки (только личные события); null, если плана нет или шаблон удалён. */
+  /** Свой список упражнений события (личного или командного); null, если упражнений нет. */
   workout_id?: string | null;
   workout_name?: string | null;
+  /** Кому назначены упражнения командного события; пусто = всем игрокам команды */
+  workout_athlete_ids?: string[];
 }
 
 export interface EventPayload {
@@ -236,6 +238,8 @@ export interface EventPayload {
   planned_start: string;
   planned_duration_min: number;
   workout_id?: string | null;
+  /** Кому назначены упражнения командного события; пусто = всем игрокам */
+  workout_athlete_ids?: string[];
 }
 
 /** Правка события (EventUpdateIn) — без team_id: команду события не меняют. */
@@ -244,8 +248,10 @@ export interface EventUpdatePayload {
   title?: string | null;
   planned_start?: string;
   planned_duration_min?: number;
-  /** null снимает шаблон с события, отсутствие поля его не трогает */
+  /** null снимает список упражнений с события, отсутствие поля его не трогает */
   workout_id?: string | null;
+  /** [] = всем игрокам; отсутствие поля назначения не трогает */
+  workout_athlete_ids?: string[];
 }
 
 export interface Attendance {
@@ -769,6 +775,8 @@ export interface WorkoutSession {
   athlete_id: string;
   id: string;
   event_id: string | null;
+  /** Командное событие: результат видит штаб команды */
+  is_team_event: boolean;
   workout_id: string | null;
   workout_name: string;
   date: string;
@@ -819,3 +827,14 @@ export interface WorkoutConflict {
   session_id: string | null;
 }
 
+/** Строка «Результатов игроков» командного события (GET /events/{id}/workout-results) */
+export interface WorkoutResult {
+  athlete_id: string;
+  name: string;
+  status: 'not_started' | 'in_progress' | 'finished';
+  session_id: string | null;
+  sets_done: number;
+  sets_total: number;
+  started_at: string | null;
+  finished_at: string | null;
+}

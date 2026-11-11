@@ -221,6 +221,8 @@ class WorkoutSessionOut(BaseModel):
     # для чтения, экран сравнивает с собой
     athlete_id: uuid.UUID
     event_id: uuid.UUID | None
+    # Командное событие: результат видит штаб команды, экран об этом предупреждает
+    is_team_event: bool = False
     workout_id: uuid.UUID | None
     workout_name: str
     date: date_type

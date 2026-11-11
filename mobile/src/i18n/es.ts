@@ -369,6 +369,11 @@ const es: typeof ru = {
     templatesHint: 'Las plantillas se crean en tu perfil: «Plantillas de entrenamiento»',
     templateAdded: 'Ejercicios añadidos: {{count}}',
     exercisesTooMany: 'Un entrenamiento admite hasta {{n}} ejercicios',
+    assignLabel: 'Para',
+    assignAll: 'Todos los jugadores',
+    assignSome: 'Elegir',
+    assignEmpty: 'Elige al menos un jugador',
+    assignNoAthletes: 'Aún no hay jugadores en el equipo',
   },
   eventDetail: {
     attendance: 'Asistencia',
@@ -379,6 +384,13 @@ const es: typeof ru = {
     deleteConfirm: 'Desaparecerá del calendario de todos los participantes',
     deleted: 'Evento eliminado',
     plan: 'Ejercicios',
+    forAllAthletes: 'Para todos los jugadores del equipo',
+    forAthletes: 'Jugadores asignados: {{count}}',
+    results: 'Resultados de los jugadores',
+    noName: 'Sin nombre',
+    resultNotStarted: 'Sin empezar',
+    resultInProgress: 'En curso · {{done}}/{{total}}',
+    resultFinished: 'Hecho · {{done}}/{{total}}',
   },
   profile: {
     title: 'Perfil',
@@ -744,6 +756,7 @@ const es: typeof ru = {
     discard: 'Cancelar entrenamiento',
     discardTitle: '¿Cancelar el entrenamiento?',
     discardMessage: 'Las series marcadas se perderán. El evento del calendario se queda',
+    staffSees: 'El cuerpo técnico verá tu resultado',
   },
   exercise: {
     pickTitle: 'Ejercicios',

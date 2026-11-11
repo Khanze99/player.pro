@@ -251,10 +251,16 @@ async def build_out(
             if item.rest_sec is not None and exercise_at.get(item.position) == item.exercise_id
         }
 
+    team_id = (
+        await db.scalar(select(Event.team_id).where(Event.id == session.event_id))
+        if session.event_id is not None
+        else None
+    )
     return WorkoutSessionOut(
         id=session.id,
         athlete_id=session.athlete_id,
         event_id=session.event_id,
+        is_team_event=team_id is not None,
         workout_id=session.workout_id,
         workout_name=session.workout_name,
         date=session.date,

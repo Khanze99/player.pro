@@ -12,6 +12,7 @@ import {
   useAttendance,
   useDeleteEvent,
   useEventWorkoutSession,
+  useWorkoutResults,
   useFeatures,
   useMe,
   useSetAttendance,
@@ -55,6 +56,8 @@ export default function EventDetail() {
     teamId: string;
     createdBy: string;
     workoutId?: string;
+    /** Кому назначены упражнения командного события, через запятую; пусто = всем */
+    workoutAthletes?: string;
   }>();
 
   const me = useMe();
@@ -67,13 +70,24 @@ export default function EventDetail() {
   const attendance = useAttendance(params.id, showAttendance);
   const setAttendance = useSetAttendance(params.id);
   const deleteEvent = useDeleteEvent();
-  // План тренировки: шаблон личный, виден только автору события и под флагом
+  // Упражнения события (docs/plan-workout-builder.md), под флагом. Личное видит только
+  // автор. Командное: штаб команды и игроки, которым упражнения назначены (этап 2).
   const features = useFeatures();
+  const flagOn = features.data?.workouts === true && !!params.workoutId;
   const isOwnPersonal = !isTeamEvent && me.data?.id === params.createdBy;
-  const workoutsOn = isOwnPersonal && features.data?.workouts === true;
-  const workout = useWorkout(workoutsOn && params.workoutId ? params.workoutId : undefined);
+  const myTeamRole = me.data?.teams.find((m) => m.team_id === params.teamId)?.team_role;
+  const isTeamStaff =
+    isTeamEvent && (me.data?.global_role === 'admin' || (myTeamRole != null && myTeamRole !== 'athlete'));
+  const assignedIds = (params.workoutAthletes ?? '').split(',').filter(Boolean);
+  const isAssigned =
+    isTeamEvent && myTeamRole === 'athlete' && (assignedIds.length === 0 || assignedIds.includes(me.data?.id ?? ''));
+  // Начинает автор личного или назначенный игрок командного; штаб только смотрит
+  const canRun = flagOn && (isOwnPersonal || isAssigned);
+  const planVisible = flagOn && (isOwnPersonal || isAssigned || isTeamStaff);
+  const workout = useWorkout(planVisible ? params.workoutId : undefined);
+  const results = useWorkoutResults(params.id, flagOn && isTeamStaff);
   // Состояние выполнения этого события: не начато / идёт / завершено
-  const sessions = useEventWorkoutSession(params.id, workoutsOn && !!params.workoutId);
+  const sessions = useEventWorkoutSession(params.id, canRun);
   const eventSession = sessions.data;
   const startWorkout = useStartWorkout();
   const runLabel = !eventSession
@@ -132,9 +146,13 @@ export default function EventDetail() {
         duration: params.duration,
         teamId: params.teamId,
         workoutId: params.workoutId ?? '',
+        workoutAthletes: params.workoutAthletes ?? '',
       },
     });
   };
+
+  const openResult = (sessionId: string, name: string) =>
+    router.push({ pathname: '/workout-run', params: { id: sessionId, athleteName: name } });
 
   return (
     <Screen edges={['top', 'bottom']}>
@@ -185,9 +203,69 @@ export default function EventDetail() {
                 </Pressable>
               ))}
             </View>
-            {sessions.isSuccess ? (
+            {isTeamStaff ? (
+              <Text style={styles.emptyText}>
+                {assignedIds.length === 0
+                  ? t('eventDetail.forAllAthletes')
+                  : t('eventDetail.forAthletes', { count: assignedIds.length })}
+              </Text>
+            ) : null}
+            {canRun && sessions.isSuccess ? (
               <Button title={runLabel} onPress={runWorkout} loading={startWorkout.isPending} />
             ) : null}
+          </View>
+        ) : null}
+
+        {workout.data && isTeamStaff ? (
+          <View style={styles.section}>
+            <MicroLabel>{t('eventDetail.results')}</MicroLabel>
+            {results.isPending ? null : results.isError ? (
+              <Pressable accessibilityRole="button" onPress={() => void results.refetch()}>
+                <Text style={styles.emptyText}>{t('common.retry')}</Text>
+              </Pressable>
+            ) : (results.data?.length ?? 0) === 0 ? (
+              <Text style={styles.emptyText}>{t('coach.empty')}</Text>
+            ) : (
+              <View style={styles.list}>
+                {results.data!.map((row, i, all) => {
+                  const name = row.name || t('eventDetail.noName');
+                  const sessionId = row.session_id;
+                  return (
+                    <Pressable
+                      key={row.athlete_id}
+                      accessibilityRole="button"
+                      disabled={!sessionId}
+                      onPress={() => sessionId && openResult(sessionId, name)}
+                      style={({ pressed }) => [
+                        styles.planRow,
+                        i === all.length - 1 && { borderBottomWidth: 0 },
+                        pressed && sessionId != null && { opacity: 0.7 },
+                      ]}
+                    >
+                      <Text style={styles.planName} numberOfLines={1}>
+                        {name}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.planTarget,
+                          row.status === 'finished' && { color: th.good },
+                          row.status === 'in_progress' && { color: th.brandOn },
+                        ]}
+                      >
+                        {row.status === 'not_started'
+                          ? t('eventDetail.resultNotStarted')
+                          : t(
+                              row.status === 'finished'
+                                ? 'eventDetail.resultFinished'
+                                : 'eventDetail.resultInProgress',
+                              { done: row.sets_done, total: row.sets_total },
+                            )}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            )}
           </View>
         ) : null}
 

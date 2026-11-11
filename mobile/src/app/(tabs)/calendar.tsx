@@ -93,6 +93,8 @@ export default function Calendar() {
         teamId: event.team_id ?? '',
         createdBy: event.created_by,
         workoutId: event.workout_id ?? '',
+        // Кому назначены упражнения командного события, через запятую; пусто = всем
+        workoutAthletes: (event.workout_athlete_ids ?? []).join(','),
       },
     });
   };

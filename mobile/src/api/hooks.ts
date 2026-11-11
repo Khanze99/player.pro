@@ -53,6 +53,7 @@ import type {
   WorkoutPayload,
   WorkoutSession,
   WorkoutSessionFinish,
+  WorkoutResult,
   WorkoutSessionShort,
   WorkoutShort,
 } from './types';
@@ -709,6 +710,14 @@ export const useWorkoutSession = (id: string | undefined) =>
     enabled: !!id,
     refetchOnMount: 'always',
     queryFn: () => api<WorkoutSession>(`/workout-sessions/${id}`),
+  });
+
+/** Кто из игроков выполнил упражнения командного события: только штабу команды. */
+export const useWorkoutResults = (eventId: string | undefined, enabled = true) =>
+  useQuery({
+    queryKey: ['workout-sessions', 'results', eventId],
+    enabled: enabled && !!eventId,
+    queryFn: () => api<WorkoutResult[]>(`/events/${eventId}/workout-results`),
   });
 
 /** Сессия конкретного события, без окна дат: событие может стоять на любой день. */

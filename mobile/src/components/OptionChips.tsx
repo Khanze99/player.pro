@@ -49,3 +49,33 @@ const makeStyles = (th: Theme) => StyleSheet.create({
   text: { fontFamily: th.font.medium, fontSize: 14, color: th.textMuted },
   textActive: { color: th.onBrand },
 });
+
+interface MultiProps<T extends string> {
+  options: readonly T[];
+  values: readonly T[];
+  onToggle: (value: T) => void;
+  labelFor: (value: T) => string;
+}
+
+/** Тот же вид, но выбрать можно несколько (кому назначены упражнения). */
+export function MultiOptionChips<T extends string>({ options, values, onToggle, labelFor }: MultiProps<T>) {
+  const styles = useStyles(makeStyles);
+  return (
+    <View style={styles.row}>
+      {options.map((opt) => {
+        const active = values.includes(opt);
+        return (
+          <Pressable
+            key={opt}
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: active }}
+            onPress={() => onToggle(opt)}
+            style={[styles.chip, active && styles.chipActive]}
+          >
+            <Text style={[styles.text, active && styles.textActive]}>{labelFor(opt)}</Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}

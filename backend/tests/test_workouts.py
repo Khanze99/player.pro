@@ -121,7 +121,7 @@ async def test_full_flow_template_calendar_run_finish(client, exercises):
     assert len(session["sets"]) == 5
     assert session["sets"][0]["planned_reps"] == 8 and session["sets"][0]["reps"] == 8
     assert session["rest_sec_by_position"] == {"0": 90}
-    assert session["last_results"] == []
+    assert session["last_results"] == [] and session["is_team_event"] is False
     assert {e["id"] for e in session["exercises"]} == {exercises["0025"], exercises["0464"]}
 
     resp = await client.get(f"{API}/workout-sessions/active", headers=h)
@@ -379,7 +379,7 @@ async def test_team_event_workout_assigned_to_one_athlete(client, exercises):
     resp = await client.post(f"{API}/workout-sessions", json=start, headers=a1["headers"])
     assert resp.status_code == 201, resp.text
     session = resp.json()
-    assert session["athlete_id"] == a1["user_id"]
+    assert session["athlete_id"] == a1["user_id"] and session["is_team_event"] is True
     await client.post(f"{API}/workout-sessions/{session['id']}/finish", headers=a1["headers"])
 
     # RPE открылся только тому, кто завершил

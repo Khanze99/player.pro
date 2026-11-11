@@ -19,6 +19,7 @@ import {
   useMyTeams,
   useMyWorkouts,
   useReplaceWorkout,
+  useTeamMembers,
   useUpdateEvent,
   useWorkout,
 } from '@/api/hooks';
@@ -27,7 +28,7 @@ import { draftToPayload, eventPlanStore, invalidFields, MAX_ITEMS, workoutDraftS
 import { Button } from '@/components/Button';
 import { Field } from '@/components/Field';
 import { CloseIcon, PlusIcon } from '@/components/Icons';
-import { OptionChips } from '@/components/OptionChips';
+import { MultiOptionChips, OptionChips } from '@/components/OptionChips';
 import { OutlineButton } from '@/components/OutlineButton';
 import { Screen } from '@/components/Screen';
 import { TimeField } from '@/components/TimeField';
@@ -69,6 +70,8 @@ export default function EventCreate() {
     teamId?: string;
     /** План события при правке (карточка события) или шаблон из конструктора («В календарь») */
     workoutId?: string;
+    /** Кому назначены упражнения командной тренировки, id через запятую; пусто = всем */
+    workoutAthletes?: string;
   }>();
   const isEdit = !!params.id;
   const prefillStart = params.start ? new Date(params.start) : null;
@@ -80,10 +83,9 @@ export default function EventCreate() {
 
   const isStaff = me.data != null && me.data.global_role !== 'player';
   const types = isStaff ? TEAM_TYPES : PERSONAL_TYPES;
-  // Шаблон ставится только на личное событие (docs/plan-workout-builder.md)
   const isPersonal = isEdit ? !params.teamId : !isStaff;
   const features = useFeatures();
-  const workoutsEnabled = features.data?.workouts === true && isPersonal;
+  const workoutsEnabled = features.data?.workouts === true;
   const workouts = useMyWorkouts(workoutsEnabled);
 
   const day = prefillStart ? toLocalISO(prefillStart) : (params.date ?? toLocalISO(new Date()));
@@ -157,10 +159,25 @@ export default function EventCreate() {
     router.push({ pathname: '/workout-edit', params: { mode: 'event' } });
   };
 
-  // Упражнения бывают только у личной тренировки: у «Другое» блока нет, и список не уходит
-  const planAllowed = workoutsEnabled && type === 'individual';
+  // Упражнения бывают у личной и у командной тренировки (docs/plan-workout-builder.md,
+  // этап 2): у матча и «Другое» блока нет, и список не уходит
+  const planAllowed = workoutsEnabled && type === (isPersonal ? 'individual' : 'training');
 
   const activeTeamId = teamId ?? teams.data?.[0]?.id ?? null;
+
+  // «Кому»: всем игрокам команды (пустой список на сервере) или выбранным
+  const initialAthletes = params.workoutAthletes ? params.workoutAthletes.split(',').filter(Boolean) : [];
+  const [assignMode, setAssignMode] = useState<'all' | 'some'>(initialAthletes.length > 0 ? 'some' : 'all');
+  const [assigned, setAssigned] = useState<string[]>(initialAthletes);
+  const showAssign = planAllowed && !isPersonal && plan.items.length > 0;
+  const members = useTeamMembers(showAssign ? activeTeamId : null);
+  const athletes = members.data?.filter((m) => m.team_role === 'athlete') ?? [];
+  const toggleAthlete = (id: string) =>
+    setAssigned((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  // Выбранные из другой команды (сменили команду при создании) не отправляем
+  const assignedIds = assigned.filter((id) => athletes.some((a) => a.user_id === id));
+  const assignEmpty = showAssign && assignMode === 'some' && assignedIds.length === 0;
+  const athleteIds = showAssign && assignMode === 'some' ? assignedIds : [];
   const duration = minutesBetween(start, end);
   // Пикер отдаёт только часы и минуты, так что «до» раньше «от» — это тот же день,
   // а не переход через полночь: событий на две даты в MVP нет
@@ -170,7 +187,8 @@ export default function EventCreate() {
       : duration > MAX_DURATION_MIN
         ? t('eventCreate.tooLong')
         : null;
-  const canSubmit = (!isStaff || activeTeamId != null) && timeError === null && !saving;
+  const canSubmit =
+    (!isStaff || activeTeamId != null) && timeError === null && !saving && !assignEmpty;
 
   const durationText = [
     Math.floor(duration / 60) > 0 ? `${Math.floor(duration / 60)} ${t('eventCreate.hoursShort')}` : '',
@@ -199,7 +217,7 @@ export default function EventCreate() {
     if (plan.planId && !plan.dirty) return { id: plan.planId, created: false };
     const payload = {
       ...draftToPayload({
-        name: plan.name || title.trim() || t('calendar.types.individual'),
+        name: plan.name || title.trim() || t(`calendar.types.${type}`),
         notes: '',
         items: plan.items,
       }),
@@ -226,16 +244,18 @@ export default function EventCreate() {
       };
       if (isEdit) {
         // team_id не передаём: EventUpdateIn его не принимает, команду события не меняют.
-        // null снимает список (сервер его удаляет); у командного события поле не трогаем
+        // null снимает список (сервер его удаляет вместе с назначениями)
         await updateEvent.mutateAsync({
           ...base,
-          ...(isPersonal && workoutsEnabled ? { workout_id: planResult.id } : {}),
+          ...(workoutsEnabled ? { workout_id: planResult.id } : {}),
+          ...(workoutsEnabled && !isPersonal && planResult.id ? { workout_athlete_ids: athleteIds } : {}),
         });
       } else {
         await createEvent.mutateAsync({
           ...base,
           team_id: isStaff ? activeTeamId : null,
           workout_id: planResult.id,
+          ...(planResult.id && athleteIds.length > 0 ? { workout_athlete_ids: athleteIds } : {}),
         });
       }
       toast(t('common.saved'));
@@ -341,6 +361,35 @@ export default function EventCreate() {
               </>
             ) : workouts.isSuccess ? (
               <Text style={styles.hint}>{t('eventCreate.templatesHint')}</Text>
+            ) : null}
+          </View>
+        ) : null}
+
+        {showAssign ? (
+          <View style={styles.section}>
+            <MicroLabel>{t('eventCreate.assignLabel')}</MicroLabel>
+            <OptionChips
+              options={['all', 'some'] as const}
+              value={assignMode}
+              onSelect={(v) => v && setAssignMode(v)}
+              labelFor={(v) => t(v === 'all' ? 'eventCreate.assignAll' : 'eventCreate.assignSome')}
+            />
+            {assignMode === 'some' ? (
+              members.isPending ? (
+                <Text style={styles.hint}>…</Text>
+              ) : athletes.length > 0 ? (
+                <MultiOptionChips
+                  options={athletes.map((a) => a.user_id)}
+                  values={assignedIds}
+                  onToggle={toggleAthlete}
+                  labelFor={(id) => athletes.find((a) => a.user_id === id)?.name || t('eventDetail.noName')}
+                />
+              ) : (
+                <Text style={styles.hint}>{t('eventCreate.assignNoAthletes')}</Text>
+              )
+            ) : null}
+            {assignEmpty && athletes.length > 0 ? (
+              <Text style={styles.hint}>{t('eventCreate.assignEmpty')}</Text>
             ) : null}
           </View>
         ) : null}

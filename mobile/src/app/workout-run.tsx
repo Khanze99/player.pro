@@ -26,6 +26,7 @@ import {
   useDiscardSession,
   useExercise,
   useFinishSession,
+  useMe,
   useSaveSessionSets,
   useWorkoutSession,
 } from '@/api/hooks';
@@ -93,7 +94,9 @@ export default function WorkoutRun() {
   const { t, i18n } = useTranslation();
   const router = useRouter();
   const toast = useToast((s) => s.show);
-  const { id } = useLocalSearchParams<{ id: string }>();
+  // athleteName: штаб открывает выполнение игрока из результатов командной тренировки
+  const { id, athleteName } = useLocalSearchParams<{ id: string; athleteName?: string }>();
+  const me = useMe();
 
   const session = useWorkoutSession(id);
   const save = useSaveSessionSets(id);
@@ -195,7 +198,9 @@ export default function WorkoutRun() {
   }
 
   const data = session.data;
-  const readOnly = data.finished_at != null;
+  // Чужое выполнение (штаб смотрит результат игрока) только читаем
+  const isOwner = me.data?.id === data.athlete_id;
+  const readOnly = data.finished_at != null || !isOwner;
   const exerciseById = new Map(data.exercises.map((e) => [e.id, e]));
   const lastById = new Map(data.last_results.map((r) => [r.exercise_id, r]));
   const positions = [...new Set(sets.map((s) => s.position))].sort((a, b) => a - b);
@@ -327,9 +332,10 @@ export default function WorkoutRun() {
           <View style={styles.header}>
             <View style={styles.headerMain}>
               <Text style={styles.overline}>
-                {readOnly ? t('workoutRun.finished') : t('workoutRun.inProgress')} · {clock(elapsedSec)}
+                {data.finished_at != null ? t('workoutRun.finished') : t('workoutRun.inProgress')} · {clock(elapsedSec)}
               </Text>
               <ScreenTitle>{data.workout_name}</ScreenTitle>
+              {!isOwner && athleteName ? <Text style={styles.hint}>{athleteName}</Text> : null}
             </View>
             <Pressable
               onPress={close}
@@ -353,6 +359,7 @@ export default function WorkoutRun() {
             {saveFailed && invalidCount === 0 ? ` · ${t('workoutRun.notSaved')}` : ''}
           </Text>
           {invalidCount > 0 ? <Text style={styles.error}>{t('workoutRun.fixFields')}</Text> : null}
+          {isOwner && data.is_team_event ? <Text style={styles.hint}>{t('workoutRun.staffSees')}</Text> : null}
 
           {resting && !readOnly ? (
             <View style={styles.rest}>

@@ -369,6 +369,11 @@ const en: typeof ru = {
     templatesHint: 'Templates are created in your profile: “Workout templates”',
     templateAdded: 'Exercises added: {{count}}',
     exercisesTooMany: 'A workout can have up to {{n}} exercises',
+    assignLabel: 'For',
+    assignAll: 'All players',
+    assignSome: 'Select',
+    assignEmpty: 'Select at least one player',
+    assignNoAthletes: 'No players in the team yet',
   },
   eventDetail: {
     attendance: 'Attendance',
@@ -379,6 +384,13 @@ const en: typeof ru = {
     deleteConfirm: 'It will disappear from every participant’s calendar',
     deleted: 'Event deleted',
     plan: 'Exercises',
+    forAllAthletes: 'For all team players',
+    forAthletes: 'Assigned players: {{count}}',
+    results: 'Player results',
+    noName: 'No name',
+    resultNotStarted: 'Not started',
+    resultInProgress: 'In progress · {{done}}/{{total}}',
+    resultFinished: 'Done · {{done}}/{{total}}',
   },
   profile: {
     title: 'Profile',
@@ -744,6 +756,7 @@ const en: typeof ru = {
     discard: 'Cancel workout',
     discardTitle: 'Cancel the workout?',
     discardMessage: 'Marked sets will be lost. The calendar event stays',
+    staffSees: 'The team staff will see your result',
   },
   exercise: {
     pickTitle: 'Exercises',

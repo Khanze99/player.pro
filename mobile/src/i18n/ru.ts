@@ -367,6 +367,11 @@ export default {
     templatesHint: 'Шаблоны создаются в профиле: «Шаблоны тренировок»',
     templateAdded: 'Добавлено упражнений: {{count}}',
     exercisesTooMany: 'В тренировке не больше {{n}} упражнений',
+    assignLabel: 'Кому',
+    assignAll: 'Все игроки',
+    assignSome: 'Выбрать',
+    assignEmpty: 'Отметь хотя бы одного игрока',
+    assignNoAthletes: 'В команде пока нет игроков',
   },
   eventDetail: {
     attendance: 'Посещаемость',
@@ -377,6 +382,13 @@ export default {
     deleteConfirm: 'Событие исчезнет из календаря всех участников',
     deleted: 'Событие удалено',
     plan: 'Упражнения',
+    forAllAthletes: 'Для всех игроков команды',
+    forAthletes: 'Назначено игрокам: {{count}}',
+    results: 'Результаты игроков',
+    noName: 'Без имени',
+    resultNotStarted: 'Не начинал',
+    resultInProgress: 'Идёт · {{done}}/{{total}}',
+    resultFinished: 'Готово · {{done}}/{{total}}',
   },
   profile: {
     title: 'Профиль',
@@ -742,6 +754,7 @@ export default {
     discard: 'Отменить тренировку',
     discardTitle: 'Отменить тренировку?',
     discardMessage: 'Отмеченные подходы пропадут. Событие в календаре останется',
+    staffSees: 'Результат увидит тренерский штаб команды',
   },
   exercise: {
     pickTitle: 'Упражнения',
