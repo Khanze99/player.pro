@@ -150,6 +150,16 @@ async def _athletes_of_team(
     return [uid for uid in rows.scalars() if uid != exclude]
 
 
+async def _event_athletes(
+    db: AsyncSession, event: Event, exclude: uuid.UUID | None = None
+) -> list[uuid.UUID]:
+    """Участники командного события: выбранные игроки (этап 2
+    docs/plan-workout-builder.md), а без выбора вся команда."""
+    assigned = set(event.workout_athlete_ids)
+    athletes = await _athletes_of_team(db, event.team_id, exclude=exclude)
+    return [a for a in athletes if not assigned or a in assigned]
+
+
 async def _notify_staff(
     db: AsyncSession, athlete_id: uuid.UUID, ntype: NotificationType, key: str, payload: dict | None = None
 ) -> None:
@@ -265,13 +275,40 @@ async def notify_event_created(db: AsyncSession, event: Event, actor_id: uuid.UU
 
 
 async def notify_event_updated(
-    db: AsyncSession, event: Event, changed: set[str], actor_id: uuid.UUID
+    db: AsyncSession,
+    event: Event,
+    changed: set[str],
+    actor_id: uuid.UUID,
+    participants_before: list[uuid.UUID] | None = None,
 ) -> None:
+    """participants_before: назначения до правки. Сменился круг участников: кому
+    событие стало видно, приходит «новое событие», кому перестало, «отменено»."""
     if event.team_id is None or not _is_future(event):
         return
-    if not changed.intersection(_EVENT_SIGNIFICANT_FIELDS):
+    before = set(participants_before if participants_before is not None else event.workout_athlete_ids)
+    after = set(event.workout_athlete_ids)
+    if before == after:
+        if changed.intersection(_EVENT_SIGNIFICANT_FIELDS):
+            await _notify_team_athletes(db, event, NotificationType.event_updated, actor_id, event.id)
         return
-    await _notify_team_athletes(db, event, NotificationType.event_updated, actor_id, event.id)
+    athletes = await _athletes_of_team(db, event.team_id, exclude=actor_id)
+    old = {a for a in athletes if not before or a in before}
+    new = {a for a in athletes if not after or a in after}
+    snapshot = _event_snapshot(event)
+    groups = [
+        (new - old, NotificationType.event_created, event.id),
+        (old - new, NotificationType.event_cancelled, None),
+    ]
+    if changed.intersection(_EVENT_SIGNIFICANT_FIELDS):
+        groups.append((old & new, NotificationType.event_updated, event.id))
+    await _insert(
+        db,
+        [
+            _Row(user_id=a, type=ntype, team_id=event.team_id, event_id=event_id, payload=snapshot)
+            for users, ntype, event_id in groups
+            for a in sorted(users)
+        ],
+    )
 
 
 async def notify_event_cancelled(db: AsyncSession, event: Event, actor_id: uuid.UUID) -> None:
@@ -290,7 +327,7 @@ async def _notify_team_athletes(
 ) -> None:
     if event.team_id is None:
         return
-    athletes = await _athletes_of_team(db, event.team_id, exclude=actor_id)
+    athletes = await _event_athletes(db, event, exclude=actor_id)
     snapshot = _event_snapshot(event)
     await _insert(
         db,
@@ -338,7 +375,7 @@ async def send_rpe_reminders(db: AsyncSession, now: datetime | None = None) -> i
     rows: list[_Row] = []
     for event in events:
         if event.team_id is not None:
-            candidates = await _athletes_of_team(db, event.team_id)
+            candidates = await _event_athletes(db, event)
         else:
             candidates = [event.created_by]
         if not candidates:

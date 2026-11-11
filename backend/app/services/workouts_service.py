@@ -147,11 +147,12 @@ async def replace(db: AsyncSession, workout: Workout, data: WorkoutIn) -> Workou
     return to_out(await load(db, workout.id))
 
 
-async def copy_as_event_plan(db: AsyncSession, source: Workout) -> Workout:
-    """План события из шаблона: независимая копия, без commit. Правка шаблона
-    потом не меняет уже запланированную тренировку."""
+async def copy_as_event_plan(db: AsyncSession, source: Workout, owner_id: uuid.UUID) -> Workout:
+    """План события из шаблона или чужого списка: независимая копия, без commit.
+    Правка источника потом не меняет уже запланированную тренировку. Владелец
+    копии тот, кто её ставит: иначе автор источника получил бы чужой план."""
     source = await load(db, source.id)
-    plan = Workout(owner_id=source.owner_id, name=source.name, notes=source.notes, is_template=False)
+    plan = Workout(owner_id=owner_id, name=source.name, notes=source.notes, is_template=False)
     plan.items = [
         WorkoutItem(
             position=item.position,
@@ -185,6 +186,15 @@ async def release_event_plan(db: AsyncSession, workout_id: uuid.UUID | None) -> 
 
 
 async def delete_workout(db: AsyncSession, workout: Workout) -> None:
-    """События и история остаются: у них workout_id станет NULL (ON DELETE SET NULL)."""
+    """Шаблон: события и история остаются, у них workout_id станет NULL (ON DELETE
+    SET NULL). Список, стоящий на событии, снимают через само событие: иначе у
+    события остались бы назначения без упражнений."""
+    if not workout.is_template:
+        in_use = await db.scalar(select(Event.id).where(Event.workout_id == workout.id).limit(1))
+        if in_use is not None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Список стоит на событии: уберите упражнения в самом событии",
+            )
     await db.delete(workout)
     await db.commit()

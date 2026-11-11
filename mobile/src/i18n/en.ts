@@ -373,6 +373,8 @@ const en: typeof ru = {
     assignAll: 'All players',
     assignSome: 'Select',
     assignEmpty: 'Select at least one player',
+    assignSomeHint: 'Only the selected players will see the event',
+    exercisesLoadFailed: 'Could not load the exercises, saving is unavailable for now',
     assignNoAthletes: 'No players in the team yet',
   },
   eventDetail: {

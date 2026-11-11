@@ -302,15 +302,18 @@ async def _team_role_or_admin(db: AsyncSession, user: User, team_id: uuid.UUID) 
 
 
 async def require_event_plan_reader(db: AsyncSession, user: User, workout_id: uuid.UUID) -> Workout:
-    """Список упражнений читает владелец, а у командного события ещё штаб команды
-    и игроки, которым упражнения назначены. Шаблоны только владельцу."""
+    """Шаблон и личный список читает владелец. Список командного события: штаб
+    команды и игроки, которым упражнения назначены, авторство тут не в счёт."""
     workout = await db.get(Workout, workout_id)
     if workout is None:
         raise _workout_not_found()
-    if workout.owner_id == user.id:
-        return workout
     event = await _team_event_of_plan(db, workout)
-    if event is not None:
+    # Список командного события решает только роль в команде: автор, которого
+    # убрали из команды, доступ теряет
+    if event is None:
+        if workout.owner_id == user.id:
+            return workout
+    else:
         role = await _team_role_or_admin(db, user, event.team_id)
         if role == "admin" or role in STAFF_ROLES:
             return workout
@@ -320,15 +323,16 @@ async def require_event_plan_reader(db: AsyncSession, user: User, workout_id: uu
 
 
 async def require_event_plan_writer(db: AsyncSession, user: User, workout_id: uuid.UUID) -> Workout:
-    """Правит владелец, а список командного события ещё тренеры его команды (те же,
-    кто правит само событие). Игроки и врач только читают."""
+    """Шаблон и личный список правит владелец, список командного события тренеры
+    его команды (те же, кто правит само событие). Игроки и врач только читают."""
     workout = await db.get(Workout, workout_id)
     if workout is None:
         raise _workout_not_found()
-    if workout.owner_id == user.id:
-        return workout
     event = await _team_event_of_plan(db, workout)
-    if event is not None:
+    if event is None:
+        if workout.owner_id == user.id:
+            return workout
+    else:
         role = await _team_role_or_admin(db, user, event.team_id)
         if role == "admin" or role in COACH_ROLES:
             return workout

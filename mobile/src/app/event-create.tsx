@@ -187,8 +187,10 @@ export default function EventCreate() {
       : duration > MAX_DURATION_MIN
         ? t('eventCreate.tooLong')
         : null;
+  // Правка до загрузки списка отправила бы workout_id: null и сняла упражнения
+  const sourceNotReady = isEdit && workoutsEnabled && !!params.workoutId && !source.isSuccess;
   const canSubmit =
-    (!isStaff || activeTeamId != null) && timeError === null && !saving && !assignEmpty;
+    (!isStaff || activeTeamId != null) && timeError === null && !saving && !assignEmpty && !sourceNotReady;
 
   const durationText = [
     Math.floor(duration / 60) > 0 ? `${Math.floor(duration / 60)} ${t('eventCreate.hoursShort')}` : '',
@@ -323,8 +325,10 @@ export default function EventCreate() {
         {planAllowed ? (
           <View style={styles.section}>
             <MicroLabel>{t('eventCreate.exercisesLabel')}</MicroLabel>
-            {isEdit && params.workoutId && source.isPending ? (
-              <Text style={styles.hint}>…</Text>
+            {sourceNotReady ? (
+              <Text style={source.isError ? styles.error : styles.hint}>
+                {source.isError ? t('eventCreate.exercisesLoadFailed') : '…'}
+              </Text>
             ) : plan.items.length > 0 ? (
               <Pressable
                 accessibilityRole="button"
@@ -388,8 +392,10 @@ export default function EventCreate() {
                 <Text style={styles.hint}>{t('eventCreate.assignNoAthletes')}</Text>
               )
             ) : null}
-            {assignEmpty && athletes.length > 0 ? (
-              <Text style={styles.hint}>{t('eventCreate.assignEmpty')}</Text>
+            {assignMode === 'some' && athletes.length > 0 ? (
+              <Text style={styles.hint}>
+                {t(assignEmpty ? 'eventCreate.assignEmpty' : 'eventCreate.assignSomeHint')}
+              </Text>
             ) : null}
           </View>
         ) : null}

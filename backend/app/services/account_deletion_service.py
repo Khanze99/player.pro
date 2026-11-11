@@ -78,11 +78,9 @@ OWNED = [
     (CycleLog, CycleLog.athlete_id),
     (CycleSettings, CycleSettings.user_id),
     (FoodLogEntry, FoodLogEntry.athlete_id),
-    # Тренировки (docs/plan-workout-builder.md): подходы и пункты шаблона уходят
-    # по ondelete=CASCADE. Сессии раньше шаблонов: workout_id у них SET NULL, но
-    # так нет лишних UPDATE.
+    # Тренировки (docs/plan-workout-builder.md): подходы уходят по ondelete=CASCADE.
+    # Его шаблоны и личные списки удаляются отдельно, ниже (см. KEPT_REFERENCES).
     (WorkoutSession, WorkoutSession.athlete_id),
-    (Workout, Workout.owner_id),
     # Пользовательский продукт виден только автору (nutrition_service): чужих
     # записей дневника на нём быть не может.
     (FoodItem, FoodItem.created_by),
@@ -109,6 +107,7 @@ OWNED = [
 # полный список: tests/test_account_deletion.py сверяет его с метаданными.
 KEPT_REFERENCES = {
     "events.created_by": "командные события: к ним привязаны RPE и посещаемость других (личные удаляются)",
+    "workouts.owner_id": "списки упражнений командных событий выполняют игроки (шаблоны и личные удаляются)",
     "injury_records.created_by": "травмы, которые он как врач вёл другим игрокам",
     "medical_exams.created_by": "медосмотры других игроков, внесённые им",
     "availability_records.set_by": "статусы допуска других игроков, выставленные им",
@@ -198,6 +197,11 @@ async def delete_account(db: AsyncSession, user: User) -> None:
     # Личные события (без команды): RPE самого игрока уже удалены выше, посещаемость
     # уходит по ondelete=CASCADE. Командные события остаются (см. KEPT_REFERENCES).
     await db.execute(delete(Event).where(Event.created_by == user_id, Event.team_id.is_(None)))
+    # Шаблоны и личные списки удаляются (пункты по CASCADE). Список командного
+    # события остаётся команде, как и само событие: иначе у игроков пропали бы
+    # упражнения, а назначения остались бы без них.
+    team_plans = select(Event.workout_id).where(Event.team_id.is_not(None), Event.workout_id.is_not(None))
+    await db.execute(delete(Workout).where(Workout.owner_id == user_id, Workout.id.not_in(team_plans)))
 
     # Приглашения НА этого человека: identifier = его телефон/email (ПДн), не FK.
     if identifiers:

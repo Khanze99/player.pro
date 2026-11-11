@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.api.deps import CurrentUser, DbSession, require_workouts_enabled
 from app.core import authz
+from app.models.enums import TeamRole
 from app.schemas.event import AttendanceIn, AttendanceOut, EventCreateIn, EventOut, EventUpdateIn
 from app.schemas.workout import WorkoutResultOut
 from app.services import events_service, workout_sessions_service
@@ -58,15 +59,17 @@ async def team_events(
     date_from: datetime | None = None,
     date_to: datetime | None = None,
 ):
-    await authz.require_team_member(db, user, team_id)
+    role = await authz.require_team_member(db, user, team_id)
     date_from = date_from or datetime.now(UTC) - timedelta(days=7)
     date_to = date_to or datetime.now(UTC) + timedelta(days=30)
-    return await events_service.list_team_events(db, team_id, date_from, date_to)
+    # Игроку только события, где он участник; штабу и админу (role None) все
+    athlete_id = user.id if role == TeamRole.athlete else None
+    return await events_service.list_team_events(db, team_id, date_from, date_to, athlete_id)
 
 
 @router.patch("/{event_id}", response_model=EventOut)
 async def update_event(event_id: uuid.UUID, data: EventUpdateIn, user: CurrentUser, db: DbSession):
-    event = await events_service.get_event(db, event_id)
+    event = await events_service.get_event(db, event_id, lock=True)
     await _require_manage(db, user, event)
     await _require_own_workout(db, user, data.workout_id, data.workout_athlete_ids)
     return await events_service.update_event(db, event, data, user.id)

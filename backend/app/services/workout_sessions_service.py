@@ -128,7 +128,7 @@ async def start(
     else:
         assert workout is not None and data.date is not None  # гарантирует схема и роут
         # У события свой план: копируем, как при выборе шаблона в календаре
-        workout = await workouts_service.copy_as_event_plan(db, workout)
+        workout = await workouts_service.copy_as_event_plan(db, workout, user.id)
         workout = await workouts_service.load(db, workout.id)
         # «Начать сейчас» тоже событие: RPE, напоминание и календарь работают как обычно
         event = Event(
@@ -380,7 +380,9 @@ async def list_mine(
 async def event_results(db: AsyncSession, event: Event) -> list[WorkoutResultOut]:
     """Результаты игроков по командному событию: назначенные (все игроки команды,
     если назначений нет) и все, кто уже выполнял, даже если их потом сняли.
-    Право смотреть (штаб команды) проверил роут."""
+    Право смотреть (штаб команды) проверил роут. Без упражнений результатов нет."""
+    if event.workout_id is None:
+        return []
     assigned = set(event.workout_athlete_ids)
     if not assigned and event.team_id is not None:
         assigned = set(

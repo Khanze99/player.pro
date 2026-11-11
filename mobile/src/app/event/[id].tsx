@@ -64,7 +64,14 @@ export default function EventDetail() {
   const isStaff = me.data != null && me.data.global_role !== 'player';
   const isTeamEvent = params.teamId !== '';
   const showAttendance = isTeamEvent && isStaff;
-  const canManage = (isTeamEvent && isStaff) || (!isTeamEvent && me.data?.id === params.createdBy);
+  // Выбранные в «Кому» игроки: событие только для них (этап 2 docs/plan-workout-builder.md)
+  const assignedIds = (params.workoutAthletes ?? '').split(',').filter(Boolean);
+  const myTeamRole = me.data?.teams.find((m) => m.team_id === params.teamId)?.team_role;
+  // Командное правят тренеры команды и админ (как на сервере), врач только смотрит
+  const isTeamCoach =
+    isTeamEvent &&
+    (me.data?.global_role === 'admin' || myTeamRole === 'head_coach' || myTeamRole === 'coach');
+  const canManage = isTeamCoach || (!isTeamEvent && me.data?.id === params.createdBy);
 
   const members = useTeamMembers(showAttendance ? params.teamId : null);
   const attendance = useAttendance(params.id, showAttendance);
@@ -75,10 +82,8 @@ export default function EventDetail() {
   const features = useFeatures();
   const flagOn = features.data?.workouts === true && !!params.workoutId;
   const isOwnPersonal = !isTeamEvent && me.data?.id === params.createdBy;
-  const myTeamRole = me.data?.teams.find((m) => m.team_id === params.teamId)?.team_role;
   const isTeamStaff =
     isTeamEvent && (me.data?.global_role === 'admin' || (myTeamRole != null && myTeamRole !== 'athlete'));
-  const assignedIds = (params.workoutAthletes ?? '').split(',').filter(Boolean);
   const isAssigned =
     isTeamEvent && myTeamRole === 'athlete' && (assignedIds.length === 0 || assignedIds.includes(me.data?.id ?? ''));
   // Начинает автор личного или назначенный игрок командного; штаб только смотрит
@@ -98,7 +103,9 @@ export default function EventDetail() {
   const runWorkout = () =>
     eventSession ? startWorkout.open(eventSession.id) : startWorkout.run({ event_id: params.id });
 
-  const athletes = (members.data ?? []).filter((m) => m.team_role === 'athlete');
+  const athletes = (members.data ?? []).filter(
+    (m) => m.team_role === 'athlete' && (assignedIds.length === 0 || assignedIds.includes(m.user_id)),
+  );
   const statusByUser = new Map((attendance.data ?? []).map((a) => [a.user_id, a.status]));
 
   const start = new Date(params.start);

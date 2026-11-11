@@ -371,6 +371,8 @@ export default {
     assignAll: 'Все игроки',
     assignSome: 'Выбрать',
     assignEmpty: 'Отметь хотя бы одного игрока',
+    assignSomeHint: 'Событие увидят только выбранные игроки',
+    exercisesLoadFailed: 'Не удалось загрузить упражнения, сохранить пока нельзя',
     assignNoAthletes: 'В команде пока нет игроков',
   },
   eventDetail: {

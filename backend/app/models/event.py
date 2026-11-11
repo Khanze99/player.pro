@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import DateTime, ForeignKey, String
+from sqlalchemy import DateTime, ForeignKey, Index, String, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
@@ -17,6 +17,14 @@ class Event(Base):
     """Командное событие (team_id задан) или индивидуальное (team_id = NULL, created_by = игрок)."""
 
     __tablename__ = "events"
+    # У каждого события свой список: один план на два события дал бы общий список
+    # и права по случайному из них (events_service._event_plan_id копирует, индекс
+    # закрывает гонку двух параллельных запросов)
+    __table_args__ = (
+        Index(
+            "uq_events_workout", "workout_id", unique=True, postgresql_where=text("workout_id IS NOT NULL")
+        ),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     team_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("teams.id"), nullable=True, index=True)
@@ -27,7 +35,7 @@ class Event(Base):
     location_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("locations.id"), nullable=True)
     created_by: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"))
     # Свой план упражнений (Workout с is_template=False, docs/plan-workout-builder.md),
-    # только у личного события. Шаблон сюда не ставится: при выборе копируется.
+    # у личного события и у командной тренировки. Шаблон сюда не ставится: при выборе копируется.
     workout_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("workouts.id", ondelete="SET NULL"), nullable=True
     )

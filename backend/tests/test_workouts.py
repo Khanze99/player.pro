@@ -382,12 +382,13 @@ async def test_team_event_workout_assigned_to_one_athlete(client, exercises):
     assert session["athlete_id"] == a1["user_id"] and session["is_team_event"] is True
     await client.post(f"{API}/workout-sessions/{session['id']}/finish", headers=a1["headers"])
 
-    # RPE открылся только тому, кто завершил
-    day = datetime.now(UTC).date().isoformat()
-    for who, finished in ((a1, True), (a2, False)):
-        rows = (await client.get(f"{API}/rpe/sessions?day={day}", headers=who["headers"])).json()
-        row = next(r for r in rows if r["event_id"] == event["id"])
-        assert row["finished"] is finished
+    # RPE открылся тому, кто завершил; не назначенному событие не видно вовсе.
+    # День берём из события: в 22-24 UTC «через 2 часа» уже следующие сутки
+    day = datetime.fromisoformat(event["planned_start"]).astimezone(UTC).date().isoformat()
+    rows = (await client.get(f"{API}/rpe/sessions?day={day}", headers=a1["headers"])).json()
+    assert next(r for r in rows if r["event_id"] == event["id"])["finished"] is True
+    rows = (await client.get(f"{API}/rpe/sessions?day={day}", headers=a2["headers"])).json()
+    assert event["id"] not in [r["event_id"] for r in rows]
 
     # Результаты: штаб видит, игрок нет
     resp = await client.get(f"{API}/events/{event['id']}/workout-results", headers=coach_h)

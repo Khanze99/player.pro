@@ -60,7 +60,10 @@ async def _resolve_session(db: AsyncSession, athlete_id: uuid.UUID, event_id: uu
 
     if event.team_id is not None:
         membership = await db.get(TeamMembership, (athlete_id, event.team_id))
-        if membership is None:
+        # Событие для выбранных игроков (этап 2 docs/plan-workout-builder.md):
+        # остальным его не видно, и оценить его они не могут
+        assigned = event.workout_athlete_ids
+        if membership is None or (assigned and athlete_id not in assigned):
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Событие не найдено")
     elif event.created_by != athlete_id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Событие не найдено")
