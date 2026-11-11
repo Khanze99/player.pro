@@ -391,6 +391,7 @@ export default {
     resultNotStarted: 'Не начинал',
     resultInProgress: 'Идёт · {{done}}/{{total}}',
     resultFinished: 'Готово · {{done}}/{{total}}',
+    startTooEarly: 'Начать можно за {{min}} минут до начала тренировки',
   },
   profile: {
     title: 'Профиль',

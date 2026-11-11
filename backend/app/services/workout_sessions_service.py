@@ -9,7 +9,7 @@
 
 import math
 import uuid
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
 from fastapi import HTTPException, status
@@ -98,6 +98,25 @@ async def _own_event_session(
     )
 
 
+# Начать можно чуть раньше расписания: игрок пришёл и разминается. Раньше этого
+# окна тренировка на завтра открыла бы и RPE по ней (rpe_service пускает оценку
+# после завершённого выполнения).
+EARLY_START = timedelta(minutes=15)
+
+
+def _ensure_started(event: Event) -> None:
+    opens_at = _aware(event.planned_start) - EARLY_START
+    if datetime.now(UTC) < opens_at:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Начать можно за {EARLY_START.seconds // 60} минут до начала тренировки",
+        )
+
+
+def _aware(value: datetime) -> datetime:
+    return value if value.tzinfo else value.replace(tzinfo=UTC)
+
+
 def _local_date(moment: datetime) -> date:
     """День события для личного режима: таймзоны у пользователя нет, берём общую."""
     return moment.astimezone(ZoneInfo(settings.default_timezone)).date()
@@ -123,6 +142,7 @@ async def start(
         existing = await _own_event_session(db, event.id, user.id)
         if existing is not None:
             raise _conflict("event_has_session", "Эта тренировка уже выполнялась", existing)
+        _ensure_started(event)
         workout = await workouts_service.load(db, event.workout_id)
         session_date = _local_date(event.planned_start)
     else:

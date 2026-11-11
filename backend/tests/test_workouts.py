@@ -95,7 +95,7 @@ async def test_full_flow_template_calendar_run_finish(client, exercises):
     # 3 × (8 × 3 с + 90 с) + 2 × (45 с + 60 с) = 342 + 210 = 552 с → 10 мин
     assert workout["est_duration_min"] == 10
 
-    start = datetime.now(UTC) + timedelta(hours=1)
+    start = datetime.now(UTC)
     resp = await client.post(
         f"{API}/events",
         json={
@@ -212,7 +212,7 @@ async def _create_workout(client, h, ex, name="Грудь и ноги") -> dict:
 async def _personal_event(client, h, workout_id=None) -> dict:
     body = {
         "type": "training",
-        "planned_start": (datetime.now(UTC) + timedelta(hours=1)).isoformat(),
+        "planned_start": datetime.now(UTC).isoformat(),
         "planned_duration_min": 30,
     }
     if workout_id is not None:
@@ -337,7 +337,7 @@ async def test_team_event_workout_assigned_to_one_athlete(client, exercises):
     base = {
         "team_id": org["team_id"],
         "type": "training",
-        "planned_start": (datetime.now(UTC) + timedelta(hours=2)).isoformat(),
+        "planned_start": datetime.now(UTC).isoformat(),
         "planned_duration_min": 60,
     }
 
@@ -573,8 +573,8 @@ async def test_parallel_set_saves_and_finish_do_not_fail(client, exercises):
 
 
 async def test_sessions_by_event_ignore_dates(client, exercises):
-    """Карточка события спрашивает свою сессию по event_id: событие на другой
-    день не попадает в окно «последние 90 дней до сегодня», но находится."""
+    """Карточка события спрашивает свою сессию по event_id: событие 100 дней
+    назад не попадает в окно «последние 90 дней до сегодня», но находится."""
     user = await register_user(client, "byevent@example.com")
     h = user["headers"]
     workout = await _create_workout(client, h, exercises)
@@ -582,7 +582,7 @@ async def test_sessions_by_event_ignore_dates(client, exercises):
         f"{API}/events",
         json={
             "type": "training",
-            "planned_start": (datetime.now(UTC) + timedelta(days=3)).isoformat(),
+            "planned_start": (datetime.now(UTC) - timedelta(days=100)).isoformat(),
             "planned_duration_min": 30,
             "workout_id": workout["id"],
         },
@@ -811,3 +811,45 @@ async def test_rpe_right_after_finish_before_planned_end(client, exercises):
 
     resp = await client.post(f"{API}/rpe", json={**rpe, "duration_min": finish["elapsed_min"]}, headers=h)
     assert resp.status_code == 201, resp.text
+
+
+async def test_cannot_start_event_before_its_time(client, exercises):
+    """Тренировку на завтра начать нельзя: иначе за ней открылся бы и RPE.
+    За несколько минут до начала уже можно (игрок пришёл и разминается), но
+    оценка ждёт времени по расписанию."""
+    user = await register_user(client, "tooearly@example.com")
+    h = user["headers"]
+    workout = await _create_workout(client, h, exercises)
+
+    async def event_at(start):
+        resp = await client.post(
+            f"{API}/events",
+            json={
+                "type": "training",
+                "planned_start": start.isoformat(),
+                "planned_duration_min": 30,
+                "workout_id": workout["id"],
+            },
+            headers=h,
+        )
+        assert resp.status_code == 201, resp.text
+        return resp.json()
+
+    tomorrow = await event_at(datetime.now(UTC) + timedelta(days=1))
+    resp = await client.post(f"{API}/workout-sessions", json={"event_id": tomorrow["id"]}, headers=h)
+    assert resp.status_code == 422 and "Начать можно" in resp.json()["detail"]
+    assert (await client.get(f"{API}/workout-sessions/active", headers=h)).status_code == 204
+
+    soon_start = datetime.now(UTC) + timedelta(minutes=10)
+    soon = await event_at(soon_start)
+    resp = await client.post(f"{API}/workout-sessions", json={"event_id": soon["id"]}, headers=h)
+    assert resp.status_code == 201, resp.text
+    finish = await client.post(f"{API}/workout-sessions/{resp.json()['id']}/finish", headers=h)
+    assert finish.status_code == 200
+
+    day = soon_start.date().isoformat()
+    rows = (await client.get(f"{API}/rpe/sessions?day={day}", headers=h)).json()
+    assert next(r for r in rows if r["event_id"] == soon["id"])["finished"] is False
+    rpe = {"date": day, "exertion": 6, "performance": 7, "duration_min": 5, "event_id": soon["id"]}
+    resp = await client.post(f"{API}/rpe", json=rpe, headers=h)
+    assert resp.status_code == 422 and "начала" in resp.json()["detail"]

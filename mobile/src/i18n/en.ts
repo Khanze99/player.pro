@@ -393,6 +393,7 @@ const en: typeof ru = {
     resultNotStarted: 'Not started',
     resultInProgress: 'In progress · {{done}}/{{total}}',
     resultFinished: 'Done · {{done}}/{{total}}',
+    startTooEarly: 'You can start {{min}} minutes before the training begins',
   },
   profile: {
     title: 'Profile',

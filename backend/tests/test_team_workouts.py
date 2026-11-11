@@ -26,7 +26,8 @@ async def _team_event(client, org, workout_id, athlete_ids=None) -> dict:
     body = {
         "team_id": org["team_id"],
         "type": "training",
-        "planned_start": (datetime.now(UTC) + timedelta(hours=2)).isoformat(),
+        # В будущем (иначе нет уведомлений), но в окне раннего старта выполнения
+        "planned_start": (datetime.now(UTC) + timedelta(minutes=10)).isoformat(),
         "planned_duration_min": 60,
         "workout_id": workout_id,
     }
@@ -88,7 +89,7 @@ async def test_staff_never_sees_personal_workouts(client, team, exercises):  # n
         f"{API}/events",
         json={
             "type": "individual",
-            "planned_start": (datetime.now(UTC) + timedelta(hours=1)).isoformat(),
+            "planned_start": datetime.now(UTC).isoformat(),
             "planned_duration_min": 30,
             "workout_id": own_template["id"],
         },

@@ -68,7 +68,15 @@ async def _resolve_session(db: AsyncSession, athlete_id: uuid.UUID, event_id: uu
     elif event.created_by != athlete_id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Событие не найдено")
 
-    if _session_end(event) > datetime.now(UTC) and not await _finished_by_workout(db, [event.id], athlete_id):
+    now = datetime.now(UTC)
+    # До начала по расписанию оценки нет, даже если выполнение уже завершено
+    # (начать можно за несколько минут до старта, workout_sessions_service.EARLY_START)
+    if _aware(event.planned_start) > now:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Оценить нагрузку можно после начала тренировки",
+        )
+    if _session_end(event) > now and not await _finished_by_workout(db, [event.id], athlete_id):
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="Оценить нагрузку можно после окончания тренировки",
@@ -116,7 +124,8 @@ async def day_sessions(
             planned_start=_aware(event.planned_start),
             planned_duration_min=event.planned_duration_min,
             ends_at=_session_end(event),
-            finished=_session_end(event) <= now or event.id in done_by_workout,
+            finished=_session_end(event) <= now
+            or (event.id in done_by_workout and _aware(event.planned_start) <= now),
             rpe_submitted=event.id in rated_ids,
         )
         for event in events

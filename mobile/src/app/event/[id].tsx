@@ -2,6 +2,7 @@
 // удаление менеджером события. Данные приходят параметрами из календаря.
 
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
 import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
@@ -40,6 +41,9 @@ function statusColor(status: AttendanceStatus, th: Theme): string {
       return th.caution;
   }
 }
+
+/** За сколько минут до начала можно стартовать выполнение (как EARLY_START на сервере). */
+const EARLY_START_MIN = 15;
 
 export default function EventDetail() {
   const th = useTheme();
@@ -109,6 +113,14 @@ export default function EventDetail() {
   const statusByUser = new Map((attendance.data ?? []).map((a) => [a.user_id, a.status]));
 
   const start = new Date(params.start);
+  // «Начать» открывается за EARLY_START_MIN до начала (сервер проверяет то же):
+  // тренировку на завтра начать нельзя, иначе за ней открылся бы и RPE
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const tick = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(tick);
+  }, []);
+  const tooEarly = !eventSession && now < start.getTime() - EARLY_START_MIN * 60_000;
   const dateLabel = start
     .toLocaleDateString(i18n.language, { weekday: 'long', day: 'numeric', month: 'long' })
     .toUpperCase();
@@ -218,7 +230,11 @@ export default function EventDetail() {
               </Text>
             ) : null}
             {canRun && sessions.isSuccess ? (
-              <Button title={runLabel} onPress={runWorkout} loading={startWorkout.isPending} />
+              tooEarly ? (
+                <Text style={styles.emptyText}>{t('eventDetail.startTooEarly', { min: EARLY_START_MIN })}</Text>
+              ) : (
+                <Button title={runLabel} onPress={runWorkout} loading={startWorkout.isPending} />
+              )
             ) : null}
           </View>
         ) : null}
