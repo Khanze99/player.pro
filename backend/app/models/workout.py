@@ -98,10 +98,13 @@ class WorkoutSession(Base):
             unique=True,
             postgresql_where=text("finished_at IS NULL"),
         ),
-        # Одно выполнение на событие, как uq_rpe_athlete_event.
+        # Одно выполнение на событие у каждого игрока, как uq_rpe_athlete_event: на
+        # командном событии у каждого своё (этап 2 плана). Префикс event_id служит и
+        # выборкам по событию (результаты игроков, «уже выполнялась»).
         Index(
-            "uq_workout_sessions_event",
+            "uq_workout_sessions_event_athlete",
             "event_id",
+            "athlete_id",
             unique=True,
             postgresql_where=text("event_id IS NOT NULL"),
         ),

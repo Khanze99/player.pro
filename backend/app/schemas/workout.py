@@ -216,6 +216,9 @@ class WorkoutSessionOut(BaseModel):
     прошлые результаты, rest_sec из шаблона по позициям."""
 
     id: uuid.UUID
+    # Чьё выполнение: штаб открывает выполнение игрока командного события только
+    # для чтения, экран сравнивает с собой
+    athlete_id: uuid.UUID
     event_id: uuid.UUID | None
     workout_id: uuid.UUID | None
     workout_name: str

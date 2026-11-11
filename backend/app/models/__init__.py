@@ -32,7 +32,7 @@ from app.models.enums import (
     UserStatus,
     WorkoutItemMode,
 )
-from app.models.event import Attendance, Event
+from app.models.event import Attendance, Event, EventWorkoutAthlete
 from app.models.exercise import Exercise
 from app.models.injury import InjuryRecord
 from app.models.invitation import Invitation
@@ -87,6 +87,7 @@ __all__ = [
     "UserStatus",
     "Attendance",
     "Event",
+    "EventWorkoutAthlete",
     "Exercise",
     "Workout",
     "WorkoutItem",

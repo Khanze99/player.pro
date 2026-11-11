@@ -765,6 +765,8 @@ export interface LastResult {
 }
 
 export interface WorkoutSession {
+  /** Чьё выполнение: чужое (игрока командного события у штаба) только для чтения */
+  athlete_id: string;
   id: string;
   event_id: string | null;
   workout_id: string | null;

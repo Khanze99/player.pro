@@ -236,6 +236,7 @@ async def build_out(db: AsyncSession, session_id: uuid.UUID) -> WorkoutSessionOu
 
     return WorkoutSessionOut(
         id=session.id,
+        athlete_id=session.athlete_id,
         event_id=session.event_id,
         workout_id=session.workout_id,
         workout_name=session.workout_name,

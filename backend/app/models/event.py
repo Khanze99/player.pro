@@ -37,9 +37,33 @@ class Event(Base):
     # упала бы при сериализации. У большинства событий шаблона нет, LEFT JOIN дешёвый.
     workout: Mapped["Workout | None"] = relationship(lazy="joined")
 
+    # Кому назначены упражнения командного события (этап 2 docs/plan-workout-builder.md).
+    # Пусто: всем игрокам команды. selectin: EventOut отдаёт список, в async-сессии
+    # ленивая загрузка при сериализации упала бы.
+    workout_athletes: Mapped[list["EventWorkoutAthlete"]] = relationship(
+        lazy="selectin", cascade="all, delete-orphan", passive_deletes=True
+    )
+
     @property
     def workout_name(self) -> str | None:
         return self.workout.name if self.workout is not None else None
+
+    @property
+    def workout_athlete_ids(self) -> list[uuid.UUID]:
+        return [row.athlete_id for row in self.workout_athletes]
+
+
+class EventWorkoutAthlete(Base):
+    """Игрок, которому назначены упражнения командного события. Нет строк у
+    события: упражнения у всех игроков команды."""
+
+    __tablename__ = "event_workout_athletes"
+
+    event_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("events.id", ondelete="CASCADE"), primary_key=True)
+    # CASCADE: полное удаление пользователя (scripts/delete_user.py) не блокируется
+    athlete_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
 
 
 class Attendance(Base):
