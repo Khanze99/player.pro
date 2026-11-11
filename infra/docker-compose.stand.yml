@@ -42,6 +42,7 @@ x-backend-env: &backend-env
   SMTP_FROM: ${SMTP_FROM:-PlayerPro <noreply@player.pro>}
   FEATURE_NUTRITION_ENABLED: ${FEATURE_NUTRITION_ENABLED:-false}
   FEATURE_CYCLE_ENABLED: ${FEATURE_CYCLE_ENABLED:-false}
+  FEATURE_WORKOUTS_ENABLED: ${FEATURE_WORKOUTS_ENABLED:-false}
   # pydantic-settings ждёт JSON-массив
   CORS_ORIGINS: '${CORS_ORIGINS:-["http://localhost:8081"]}'
 
@@ -96,6 +97,9 @@ services:
       - branding_data:/app/static/branding
       # Аватары профиля (docs/plan-profile.md) — тоже персистентные, не в образе
       - avatar_data:/app/media/avatars
+      # Картинки/GIF и exercises.json справочника упражнений (docs/deploy.md): 137 МБ,
+      # в git и в образ не кладём, на хост качаются один раз. Только чтение
+      - ../backend/media/exercises:/app/media/exercises:ro
     ports:
       - "${API_PORT:-8000}:8000"
     depends_on:

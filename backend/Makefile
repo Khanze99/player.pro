@@ -91,14 +91,15 @@ exercises: ## Справочник упражнений: make exercises file=exe
 # кладём — те же 137 МБ бинарников навсегда раздули бы историю, как и дамп
 # датасета выше; качаем по требованию тем же приёмом. Повторный запуск ничего
 # не перекачивает, если каталог уже заполнен — удалите media/exercises для реимпорта.
-exercises-media: ## Картинки/GIF упражнений с GitHub: make exercises-media
-	@if [ -d media/exercises/images ] && [ -d media/exercises/videos ]; then \
+# Заодно кладёт сам справочник: make exercises file=media/exercises/data/exercises.json
+exercises-media: ## Картинки/GIF и exercises.json с GitHub: make exercises-media
+	@if [ -d media/exercises/images ] && [ -d media/exercises/videos ] && [ -f media/exercises/data/exercises.json ]; then \
 		echo "Уже загружено: $$(ls media/exercises/images | wc -l) картинок, $$(ls media/exercises/videos | wc -l) GIF."; \
 		echo "Для повторной загрузки удалите media/exercises и запустите заново."; \
 	else \
 		mkdir -p media/exercises && \
 		curl -sL -o /tmp/exercises-media.tar.gz "https://codeload.github.com/hasaneyldrm/exercises-dataset/tar.gz/refs/heads/main" && \
-		tar -xzf /tmp/exercises-media.tar.gz -C media/exercises --strip-components=1 exercises-dataset-main/images exercises-dataset-main/videos && \
+		tar -xzf /tmp/exercises-media.tar.gz -C media/exercises --strip-components=1 exercises-dataset-main/images exercises-dataset-main/videos exercises-dataset-main/data/exercises.json && \
 		rm -f /tmp/exercises-media.tar.gz && \
 		echo "Готово: $$(ls media/exercises/images | wc -l) картинок, $$(ls media/exercises/videos | wc -l) GIF."; \
 	fi

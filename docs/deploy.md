@@ -227,6 +227,51 @@ curl -s -X POST https://app.player-pro.ru/api/v1/auth/otp/request \
   review-coach@player-pro.ru (coach), code 000000. Delete account is functional and
   irreversible, please use it last.»
 
+### Справочник упражнений и конструктор тренировок
+
+Конструктор тренировок (`docs/plan-workout-builder.md`) выключен флагом
+`FEATURE_WORKOUTS_ENABLED`. Справочник ему нужен заранее: 1324 упражнения, картинки
+и GIF (лицензия Gym Visual подтверждена с правообладателем, `docs/plan-exercise-catalog.md`).
+Ни дамп, ни медиа (137 МБ) в git и в образ не кладём: они лежат на хосте в
+`backend/media/exercises` и монтируются в `api` только на чтение. `make` на ВМ нет,
+поэтому ниже тот же приём, что у `make exercises-media`, напрямую.
+
+```bash
+cd ~/player.pro
+CO="docker compose -f infra/docker-compose.stand.yml --env-file infra/.env"
+
+# 1. Картинки, GIF и exercises.json на хост. Каталог создать самим и ДО первого up
+#    после обновления: иначе Docker создаст точку монтирования от root, и curl не
+#    сможет в неё писать (лечится sudo chown -R $USER backend/media)
+mkdir -p backend/media/exercises
+curl -sL https://codeload.github.com/hasaneyldrm/exercises-dataset/tar.gz/refs/heads/main \
+  | tar -xz -C backend/media/exercises --strip-components=1 \
+      exercises-dataset-main/images exercises-dataset-main/videos exercises-dataset-main/data/exercises.json
+ls backend/media/exercises/images | wc -l   # 1324
+ls backend/media/exercises/videos | wc -l   # 1324
+
+# 2. Пересоздать api, чтобы подхватил монтирование (миграции накатит migrate)
+$CO build api && $CO up -d
+
+# 3. Импорт справочника: идемпотентный upsert по external_id, переводы ru/es
+#    берутся из scripts/exercise_translations.json (он в образе)
+$CO exec api python scripts/import_exercises.py --file media/exercises/data/exercises.json
+
+# 4. Проверка (токен любого пользователя, справочник от флага не зависит): "total":1324
+curl -s -H "Authorization: Bearer $TOKEN" 'http://localhost:8000/api/v1/exercises?limit=1' | head -c 200
+```
+
+Включение: `FEATURE_WORKOUTS_ENABLED=true` в `infra/.env`, затем `$CO up -d api worker`.
+Без флага эндпоинты тренировок отвечают 404, вход «Шаблоны тренировок» в профиле и
+блок «Упражнения» в событии не показываются; справочник и миграции от флага не
+зависят, их можно выкатить заранее. Если картинки в приложении не грузятся,
+проверить монтирование: `docker inspect` из «Эксплуатации», `Source` должен указывать
+на `~/player.pro/backend/media/exercises`.
+
+При обновлении датасета: удалить `backend/media/exercises`, повторить шаги 1 и 3
+(контейнер пересоздавать не нужно, каталог тот же). Импорт обновит строки и добавит
+новые; у новых записей до ручного перевода названия будут английскими.
+
 ## Шаг 4b. Веб-PWA (`app.player-pro.ru`)
 
 Бандл собирается локально/в CI и выкладывается на ВМ как статика — nginx его раздаёт,
