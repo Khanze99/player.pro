@@ -1,6 +1,8 @@
 // Выполнение тренировки (docs/plan-workout-builder.md): упражнение за упражнением,
 // подходы чек-листом с фактом, «прошлый раз», таймер отдыха после отметки подхода.
 // Подходы уходят на сервер с дебаунсом: закрыл экран, открыл снова, всё на месте.
+// Сохранения идут строго по очереди: следующее ждёт ответа на предыдущее, иначе
+// на медленной сети ответы перемешиваются, а сервер получает параллельные PUT.
 // «Завершить» дожимает несохранённое, закрывает сессию и ведёт в RPE с фактом.
 
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -19,6 +21,7 @@ import { useTranslation } from 'react-i18next';
 
 import { ApiError } from '@/api/client';
 import { exerciseName, formatDuration, formatWeight, targetLabel } from '@/api/exercises';
+import { invalidSetFields } from '@/api/workoutDraft';
 import {
   useDiscardSession,
   useExercise,
@@ -40,6 +43,11 @@ import { spacing, type Theme, useStyles, useTheme } from '@/theme';
 
 const SAVE_DEBOUNCE_MS = 800;
 const MAX_SETS_PER_EXERCISE = 20; // столько же принимает бэкенд (SessionSetIn.set_index)
+
+/** Черновик с полем вне границ: не отправляем, подсвечиваем поле. */
+class InvalidSets extends Error {}
+
+const nowMs = () => Date.now();
 
 const clock = (totalSec: number) => {
   const sec = Math.max(0, Math.floor(totalSec));
@@ -93,26 +101,61 @@ export default function WorkoutRun() {
   const discard = useDiscardSession();
 
   // Черновик подходов: берём с сервера один раз, дальше он главный (сервер его догоняет)
-  // (привязан к id: роутер может отдать экрану другую сессию без перемонтирования)
+  // (привязан к id: роутер может отдать экрану другую сессию без перемонтирования).
+  // Только из свежего ответа: кэш от прошлого открытия мог не дождаться последнего сохранения.
   const [draft, setDraft] = useState<{ id: string; sets: SessionSet[] } | null>(null);
-  if (session.data && session.data.id === id && draft?.id !== id) setDraft({ id, sets: session.data.sets });
+  const fresh = session.data && session.data.id === id && session.isFetchedAfterMount && !session.isFetching;
+  if (fresh && draft?.id !== id) setDraft({ id, sets: session.data!.sets });
   const sets = draft?.id === id ? draft.sets : null;
   const setSets = (next: SessionSet[]) => setDraft({ id, sets: next });
 
   const [current, setCurrent] = useState<number | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const [restUntil, setRestUntil] = useState<number | null>(null);
-  const [version, setVersion] = useState(0);
   const [saveFailed, setSaveFailed] = useState(false);
   const [finishing, setFinishing] = useState(false);
+  const [closing, setClosing] = useState(false);
 
+  // Версия черновика и последняя сохранённая: живут в ref, их читают только обработчики
   const setsRef = useRef<SessionSet[] | null>(null);
+  const version = useRef(0);
   const savedVersion = useRef(0);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const queue = useRef<Promise<void>>(Promise.resolve());
 
+  /** Ставит сохранение текущего черновика в очередь за предыдущим. Невалидный
+   *  черновик не отправляем: сервер отклонил бы весь список (422). */
+  const saveNow = () => {
+    const next = queue.current
+      .catch(() => undefined)
+      .then(async () => {
+        const target = version.current;
+        const snapshot = setsRef.current;
+        if (!snapshot || target <= savedVersion.current) return;
+        if (snapshot.some((x) => invalidSetFields(x).length > 0)) throw new InvalidSets();
+        await save.mutateAsync(snapshot);
+        savedVersion.current = Math.max(savedVersion.current, target);
+        setSaveFailed(false);
+      });
+    queue.current = next;
+    return next;
+  };
+  const saveNowRef = useRef(saveNow);
   useEffect(() => {
-    setsRef.current = sets;
-  }, [sets]);
+    saveNowRef.current = saveNow;
+  });
+
+  // Ушли с экрана жестом или навигацией, не дождавшись дебаунса: дожимаем
+  useEffect(
+    () => () => {
+      if (timer.current) {
+        clearTimeout(timer.current);
+        timer.current = null;
+        void saveNowRef.current().catch(() => undefined);
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
     const tick = setInterval(() => setNow(Date.now()), 1000);
@@ -122,30 +165,8 @@ export default function WorkoutRun() {
   const flush = async () => {
     if (timer.current) clearTimeout(timer.current);
     timer.current = null;
-    const target = version;
-    if (!setsRef.current || target === savedVersion.current) return;
-    await save.mutateAsync(setsRef.current);
-    savedVersion.current = target;
+    await saveNow();
   };
-
-  // Дебаунс сохранения: каждое изменение откладывает отправку
-  useEffect(() => {
-    if (version === 0) return;
-    if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(() => {
-      timer.current = null;
-      if (!setsRef.current) return;
-      save.mutate(setsRef.current, {
-        onSuccess: () => {
-          savedVersion.current = Math.max(savedVersion.current, version);
-          setSaveFailed(false);
-        },
-        onError: () => setSaveFailed(true),
-      });
-    }, SAVE_DEBOUNCE_MS);
-    // save стабилен по смыслу, но объект мутации новый на каждом рендере
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [version]);
 
   if (session.isPending || (session.data && sets === null)) {
     return (
@@ -195,9 +216,18 @@ export default function WorkoutRun() {
   const restLeft = restUntil != null ? (restUntil - now) / 1000 : 0;
   const resting = restUntil != null && restLeft > 0;
 
+  const invalidCount = sets.filter((x) => invalidSetFields(x).length > 0).length;
+
+  // Дебаунс сохранения: каждое изменение откладывает отправку
   const change = (next: SessionSet[]) => {
     setSets(next);
-    setVersion((v) => v + 1);
+    setsRef.current = next;
+    version.current += 1;
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(() => {
+      timer.current = null;
+      saveNow().catch((e) => setSaveFailed(!(e instanceof InvalidSets)));
+    }, SAVE_DEBOUNCE_MS);
   };
 
   const patchSet = (s: SessionSet, patch: Partial<SessionSet>) =>
@@ -210,7 +240,7 @@ export default function WorkoutRun() {
     patchSet(s, { done });
     // Отдых после отмеченного подхода, кроме самого последнего во всей тренировке
     const remaining = sets.filter((x) => !x.done && !(x.position === s.position && x.set_index === s.set_index));
-    if (done && restSec > 0 && remaining.length > 0) setRestUntil(Date.now() + restSec * 1000);
+    if (done && restSec > 0 && remaining.length > 0) setRestUntil(nowMs() + restSec * 1000);
     if (!done) setRestUntil(null);
   };
 
@@ -233,6 +263,10 @@ export default function WorkoutRun() {
   const go = (delta: -1 | 1) => setCurrent(Math.min(Math.max(index + delta, 0), positions.length - 1));
 
   const doFinish = async () => {
+    if (invalidCount > 0) {
+      toast(t('workoutRun.fixFields'));
+      return;
+    }
     setFinishing(true);
     try {
       await flush();
@@ -268,6 +302,7 @@ export default function WorkoutRun() {
       destructive: true,
       onConfirm: () => {
         if (timer.current) clearTimeout(timer.current);
+        timer.current = null;
         discard.mutate(id, {
           onSuccess: () => router.back(),
           onError: (e) => toast(e instanceof ApiError ? e.detail : t('common.noConnection')),
@@ -276,9 +311,13 @@ export default function WorkoutRun() {
     });
 
   // Закрыть = свернуть: тренировка остаётся активной, продолжить можно из списка или события
+  // Ждём сохранение, чтобы при повторном открытии не собрать черновик без последней
+  // правки. Не сохранилось (нет сети, неверное поле): всё равно закрываем, как и раньше.
   const close = () => {
-    void flush().catch(() => undefined);
-    router.back();
+    setClosing(true);
+    void flush()
+      .catch(() => undefined)
+      .finally(() => router.back());
   };
 
   return (
@@ -294,6 +333,7 @@ export default function WorkoutRun() {
             </View>
             <Pressable
               onPress={close}
+              disabled={closing}
               hitSlop={8}
               accessibilityRole="button"
               accessibilityLabel={t('workoutRun.minimize')}
@@ -310,8 +350,9 @@ export default function WorkoutRun() {
           </View>
           <Text style={styles.hint}>
             {t('workoutRun.progress', { done: doneCount, total: sets.length })}
-            {saveFailed ? ` · ${t('workoutRun.notSaved')}` : ''}
+            {saveFailed && invalidCount === 0 ? ` · ${t('workoutRun.notSaved')}` : ''}
           </Text>
+          {invalidCount > 0 ? <Text style={styles.error}>{t('workoutRun.fixFields')}</Text> : null}
 
           {resting && !readOnly ? (
             <View style={styles.rest}>
@@ -391,11 +432,13 @@ export default function WorkoutRun() {
                     <NumField
                       value={s.reps}
                       onChange={(reps) => patchSet(s, { reps })}
+                      invalid={invalidSetFields(s).includes('reps')}
                       editable={!readOnly}
                     />
                     <NumField
                       value={s.weight_kg}
                       onChange={(weight_kg) => patchSet(s, { weight_kg })}
+                      invalid={invalidSetFields(s).includes('weight_kg')}
                       decimal
                       editable={!readOnly}
                     />
@@ -404,6 +447,7 @@ export default function WorkoutRun() {
                   <NumField
                     value={s.duration_sec}
                     onChange={(duration_sec) => patchSet(s, { duration_sec })}
+                    invalid={invalidSetFields(s).includes('duration_sec')}
                     editable={!readOnly}
                   />
                 )}

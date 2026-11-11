@@ -72,6 +72,9 @@ class WorkoutIn(BaseModel):
     name: str = Field(min_length=1, max_length=100)
     notes: str | None = Field(default=None, max_length=2000)
     items: list[WorkoutItemIn] = Field(min_length=1, max_length=MAX_ITEMS)
+    # False: план конкретного события («Добавить упражнения» при создании события),
+    # в списке шаблонов не показывается. Задаётся только при создании, PUT его не меняет.
+    is_template: bool = True
 
     @field_validator("name")
     @classmethod
@@ -101,6 +104,7 @@ class WorkoutOut(BaseModel):
     id: uuid.UUID
     name: str
     notes: str | None
+    is_template: bool
     items: list[WorkoutItemOut]
     est_duration_min: int
     created_at: datetime

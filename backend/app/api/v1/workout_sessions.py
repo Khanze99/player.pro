@@ -44,10 +44,11 @@ async def my_sessions(
     db: DbSession,
     date_from: date | None = None,
     date_to: date | None = None,
+    event_id: uuid.UUID | None = None,
 ):
-    date_to = date_to or date.today()
+    date_to = date_to or workout_sessions_service.today_local()
     date_from = date_from or date_to - timedelta(days=90)
-    return await workout_sessions_service.list_mine(db, user.id, date_from, date_to)
+    return await workout_sessions_service.list_mine(db, user.id, date_from, date_to, event_id)
 
 
 @router.get("/{session_id}", response_model=WorkoutSessionOut)

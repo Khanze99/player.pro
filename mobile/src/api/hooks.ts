@@ -701,18 +701,23 @@ export const useActiveSession = (enabled = true) =>
     queryFn: async () => (await api<WorkoutSession | undefined>('/workout-sessions/active')) ?? null,
   });
 
+/** Экран выполнения строит черновик из этих данных, поэтому при каждом открытии
+ *  перезапрашиваем: кэш мог остаться от прошлого открытия без последних правок. */
 export const useWorkoutSession = (id: string | undefined) =>
   useQuery({
     queryKey: ['workout-session', id],
     enabled: !!id,
+    refetchOnMount: 'always',
     queryFn: () => api<WorkoutSession>(`/workout-sessions/${id}`),
   });
 
-export const useMyWorkoutSessions = (enabled = true) =>
+/** Сессия конкретного события, без окна дат: событие может стоять на любой день. */
+export const useEventWorkoutSession = (eventId: string | undefined, enabled = true) =>
   useQuery({
-    queryKey: ['workout-sessions'],
-    enabled,
-    queryFn: () => api<WorkoutSessionShort[]>('/workout-sessions/me'),
+    queryKey: ['workout-sessions', 'event', eventId],
+    enabled: enabled && !!eventId,
+    queryFn: async () =>
+      (await api<WorkoutSessionShort[]>(`/workout-sessions/me?event_id=${eventId}`))[0] ?? null,
   });
 
 function useInvalidateSessions() {
@@ -722,6 +727,8 @@ function useInvalidateSessions() {
     void qc.invalidateQueries({ queryKey: ['workout-sessions'] });
     void qc.invalidateQueries({ queryKey: ['exercise-history'] });
     void qc.invalidateQueries({ queryKey: ['events'] });
+    // Завершённая тренировка сразу открывает RPE для события (rpe_service)
+    void qc.invalidateQueries({ queryKey: ['rpe-sessions'] });
   };
 }
 

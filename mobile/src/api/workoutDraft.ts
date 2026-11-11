@@ -7,7 +7,7 @@
 import { create } from 'zustand';
 
 import { defaultMode } from './exercises';
-import type { ExerciseShort, Workout, WorkoutItemMode, WorkoutPayload } from './types';
+import type { ExerciseShort, SessionSet, Workout, WorkoutItemMode, WorkoutPayload } from './types';
 
 export interface DraftItem {
   /** Локальный ключ строки: одно упражнение можно добавить дважды */
@@ -74,16 +74,7 @@ export const workoutDraftStore = create<WorkoutDraftState>((set) => ({
       workoutId: workout.id,
       name: workout.name,
       notes: workout.notes ?? '',
-      items: workout.items.map((item) => ({
-        key: nextKey(),
-        exercise: item.exercise,
-        mode: item.mode,
-        sets: item.sets,
-        reps: item.reps,
-        weight_kg: item.weight_kg,
-        duration_sec: item.duration_sec,
-        rest_sec: item.rest_sec,
-      })),
+      items: draftItemsFrom(workout),
       dirty: false,
     }),
   setName: (name) => set({ name, dirty: true }),
@@ -154,6 +145,25 @@ export function invalidFields(item: DraftItem): LimitedField[] {
   return bad;
 }
 
+/** Факт подхода при выполнении: те же потолки, что у шаблона, но 0 и пусто
+ *  допустимы (не сделал ни одного повтора). Как SessionSetIn на бэкенде. */
+export const FACT_LIMITS = {
+  reps: [0, 100],
+  weight_kg: [0, 500],
+  duration_sec: [0, 3600],
+} as const;
+
+type FactField = keyof typeof FACT_LIMITS;
+
+export function invalidSetFields(set: Pick<SessionSet, FactField>): FactField[] {
+  return (Object.keys(FACT_LIMITS) as FactField[]).filter((field) => {
+    const value = set[field];
+    if (value == null) return false;
+    const [min, max] = FACT_LIMITS[field];
+    return value < min || value > max;
+  });
+}
+
 export function draftToPayload(state: Pick<WorkoutDraftState, 'name' | 'notes' | 'items'>): WorkoutPayload {
   return {
     name: state.name.trim(),
@@ -169,3 +179,58 @@ export function draftToPayload(state: Pick<WorkoutDraftState, 'name' | 'notes' |
     })),
   };
 }
+
+const draftItemsFrom = (workout: Workout): DraftItem[] =>
+  workout.items.map((item) => ({
+    key: nextKey(),
+    exercise: item.exercise,
+    mode: item.mode,
+    sets: item.sets,
+    reps: item.reps,
+    weight_kg: item.weight_kg,
+    duration_sec: item.duration_sec,
+    rest_sec: item.rest_sec,
+  }));
+
+/** Упражнения конкретного события (event-create.tsx), отдельно от шаблонов.
+ *  Правятся тем же конструктором (workout-edit.tsx в режиме event): он берёт
+ *  список отсюда и по «Готово» кладёт обратно. На сервер уходит при сохранении
+ *  события: план события это Workout с is_template=false. */
+export interface EventPlanState {
+  /** id уже сохранённого плана события; null, если плана ещё нет на сервере */
+  planId: string | null;
+  /** Название для истории выполнений: имя шаблона, если брали из него */
+  name: string;
+  items: DraftItem[];
+  /** Список меняли после загрузки: при сохранении события отправить его заново */
+  dirty: boolean;
+  reset: () => void;
+  load: (plan: Workout) => void;
+  /** Добавить упражнения шаблона в конец; возвращает, сколько добавилось */
+  appendTemplate: (template: Workout) => number;
+  setItems: (items: DraftItem[]) => void;
+}
+
+export const eventPlanStore = create<EventPlanState>((set, get) => ({
+  planId: null,
+  name: '',
+  items: [],
+  dirty: false,
+  reset: () => set({ planId: null, name: '', items: [], dirty: false }),
+  load: (plan) =>
+    // Старое событие со ссылкой прямо на шаблон: берём его упражнения, а при
+    // сохранении создаём событию свой план
+    set({
+      planId: plan.is_template ? null : plan.id,
+      name: plan.name,
+      items: draftItemsFrom(plan),
+      dirty: plan.is_template,
+    }),
+  appendTemplate: (template) => {
+    const { items, name } = get();
+    const added = draftItemsFrom(template).slice(0, Math.max(0, MAX_ITEMS - items.length));
+    set({ items: [...items, ...added], name: name || template.name, dirty: true });
+    return added.length;
+  },
+  setItems: (items) => set({ items, dirty: true }),
+}));

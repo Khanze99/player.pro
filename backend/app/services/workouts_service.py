@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models.enums import WorkoutItemMode
+from app.models.event import Event
 from app.models.workout import Workout, WorkoutItem
 from app.schemas.workout import (
     MAX_WORKOUTS_PER_USER,
@@ -67,6 +68,7 @@ def to_out(workout: Workout) -> WorkoutOut:
         id=workout.id,
         name=workout.name,
         notes=workout.notes,
+        is_template=workout.is_template,
         items=[WorkoutItemOut.model_validate(item) for item in workout.items],
         est_duration_min=estimate_duration_min(workout.items),
         created_at=workout.created_at,
@@ -77,7 +79,7 @@ def to_out(workout: Workout) -> WorkoutOut:
 async def list_mine(db: AsyncSession, owner_id: uuid.UUID) -> list[WorkoutShortOut]:
     rows = await db.scalars(
         select(Workout)
-        .where(Workout.owner_id == owner_id)
+        .where(Workout.owner_id == owner_id, Workout.is_template.is_(True))
         .options(_with_items())
         .order_by(Workout.updated_at.desc())
     )
@@ -111,14 +113,19 @@ def _items_from(data: WorkoutIn) -> list[WorkoutItem]:
 
 
 async def create(db: AsyncSession, owner_id: uuid.UUID, data: WorkoutIn) -> WorkoutOut:
-    count = await db.scalar(select(func.count()).select_from(Workout).where(Workout.owner_id == owner_id))
-    if (count or 0) >= MAX_WORKOUTS_PER_USER:
+    count = await db.scalar(
+        select(func.count())
+        .select_from(Workout)
+        .where(Workout.owner_id == owner_id, Workout.is_template.is_(True))
+    )
+    # Лимит только на шаблоны: планы событий растут вместе с календарём
+    if data.is_template and (count or 0) >= MAX_WORKOUTS_PER_USER:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"Можно сохранить не больше {MAX_WORKOUTS_PER_USER} тренировок",
         )
     await exercise_service.ensure_exist(db, {item.exercise_id for item in data.items})
-    workout = Workout(owner_id=owner_id, name=data.name, notes=data.notes)
+    workout = Workout(owner_id=owner_id, name=data.name, notes=data.notes, is_template=data.is_template)
     workout.items = _items_from(data)
     db.add(workout)
     await db.commit()
@@ -138,6 +145,43 @@ async def replace(db: AsyncSession, workout: Workout, data: WorkoutIn) -> Workou
         db.add(item)
     await db.commit()
     return to_out(await load(db, workout.id))
+
+
+async def copy_as_event_plan(db: AsyncSession, source: Workout) -> Workout:
+    """План события из шаблона: независимая копия, без commit. Правка шаблона
+    потом не меняет уже запланированную тренировку."""
+    source = await load(db, source.id)
+    plan = Workout(owner_id=source.owner_id, name=source.name, notes=source.notes, is_template=False)
+    plan.items = [
+        WorkoutItem(
+            position=item.position,
+            exercise_id=item.exercise_id,
+            mode=item.mode,
+            sets=item.sets,
+            reps=item.reps,
+            weight_kg=item.weight_kg,
+            duration_sec=item.duration_sec,
+            rest_sec=item.rest_sec,
+            notes=item.notes,
+        )
+        for item in source.items
+    ]
+    db.add(plan)
+    await db.flush()
+    return plan
+
+
+async def release_event_plan(db: AsyncSession, workout_id: uuid.UUID | None) -> None:
+    """План события сняли или событие удалили: план больше никому не нужен.
+    Шаблон не трогаем; план, который ещё стоит на другом событии, тоже. Без commit."""
+    if workout_id is None:
+        return
+    workout = await db.get(Workout, workout_id)
+    if workout is None or workout.is_template:
+        return
+    in_use = await db.scalar(select(Event.id).where(Event.workout_id == workout_id).limit(1))
+    if in_use is None:
+        await db.delete(workout)
 
 
 async def delete_workout(db: AsyncSession, workout: Workout) -> None:

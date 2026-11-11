@@ -3,6 +3,7 @@
 фикстурой, отдельный тест проверяет, что без него фичи нет.
 """
 
+import asyncio
 from datetime import UTC, date, datetime, timedelta
 
 import pytest
@@ -107,7 +108,8 @@ async def test_full_flow_template_calendar_run_finish(client, exercises):
     )
     assert resp.status_code == 201, resp.text
     event = resp.json()
-    assert event["workout_id"] == workout["id"]
+    # Шаблон копируется в план события: правка шаблона не меняет запланированное
+    assert event["workout_id"] not in (None, workout["id"])
     assert event["workout_name"] == "Грудь и ноги"
 
     resp = await client.get(f"{API}/events/me", headers=h)
@@ -158,7 +160,9 @@ async def test_full_flow_template_calendar_run_finish(client, exercises):
     history = resp.json()
     assert len(history) == 1 and [s["reps"] for s in history[0]["sets"]] == [8, 8, 6]
 
-    resp = await client.get(f"{API}/workout-sessions/me", headers=h)
+    # Событие «через час» вечером по Москве уже завтра: окно берём с запасом
+    window = f"date_from={date.today() - timedelta(days=1)}&date_to={date.today() + timedelta(days=2)}"
+    resp = await client.get(f"{API}/workout-sessions/me?{window}", headers=h)
     rows = resp.json()
     assert len(rows) == 2
     finished = next(r for r in rows if r["id"] == session["id"])
@@ -431,8 +435,95 @@ async def test_event_session_conflicts(client, exercises):
 
     resp = await client.put(f"{API}/workout-sessions/{session['id']}/sets", json={"sets": []}, headers=h)
     assert resp.status_code == 409 and resp.json()["detail"]["code"] == "session_finished"
-    resp = await client.post(f"{API}/workout-sessions/{session['id']}/finish", headers=h)
+    resp = await client.delete(f"{API}/workout-sessions/{session['id']}", headers=h)
     assert resp.status_code == 409 and resp.json()["detail"]["code"] == "session_finished"
+
+
+async def test_finish_is_idempotent(client, exercises):
+    """Повтор finish после потерянного ответа: тот же результат, finished_at не сдвигается."""
+    user = await register_user(client, "refinish@example.com")
+    h = user["headers"]
+    workout = await _create_workout(client, h, exercises)
+    event = await _personal_event(client, h, workout["id"])
+    session = (await client.post(f"{API}/workout-sessions", json={"event_id": event["id"]}, headers=h)).json()
+    url = f"{API}/workout-sessions/{session['id']}"
+
+    first = await client.post(f"{url}/finish", headers=h)
+    finished_at = (await client.get(url, headers=h)).json()["finished_at"]
+    again = await client.post(f"{url}/finish", headers=h)
+    assert first.status_code == again.status_code == 200
+    assert again.json() == first.json() == {"event_id": event["id"], "elapsed_min": 1}
+    assert (await client.get(url, headers=h)).json()["finished_at"] == finished_at
+
+
+async def test_parallel_set_saves_and_finish_do_not_fail(client, exercises):
+    """Медленная сеть: клиент шлёт несколько PUT подряд, не дожидаясь ответа,
+    и finish сразу за ними. Блокировка строки сессии выстраивает их в очередь:
+    ни одного 500, последний успешный PUT до finish и есть итог."""
+    user = await register_user(client, "race@example.com")
+    h = user["headers"]
+    workout = await _create_workout(client, h, exercises)
+    session = (
+        await client.post(
+            f"{API}/workout-sessions",
+            json={"workout_id": workout["id"], "date": str(date.today())},
+            headers=h,
+        )
+    ).json()
+    sets = [
+        {
+            k: s[k]
+            for k in ("position", "exercise_id", "set_index", "mode", "reps", "weight_kg", "duration_sec")
+        }
+        | {"done": True}
+        for s in session["sets"]
+    ]
+    url = f"{API}/workout-sessions/{session['id']}"
+
+    puts = await asyncio.gather(
+        *(client.put(f"{url}/sets", json={"sets": sets}, headers=h) for _ in range(6))
+    )
+    assert [r.status_code for r in puts] == [200] * 6
+
+    results = await asyncio.gather(
+        client.put(f"{url}/sets", json={"sets": sets}, headers=h),
+        client.post(f"{url}/finish", headers=h),
+        client.post(f"{url}/finish", headers=h),
+    )
+    put, *finishes = results
+    assert put.status_code in (200, 409)
+    assert [r.status_code for r in finishes] == [200, 200]
+    assert finishes[0].json() == finishes[1].json()
+    final = (await client.get(url, headers=h)).json()
+    assert final["finished_at"] is not None
+    assert len(final["sets"]) == len(sets) and all(s["done"] for s in final["sets"])
+
+
+async def test_sessions_by_event_ignore_dates(client, exercises):
+    """Карточка события спрашивает свою сессию по event_id: событие на другой
+    день не попадает в окно «последние 90 дней до сегодня», но находится."""
+    user = await register_user(client, "byevent@example.com")
+    h = user["headers"]
+    workout = await _create_workout(client, h, exercises)
+    resp = await client.post(
+        f"{API}/events",
+        json={
+            "type": "training",
+            "planned_start": (datetime.now(UTC) + timedelta(days=3)).isoformat(),
+            "planned_duration_min": 30,
+            "workout_id": workout["id"],
+        },
+        headers=h,
+    )
+    event = resp.json()
+    other = await _personal_event(client, h, workout["id"])
+    session = (await client.post(f"{API}/workout-sessions", json={"event_id": event["id"]}, headers=h)).json()
+    await client.post(f"{API}/workout-sessions/{session['id']}/finish", headers=h)
+
+    assert (await client.get(f"{API}/workout-sessions/me", headers=h)).json() == []
+    rows = (await client.get(f"{API}/workout-sessions/me?event_id={event['id']}", headers=h)).json()
+    assert [r["id"] for r in rows] == [session["id"]]
+    assert (await client.get(f"{API}/workout-sessions/me?event_id={other['id']}", headers=h)).json() == []
 
 
 async def test_discard_keeps_event_and_allows_restart(client, exercises):
@@ -506,41 +597,74 @@ async def test_finish_elapsed_is_clamped(client, exercises, db):
     assert resp.json()["elapsed_min"] == 600
 
 
-async def test_rest_not_shown_after_template_reorder(client, exercises):
+async def test_rest_not_shown_after_plan_reorder(client, exercises):
     user = await register_user(client, "reorder@example.com")
     h = user["headers"]
     workout = await _create_workout(client, h, exercises)
     session = (await _start_now(client, h, workout["id"])).json()
     assert session["rest_sec_by_position"] == {"0": 90}
+    plan_id = session["workout_id"]
+    assert plan_id != workout["id"]
 
     body = _workout_body(exercises)
     body["items"].reverse()
-    resp = await client.put(f"{API}/workouts/{workout['id']}", json=body, headers=h)
+    resp = await client.put(f"{API}/workouts/{plan_id}", json=body, headers=h)
     assert resp.status_code == 200
-    assert resp.json()["updated_at"] > workout["updated_at"]
     assert [i["exercise"]["id"] for i in resp.json()["items"]] == [exercises["0464"], exercises["0025"]]
 
     resp = await client.get(f"{API}/workout-sessions/{session['id']}", headers=h)
     assert resp.json()["rest_sec_by_position"] == {}
-    # План уже идущей тренировки шаблон не трогает
+    # План уже идущей тренировки правка не трогает
     assert resp.json()["sets"][0]["exercise_id"] == exercises["0025"]
 
 
-async def test_delete_workout_keeps_event_and_history(client, exercises):
-    user = await register_user(client, "cleanup@example.com")
+async def test_template_edit_and_delete_do_not_touch_event_plan(client, exercises):
+    user = await register_user(client, "copy@example.com")
     h = user["headers"]
     workout = await _create_workout(client, h, exercises)
     event = await _personal_event(client, h, workout["id"])
+    plan_id = event["workout_id"]
+
+    plan = (await client.get(f"{API}/workouts/{plan_id}", headers=h)).json()
+    assert plan["is_template"] is False and plan["name"] == "Грудь и ноги"
+    assert [i["exercise"]["id"] for i in plan["items"]] == [exercises["0025"], exercises["0464"]]
+    # В шаблонах план события не виден
+    assert [w["id"] for w in (await client.get(f"{API}/workouts/me", headers=h)).json()] == [workout["id"]]
+
+    body = _workout_body(exercises, "Другое")
+    body["items"] = body["items"][:1]
+    assert (await client.put(f"{API}/workouts/{workout['id']}", json=body, headers=h)).status_code == 200
+    assert (await client.delete(f"{API}/workouts/{workout['id']}", headers=h)).status_code == 204
+    plan = (await client.get(f"{API}/workouts/{plan_id}", headers=h)).json()
+    assert len(plan["items"]) == 2 and plan["name"] == "Грудь и ноги"
+    events = (await client.get(f"{API}/events/me", headers=h)).json()
+    assert events[0]["workout_id"] == plan_id
+
+
+async def test_event_own_plan_lifecycle(client, exercises):
+    """«Добавить упражнения» при создании события: план события создаётся как
+    is_template=false, ставится как есть, удаляется вместе с событием."""
+    user = await register_user(client, "ownplan@example.com")
+    h = user["headers"]
+    body = {**_workout_body(exercises, "Личная тренировка"), "is_template": False}
+    resp = await client.post(f"{API}/workouts", json=body, headers=h)
+    assert resp.status_code == 201 and resp.json()["is_template"] is False
+    plan = resp.json()
+    assert (await client.get(f"{API}/workouts/me", headers=h)).json() == []
+
+    event = await _personal_event(client, h, plan["id"])
+    assert event["workout_id"] == plan["id"]
     session = (await client.post(f"{API}/workout-sessions", json={"event_id": event["id"]}, headers=h)).json()
     await client.post(f"{API}/workout-sessions/{session['id']}/finish", headers=h)
 
-    assert (await client.delete(f"{API}/workouts/{workout['id']}", headers=h)).status_code == 204
-    events = (await client.get(f"{API}/events/me", headers=h)).json()
-    assert events[0]["id"] == event["id"]
-    assert events[0]["workout_id"] is None and events[0]["workout_name"] is None
+    # Тот же план на второе событие: у второго своя копия
+    other = await _personal_event(client, h, plan["id"])
+    assert other["workout_id"] not in (None, plan["id"])
+
+    assert (await client.delete(f"{API}/events/{event['id']}", headers=h)).status_code == 204
+    assert (await client.get(f"{API}/workouts/{plan['id']}", headers=h)).status_code == 404
     resp = await client.get(f"{API}/workout-sessions/{session['id']}", headers=h)
-    assert resp.status_code == 200
-    assert resp.json()["workout_id"] is None and resp.json()["workout_name"] == "Грудь и ноги"
+    assert resp.json()["workout_id"] is None and resp.json()["workout_name"] == "Личная тренировка"
 
 
 async def test_event_workout_can_be_removed(client, exercises):
@@ -550,8 +674,15 @@ async def test_event_workout_can_be_removed(client, exercises):
     event = await _personal_event(client, h)
     resp = await client.patch(f"{API}/events/{event['id']}", json={"workout_id": workout["id"]}, headers=h)
     assert resp.json()["workout_name"] == "Грудь и ноги"
+    plan_id = resp.json()["workout_id"]
+    # Повторно тот же план: копия не плодится
+    resp = await client.patch(f"{API}/events/{event['id']}", json={"workout_id": plan_id}, headers=h)
+    assert resp.json()["workout_id"] == plan_id
     resp = await client.patch(f"{API}/events/{event['id']}", json={"workout_id": None}, headers=h)
     assert resp.status_code == 200 and resp.json()["workout_id"] is None
+    # Снятый план удаляется, шаблон остаётся
+    assert (await client.get(f"{API}/workouts/{plan_id}", headers=h)).status_code == 404
+    assert (await client.get(f"{API}/workouts/{workout['id']}", headers=h)).status_code == 200
 
 
 # ---------------------------------------------------------------- удаление аккаунта
@@ -576,17 +707,19 @@ async def test_account_deletion_removes_workouts(client, exercises, db):
 async def test_rpe_right_after_finish_before_planned_end(client, exercises):
     """Закончил раньше плана (или начал раньше времени в календаре): RPE доступен
     сразу после finish, а не после планового конца события."""
+    # День по UTC: /rpe/sessions без смещения режет сутки по UTC, тест не зависит от часа
+    today = datetime.now(UTC).date().isoformat()
     user = await register_user(client, "early@example.com")
     h = user["headers"]
     workout = (await client.post(f"{API}/workouts", json=_workout_body(exercises), headers=h)).json()
     resp = await client.post(
         f"{API}/workout-sessions",
-        json={"workout_id": workout["id"], "date": date.today().isoformat()},
+        json={"workout_id": workout["id"], "date": today},
         headers=h,
     )
     session = resp.json()
     rpe = {
-        "date": date.today().isoformat(),
+        "date": today,
         "exertion": 6,
         "performance": 7,
         "duration_min": 5,
@@ -599,7 +732,7 @@ async def test_rpe_right_after_finish_before_planned_end(client, exercises):
 
     resp = await client.post(f"{API}/workout-sessions/{session['id']}/finish", headers=h)
     finish = resp.json()
-    resp = await client.get(f"{API}/rpe/sessions?day={date.today().isoformat()}", headers=h)
+    resp = await client.get(f"{API}/rpe/sessions?day={today}", headers=h)
     row = next(r for r in resp.json() if r["event_id"] == finish["event_id"])
     assert row["finished"] is True and row["rpe_submitted"] is False
 

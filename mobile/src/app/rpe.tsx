@@ -57,8 +57,10 @@ export default function Rpe() {
 
   const selectSession = (session: RpeSession) => {
     setEventId(session.event_id);
-    // Длительность из расписания — можно скорректировать руками (ТЗ 3.1)
-    setDuration(session.planned_duration_min);
+    // Длительность из расписания, можно скорректировать руками (ТЗ 3.1). Для только что
+    // выполненной тренировки оставляем факт, а не план
+    const fact = session.event_id === params.eventId && factDuration > 0;
+    setDuration(fact ? factDuration : session.planned_duration_min);
   };
 
   // Сессия одна — выбирать не из чего, подставляем её сразу
@@ -67,9 +69,17 @@ export default function Rpe() {
     selectSession(pending[0]);
   }
 
-  // Выбранную сессию успели оценить с другого устройства — снимаем выбор
-  if (eventId !== null && sessions.data && !pending.some((s) => s.event_id === eventId)) {
+  // Выбранную сессию успели оценить с другого устройства: снимаем выбор. Только по
+  // свежему ответу: в кэше до 30 с может не быть тренировки, завершённой минуту назад,
+  // и тогда выбор снялся бы зря, а вернуть его было бы нечем
+  if (
+    eventId !== null &&
+    sessions.data &&
+    !sessions.isFetching &&
+    !pending.some((s) => s.event_id === eventId)
+  ) {
     setEventId(null);
+    setAutoPicked(false);
   }
 
   const sessionLoad = exertion !== null ? exertion * duration : null;

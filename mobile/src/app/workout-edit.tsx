@@ -26,6 +26,7 @@ import {
   type DraftItem,
   draftToPayload,
   invalidFields,
+  eventPlanStore,
   MAX_ITEMS,
   workoutDraftStore,
 } from '@/api/workoutDraft';
@@ -166,7 +167,11 @@ export default function WorkoutEdit() {
   const { t } = useTranslation();
   const router = useRouter();
   const toast = useToast((s) => s.show);
-  const params = useLocalSearchParams<{ id?: string }>();
+  // mode=event: список упражнений конкретного события (event-create.tsx). Черновик
+  // туда кладёт само событие; «Готово» возвращает его обратно, на сервер ничего не уходит.
+  // Название, заметки, старт и календарь здесь не нужны: это не шаблон.
+  const params = useLocalSearchParams<{ id?: string; mode?: string }>();
+  const forEvent = params.mode === 'event';
 
   const draft = workoutDraftStore();
   const workout = useWorkout(params.id);
@@ -189,7 +194,10 @@ export default function WorkoutEdit() {
 
   const isEdit = draft.workoutId != null;
   const hasInvalid = draft.items.some((item) => invalidFields(item).length > 0);
-  const canSave = draft.name.trim().length > 0 && draft.items.length > 0 && !hasInvalid;
+  // У события список может стать пустым: значит, тренировка без упражнений
+  const canSave = forEvent
+    ? !hasInvalid
+    : draft.name.trim().length > 0 && draft.items.length > 0 && !hasInvalid;
   const saving = createWorkout.isPending || replaceWorkout.isPending;
 
   const close = () => {
@@ -209,6 +217,11 @@ export default function WorkoutEdit() {
 
   const save = () => {
     setError(null);
+    if (forEvent) {
+      eventPlanStore.getState().setItems(draft.items);
+      router.back();
+      return;
+    }
     const payload = draftToPayload(draft);
     const handlers = {
       onSuccess: (saved: Parameters<typeof draft.loadFrom>[0]) => {
@@ -225,7 +238,11 @@ export default function WorkoutEdit() {
     if (!draft.workoutId) return;
     router.push({
       pathname: '/event-create',
-      params: { date: todayISO(), workoutId: draft.workoutId },
+      params: {
+        date: todayISO(),
+        workoutId: draft.workoutId,
+        ...(workout.data ? { duration: String(workout.data.est_duration_min) } : {}),
+      },
     });
   };
 
@@ -273,7 +290,9 @@ export default function WorkoutEdit() {
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           <View style={styles.header}>
-            <ScreenTitle>{t(isEdit ? 'workouts.editTitle' : 'workouts.newTitle')}</ScreenTitle>
+            <ScreenTitle>
+              {t(forEvent ? 'workouts.eventPlanTitle' : isEdit ? 'workouts.editTitle' : 'workouts.newTitle')}
+            </ScreenTitle>
             <Pressable
               onPress={close}
               hitSlop={8}
@@ -285,13 +304,15 @@ export default function WorkoutEdit() {
             </Pressable>
           </View>
 
-          <Field
-            label={t('workouts.nameLabel')}
-            value={draft.name}
-            onChangeText={draft.setName}
-            placeholder={t('workouts.namePlaceholder')}
-            maxLength={100}
-          />
+          {!forEvent ? (
+            <Field
+              label={t('workouts.nameLabel')}
+              value={draft.name}
+              onChangeText={draft.setName}
+              placeholder={t('workouts.namePlaceholder')}
+              maxLength={100}
+            />
+          ) : null}
 
           <View style={styles.section}>
             <MicroLabel>{t('workouts.exercisesLabel', { count: draft.items.length, max: MAX_ITEMS })}</MicroLabel>
@@ -310,15 +331,17 @@ export default function WorkoutEdit() {
             />
           </View>
 
-          <Field
-            label={t('workouts.notesLabel')}
-            value={draft.notes}
-            onChangeText={draft.setNotes}
-            placeholder={t('workouts.notesPlaceholder')}
-            multiline
-            maxLength={2000}
-            style={styles.notes}
-          />
+          {!forEvent ? (
+            <Field
+              label={t('workouts.notesLabel')}
+              value={draft.notes}
+              onChangeText={draft.setNotes}
+              placeholder={t('workouts.notesPlaceholder')}
+              multiline
+              maxLength={2000}
+              style={styles.notes}
+            />
+          ) : null}
 
           {isEdit ? (
             <Button
@@ -349,7 +372,11 @@ export default function WorkoutEdit() {
           {error ? <Text style={styles.error}>{error}</Text> : null}
         </ScrollView>
         <View style={styles.footer}>
-          <Button title={t('common.save')} onPress={save} disabled={!canSave || !draft.dirty} loading={saving} />
+          {forEvent ? (
+            <Button title={t('workouts.done')} onPress={save} disabled={!canSave} />
+          ) : (
+            <Button title={t('common.save')} onPress={save} disabled={!canSave || !draft.dirty} loading={saving} />
+          )}
         </View>
       </KeyboardAvoidingView>
     </Screen>

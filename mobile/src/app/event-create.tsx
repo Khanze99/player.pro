@@ -2,18 +2,33 @@
 // игрок — индивидуальное (личная тренировка, кардио). Дата приходит из календаря.
 
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
-import { ApiError } from '@/api/client';
+import { api, ApiError } from '@/api/client';
 import { toLocalISO } from '@/api/dates';
-import { useCreateEvent, useFeatures, useMe, useMyTeams, useMyWorkouts, useUpdateEvent } from '@/api/hooks';
-import type { EventType } from '@/api/types';
+import { exerciseName, formatTarget } from '@/api/exercises';
+import {
+  useCreateEvent,
+  useCreateWorkout,
+  useDeleteWorkout,
+  useFeatures,
+  useMe,
+  useMyTeams,
+  useMyWorkouts,
+  useReplaceWorkout,
+  useUpdateEvent,
+  useWorkout,
+} from '@/api/hooks';
+import type { EventType, Workout } from '@/api/types';
+import { draftToPayload, eventPlanStore, invalidFields, MAX_ITEMS, workoutDraftStore } from '@/api/workoutDraft';
 import { Button } from '@/components/Button';
 import { Field } from '@/components/Field';
-import { CloseIcon } from '@/components/Icons';
+import { CloseIcon, PlusIcon } from '@/components/Icons';
 import { OptionChips } from '@/components/OptionChips';
+import { OutlineButton } from '@/components/OutlineButton';
 import { Screen } from '@/components/Screen';
 import { TimeField } from '@/components/TimeField';
 import { useToast } from '@/components/Toast';
@@ -52,7 +67,7 @@ export default function EventCreate() {
     start?: string;
     duration?: string;
     teamId?: string;
-    /** Шаблон тренировки: из карточки события при правке или из конструктора */
+    /** План события при правке (карточка события) или шаблон из конструктора («В календарь») */
     workoutId?: string;
   }>();
   const isEdit = !!params.id;
@@ -78,28 +93,72 @@ export default function EventCreate() {
   const [teamId, setTeamId] = useState<string | null>(params.teamId || null);
   const [start, setStart] = useState(() => prefillStart ?? atTime(day, DEFAULT_START_HOUR, 0));
   const [end, setEnd] = useState(() =>
-    prefillStart && params.duration
-      ? addMinutes(prefillStart, Number(params.duration))
-      : addMinutes(atTime(day, DEFAULT_START_HOUR, 0), DEFAULT_DURATION_MIN),
+    // duration без start: из конструктора («В календарь»), оценка длительности шаблона
+    addMinutes(
+      prefillStart ?? atTime(day, DEFAULT_START_HOUR, 0),
+      params.duration ? Math.min(Number(params.duration), MAX_DURATION_MIN) : DEFAULT_DURATION_MIN,
+    ),
   );
   const [error, setError] = useState<string | null>(null);
-  const [workoutId, setWorkoutId] = useState<string | null>(params.workoutId || null);
+  const [saving, setSaving] = useState(false);
 
-  /** Выбор шаблона подставляет его оценку длительности: обычно её и планируют. */
-  const pickWorkout = (id: string | null) => {
-    setWorkoutId(id);
-    const estimate = workouts.data?.find((w) => w.id === id)?.est_duration_min;
-    if (estimate) setEnd(addMinutes(start, Math.min(estimate, MAX_DURATION_MIN)));
+  // Упражнения события (docs/plan-workout-builder.md): свой список у каждой
+  // тренировки. Шаблон только источник: его упражнения копируются сюда и дальше
+  // правятся независимо. Список живёт в сторе, потому что правит его конструктор.
+  const qc = useQueryClient();
+  const plan = eventPlanStore();
+  const createPlan = useCreateWorkout();
+  const replacePlan = useReplaceWorkout(plan.planId ?? '');
+  const deletePlan = useDeleteWorkout();
+  const source = useWorkout(workoutsEnabled && params.workoutId ? params.workoutId : undefined);
+  useEffect(() => {
+    eventPlanStore.getState().reset();
+    return () => eventPlanStore.getState().reset();
+  }, []);
+  // Правка события или «В календарь» из шаблона: подхватываем список, когда он придёт
+  // Один раз: повторный ответ запроса (фокус, инвалидация) не должен затирать правки
+  const loadedSource = useRef<string | null>(null);
+  useEffect(() => {
+    if (!source.data || loadedSource.current === source.data.id) return;
+    loadedSource.current = source.data.id;
+    eventPlanStore.getState().load(source.data);
+  }, [source.data]);
+
+  /** «Взять из шаблона»: упражнения добавляются в конец списка события. */
+  const takeTemplate = async (templateId: string) => {
+    try {
+      const template = await qc.fetchQuery({
+        queryKey: ['workout', templateId],
+        queryFn: () => api<Workout>(`/workouts/${templateId}`),
+      });
+      const wasEmpty = eventPlanStore.getState().items.length === 0;
+      const added = eventPlanStore.getState().appendTemplate(template);
+      if (added === 0) {
+        toast(t('eventCreate.exercisesTooMany', { n: MAX_ITEMS }));
+        return;
+      }
+      toast(t('eventCreate.templateAdded', { count: added }));
+      // Пустая тренировка целиком из шаблона: время подставляем по его оценке
+      if (wasEmpty) setEnd(addMinutes(start, Math.min(template.est_duration_min, MAX_DURATION_MIN)));
+    } catch (e) {
+      toast(e instanceof ApiError ? e.detail : t('common.noConnection'));
+    }
   };
 
-  // Открыто из конструктора: длительность из шаблона, как только придёт список
-  const prefilledFromWorkout = useRef(false);
-  useEffect(() => {
-    if (prefilledFromWorkout.current || isEdit || !params.workoutId || !workouts.data) return;
-    prefilledFromWorkout.current = true;
-    pickWorkout(params.workoutId);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [workouts.data]);
+  /** Конструктор в режиме события: берёт текущий список, по «Готово» кладёт обратно. */
+  const openPlanEditor = () => {
+    workoutDraftStore.setState({
+      workoutId: null,
+      name: '',
+      notes: '',
+      items: [...eventPlanStore.getState().items],
+      dirty: false,
+    });
+    router.push({ pathname: '/workout-edit', params: { mode: 'event' } });
+  };
+
+  // Упражнения бывают только у личной тренировки: у «Другое» блока нет, и список не уходит
+  const planAllowed = workoutsEnabled && type === 'individual';
 
   const activeTeamId = teamId ?? teams.data?.[0]?.id ?? null;
   const duration = minutesBetween(start, end);
@@ -111,7 +170,7 @@ export default function EventCreate() {
       : duration > MAX_DURATION_MIN
         ? t('eventCreate.tooLong')
         : null;
-  const canSubmit = (!isStaff || activeTeamId != null) && timeError === null;
+  const canSubmit = (!isStaff || activeTeamId != null) && timeError === null && !saving;
 
   const durationText = [
     Math.floor(duration / 60) > 0 ? `${Math.floor(duration / 60)} ${t('eventCreate.hoursShort')}` : '',
@@ -134,42 +193,63 @@ export default function EventCreate() {
     .toLocaleDateString(i18n.language, { weekday: 'long', day: 'numeric', month: 'long' })
     .toUpperCase();
 
-  const submit = () => {
-    setError(null);
-    const onSettled = {
-      onSuccess: () => {
-        toast(t('common.saved'));
-        router.back();
-      },
-      onError: (e: unknown) => setError(e instanceof ApiError ? e.detail : t('common.retry')),
+  /** Сначала список упражнений (свой Workout события), потом само событие со ссылкой на него. */
+  const savePlan = async (): Promise<{ id: string | null; created: boolean }> => {
+    if (!planAllowed || plan.items.length === 0) return { id: null, created: false };
+    if (plan.planId && !plan.dirty) return { id: plan.planId, created: false };
+    const payload = {
+      ...draftToPayload({
+        name: plan.name || title.trim() || t('calendar.types.individual'),
+        notes: '',
+        items: plan.items,
+      }),
+      is_template: false,
     };
-    if (isEdit) {
-      // team_id не передаём — EventUpdateIn его не принимает, команду события не меняют
-      updateEvent.mutate(
-        {
-          type,
-          title: title.trim() || null,
-          planned_start: start.toISOString(),
-          planned_duration_min: duration,
-          // null снимает шаблон; у командного события поле не трогаем
-          ...(isPersonal && workoutsEnabled ? { workout_id: workoutId } : {}),
-        },
-        onSettled,
-      );
-      return;
+    if (plan.planId) {
+      await replacePlan.mutateAsync(payload);
+      return { id: plan.planId, created: false };
     }
-    createEvent.mutate(
-      {
-        team_id: isStaff ? activeTeamId : null,
+    return { id: (await createPlan.mutateAsync(payload)).id, created: true };
+  };
+
+  const submit = async () => {
+    setError(null);
+    setSaving(true);
+    let planResult: { id: string | null; created: boolean } = { id: null, created: false };
+    try {
+      planResult = await savePlan();
+      const base = {
         type,
         title: title.trim() || null,
         planned_start: start.toISOString(),
         planned_duration_min: duration,
-        workout_id: workoutsEnabled ? workoutId : null,
-      },
-      onSettled,
-    );
+      };
+      if (isEdit) {
+        // team_id не передаём: EventUpdateIn его не принимает, команду события не меняют.
+        // null снимает список (сервер его удаляет); у командного события поле не трогаем
+        await updateEvent.mutateAsync({
+          ...base,
+          ...(isPersonal && workoutsEnabled ? { workout_id: planResult.id } : {}),
+        });
+      } else {
+        await createEvent.mutateAsync({
+          ...base,
+          team_id: isStaff ? activeTeamId : null,
+          workout_id: planResult.id,
+        });
+      }
+      toast(t('common.saved'));
+      router.back();
+    } catch (e) {
+      // Событие не сохранилось, а новый список уже на сервере: убираем, чтобы не висел
+      if (planResult.created && planResult.id) deletePlan.mutate(planResult.id);
+      setError(e instanceof ApiError ? e.detail : t('common.retry'));
+    } finally {
+      setSaving(false);
+    }
   };
+
+  const planInvalid = plan.items.some((item) => invalidFields(item).length > 0);
 
   return (
     <Screen edges={['top', 'bottom']}>
@@ -220,15 +300,48 @@ export default function EventCreate() {
           placeholder={t('eventCreate.titlePlaceholder')}
         />
 
-        {workoutsEnabled && (workouts.data?.length ?? 0) > 0 ? (
+        {planAllowed ? (
           <View style={styles.section}>
-            <MicroLabel>{t('eventCreate.workoutLabel')}</MicroLabel>
-            <OptionChips
-              options={workouts.data?.map((w) => w.id) ?? []}
-              value={workoutId}
-              onSelect={pickWorkout}
-              labelFor={(id) => workouts.data?.find((w) => w.id === id)?.name ?? ''}
+            <MicroLabel>{t('eventCreate.exercisesLabel')}</MicroLabel>
+            {isEdit && params.workoutId && source.isPending ? (
+              <Text style={styles.hint}>…</Text>
+            ) : plan.items.length > 0 ? (
+              <Pressable
+                accessibilityRole="button"
+                onPress={openPlanEditor}
+                style={({ pressed }) => [styles.planList, pressed && { opacity: 0.8 }]}
+              >
+                {plan.items.map((item, i) => (
+                  <View key={item.key} style={styles.planRow}>
+                    <Text style={styles.planIndex}>{i + 1}</Text>
+                    <Text style={styles.planName} numberOfLines={1}>
+                      {exerciseName(item.exercise, i18n.language)}
+                    </Text>
+                    <Text style={styles.planTarget}>{formatTarget({ ...item, sets: item.sets ?? 0 }, t)}</Text>
+                  </View>
+                ))}
+              </Pressable>
+            ) : null}
+            <OutlineButton
+              title={t(plan.items.length > 0 ? 'eventCreate.editExercises' : 'workouts.addExercises')}
+              icon={plan.items.length > 0 ? undefined : <PlusIcon color={th.text} size={18} />}
+              onPress={openPlanEditor}
             />
+            {planInvalid ? <Text style={styles.error}>{t('workouts.invalidTarget')}</Text> : null}
+
+            {(workouts.data?.length ?? 0) > 0 ? (
+              <>
+                <MicroLabel>{t('eventCreate.fromTemplate')}</MicroLabel>
+                <OptionChips
+                  options={workouts.data?.map((w) => w.id) ?? []}
+                  value={null}
+                  onSelect={(id) => id && void takeTemplate(id)}
+                  labelFor={(id) => workouts.data?.find((w) => w.id === id)?.name ?? ''}
+                />
+              </>
+            ) : workouts.isSuccess ? (
+              <Text style={styles.hint}>{t('eventCreate.templatesHint')}</Text>
+            ) : null}
           </View>
         ) : null}
 
@@ -249,9 +362,9 @@ export default function EventCreate() {
       <View style={styles.footer}>
         <Button
           title={t(isEdit ? 'common.save' : 'eventCreate.submit')}
-          onPress={submit}
-          disabled={!canSubmit}
-          loading={isEdit ? updateEvent.isPending : createEvent.isPending}
+          onPress={() => void submit()}
+          disabled={!canSubmit || (planAllowed && planInvalid)}
+          loading={saving}
         />
       </View>
     </Screen>
@@ -272,5 +385,17 @@ const makeStyles = (th: Theme) => StyleSheet.create({
   section: { gap: spacing.s },
   hint: { fontFamily: th.font.medium, fontSize: 13, color: th.textMuted },
   error: { fontFamily: th.font.medium, fontSize: 13, color: th.risk },
+  planList: {
+    backgroundColor: th.surface,
+    borderWidth: 1,
+    borderColor: th.border,
+    borderRadius: th.radius.card,
+    paddingHorizontal: spacing.l,
+    paddingVertical: spacing.s,
+  },
+  planRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.m, paddingVertical: spacing.s },
+  planIndex: { width: 18, fontFamily: th.font.semibold, fontSize: 13, color: th.textMuted },
+  planName: { flex: 1, fontFamily: th.font.medium, fontSize: 15, color: th.text },
+  planTarget: { fontFamily: th.font.regular, fontSize: 13, color: th.textMuted, fontVariant: ['tabular-nums'] },
   footer: { padding: spacing.screen },
 });

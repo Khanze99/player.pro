@@ -114,6 +114,8 @@ async def start(
         session_date = _local_date(event.planned_start)
     else:
         assert workout is not None and data.date is not None  # гарантирует схема и роут
+        # У события свой план: копируем, как при выборе шаблона в календаре
+        workout = await workouts_service.copy_as_event_plan(db, workout)
         workout = await workouts_service.load(db, workout.id)
         # «Начать сейчас» тоже событие: RPE, напоминание и календарь работают как обычно
         event = Event(
@@ -144,11 +146,16 @@ async def start(
     except IntegrityError:
         # Гонка двух стартов: частичные уникальные индексы не дали создать вторую
         await db.rollback()
+        # Сначала своё событие: если его сессию только что создал параллельный
+        # старт, это «уже выполнялась», а не «идёт другая тренировка»
+        if data.event_id is not None:
+            existing = await db.scalar(
+                select(WorkoutSession.id).where(WorkoutSession.event_id == data.event_id)
+            )
+            if existing is not None:
+                raise _conflict("event_has_session", "Эта тренировка уже выполнялась", existing) from None
         active = await active_session_id(db, user.id)
-        if active is not None:
-            raise _conflict("active_session", "Уже идёт другая тренировка", active) from None
-        existing = await db.scalar(select(WorkoutSession.id).where(WorkoutSession.event_id == data.event_id))
-        raise _conflict("event_has_session", "Эта тренировка уже выполнялась", existing) from None
+        raise _conflict("active_session", "Уже идёт другая тренировка", active) from None
     return session.id
 
 
@@ -242,7 +249,25 @@ async def build_out(db: AsyncSession, session_id: uuid.UUID) -> WorkoutSessionOu
     )
 
 
+async def _lock(db: AsyncSession, session: WorkoutSession) -> WorkoutSession:
+    """Блокирует строку сессии до конца транзакции. Сохранение подходов и
+    завершение идут по одной сессии строго друг за другом: без этого два
+    параллельных PUT удаляют и вставляют одни и те же слоты (UniqueViolation),
+    а finish может проскочить между ними. finished_at читаем заново после
+    блокировки, значение из authz могло устареть."""
+    locked = await db.scalar(
+        select(WorkoutSession)
+        .where(WorkoutSession.id == session.id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
+    if locked is None:  # удалили параллельно
+        raise _not_found()
+    return locked
+
+
 async def replace_sets(db: AsyncSession, session: WorkoutSession, data: SessionSetsIn) -> WorkoutSessionOut:
+    session = await _lock(db, session)
     if session.finished_at is not None:
         raise _conflict("session_finished", "Тренировка уже завершена", session.id)
     await exercise_service.ensure_exist(db, {s.exercise_id for s in data.sets})
@@ -254,26 +279,41 @@ async def replace_sets(db: AsyncSession, session: WorkoutSession, data: SessionS
 
 
 async def finish(db: AsyncSession, session: WorkoutSession) -> WorkoutSessionFinishOut:
-    if session.finished_at is not None:
-        raise _conflict("session_finished", "Тренировка уже завершена", session.id)
-    finished_at = datetime.now(UTC)
-    session.finished_at = finished_at
-    await db.commit()
-    elapsed = math.ceil((finished_at - session.started_at).total_seconds() / 60)
+    """Идемпотентно: повтор после потерянного ответа отдаёт тот же результат,
+    а не 409, иначе клиент не попадёт в RPE. finished_at не перезаписывается."""
+    session = await _lock(db, session)
+    if session.finished_at is None:
+        session.finished_at = datetime.now(UTC)
+        await db.commit()
+    elapsed = math.ceil((session.finished_at - session.started_at).total_seconds() / 60)
     return WorkoutSessionFinishOut(
         event_id=session.event_id, elapsed_min=min(max(elapsed, 1), MAX_ELAPSED_MIN)
     )
 
 
 async def discard(db: AsyncSession, session: WorkoutSession) -> None:
-    """Отмена: подходы уходят каскадом, событие остаётся (его можно начать заново)."""
+    """Отмена: подходы уходят каскадом, событие остаётся (его можно начать заново).
+    Завершённую не удаляем: это история упражнений и отметка «выполнено» для RPE."""
+    session = await _lock(db, session)
+    if session.finished_at is not None:
+        raise _conflict("session_finished", "Тренировка уже завершена", session.id)
     await db.delete(session)
     await db.commit()
 
 
+def today_local() -> date:
+    return _local_date(datetime.now(UTC))
+
+
 async def list_mine(
-    db: AsyncSession, athlete_id: uuid.UUID, date_from: date, date_to: date
+    db: AsyncSession,
+    athlete_id: uuid.UUID,
+    date_from: date,
+    date_to: date,
+    event_id: uuid.UUID | None = None,
 ) -> list[WorkoutSessionShortOut]:
+    """С event_id даты не учитываются: карточке события нужна его сессия
+    независимо от того, на какой день оно стоит."""
     counts = (
         select(
             WorkoutSessionSet.session_id,
@@ -289,8 +329,11 @@ async def list_mine(
         .outerjoin(counts, counts.c.session_id == WorkoutSession.id)
         .where(
             WorkoutSession.athlete_id == athlete_id,
-            WorkoutSession.date >= date_from,
-            WorkoutSession.date <= date_to,
+            *(
+                (WorkoutSession.event_id == event_id,)
+                if event_id is not None
+                else (WorkoutSession.date >= date_from, WorkoutSession.date <= date_to)
+            ),
         )
         .order_by(WorkoutSession.date.desc(), WorkoutSession.started_at.desc())
     )

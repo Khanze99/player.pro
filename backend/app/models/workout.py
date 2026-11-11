@@ -3,9 +3,13 @@
 Строго личные данные: шаблоны и выполнения видит только владелец, витрин для
 штаба нет. На метрики не влияет: нагрузка по-прежнему только через RPE.
 
-Шаблон живой: событие ссылается на него (Event.workout_id), правка шаблона
-меняет план будущих событий. Выполнение хранит подходы снапшотом и от правок
-шаблона не меняется, как FoodLogEntry в дневнике питания.
+Две роли одной таблицы (is_template):
+- шаблон: список в «Шаблонах тренировок», переиспользуется;
+- план события: свой список упражнений конкретной тренировки (Event.workout_id).
+  В шаблонах не виден. Выбор шаблона в событии копирует его в план события,
+  поэтому правка шаблона уже запланированные тренировки не меняет.
+Выполнение хранит подходы снапшотом и от правок плана не меняется, как
+FoodLogEntry в дневнике питания.
 """
 
 import uuid
@@ -33,7 +37,7 @@ from app.models.exercise import Exercise
 
 
 class Workout(Base):
-    """Шаблон тренировки."""
+    """Шаблон тренировки или план конкретного события (is_template=False)."""
 
     __tablename__ = "workouts"
 
@@ -41,6 +45,7 @@ class Workout(Base):
     owner_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), index=True)
     name: Mapped[str] = mapped_column(String(100))
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    is_template: Mapped[bool] = mapped_column(Boolean, server_default=text("true"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()

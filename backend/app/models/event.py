@@ -26,8 +26,8 @@ class Event(Base):
     planned_duration_min: Mapped[int] = mapped_column()
     location_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("locations.id"), nullable=True)
     created_by: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"))
-    # План тренировки из шаблона (docs/plan-workout-builder.md), только у личного
-    # события. SET NULL: удалили шаблон, событие и его RPE остаются без плана.
+    # Свой план упражнений (Workout с is_template=False, docs/plan-workout-builder.md),
+    # только у личного события. Шаблон сюда не ставится: при выборе копируется.
     workout_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("workouts.id", ondelete="SET NULL"), nullable=True
     )

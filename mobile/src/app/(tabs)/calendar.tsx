@@ -137,7 +137,11 @@ export default function Calendar() {
                   <Text style={styles.rowMeta}>
                     {t(`calendar.types.${event.type}`)}
                     {event.team_id ? '' : ` · ${t('calendar.personal')}`}
-                    {event.workout_name ? ` · ${event.workout_name}` : ''}
+                    {/* Имя списка упражнений: имя шаблона, из которого брали; повтор заголовка не пишем */}
+                    {event.workout_name &&
+                    event.workout_name !== (event.title || t(`calendar.types.${event.type}`))
+                      ? ` · ${event.workout_name}`
+                      : ''}
                   </Text>
                 </View>
                 <View style={styles.rowSide}>

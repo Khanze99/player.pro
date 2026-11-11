@@ -11,9 +11,9 @@ import { exerciseName, formatTarget } from '@/api/exercises';
 import {
   useAttendance,
   useDeleteEvent,
+  useEventWorkoutSession,
   useFeatures,
   useMe,
-  useMyWorkoutSessions,
   useSetAttendance,
   useTeamMembers,
   useWorkout,
@@ -21,7 +21,7 @@ import {
 import type { AttendanceStatus, EventType } from '@/api/types';
 import { Button } from '@/components/Button';
 import { Chip } from '@/components/Chip';
-import { ChevronIcon, CloseIcon, EditIcon, TrashIcon } from '@/components/Icons';
+import { CloseIcon, EditIcon, TrashIcon } from '@/components/Icons';
 import { Screen } from '@/components/Screen';
 import { useToast } from '@/components/Toast';
 import { MicroLabel, ScreenTitle } from '@/components/Typography';
@@ -73,8 +73,8 @@ export default function EventDetail() {
   const workoutsOn = isOwnPersonal && features.data?.workouts === true;
   const workout = useWorkout(workoutsOn && params.workoutId ? params.workoutId : undefined);
   // Состояние выполнения этого события: не начато / идёт / завершено
-  const sessions = useMyWorkoutSessions(workoutsOn);
-  const eventSession = sessions.data?.find((s) => s.event_id === params.id);
+  const sessions = useEventWorkoutSession(params.id, workoutsOn && !!params.workoutId);
+  const eventSession = sessions.data;
   const startWorkout = useStartWorkout();
   const runLabel = !eventSession
     ? t('workoutRun.start')
@@ -165,31 +165,26 @@ export default function EventDetail() {
         {workout.data ? (
           <View style={styles.section}>
             <MicroLabel>{t('eventDetail.plan')}</MicroLabel>
-            <Pressable
-              accessibilityRole="button"
-              onPress={() =>
-                router.push({ pathname: '/workout-edit', params: { id: workout.data.id } })
-              }
-              style={({ pressed }) => [styles.list, pressed && { opacity: 0.7 }]}
-            >
-              <View style={styles.planHead}>
-                <Text style={styles.rowName} numberOfLines={1}>
-                  {workout.data.name}
-                </Text>
-                <ChevronIcon color={th.textMuted} />
-              </View>
+            {/* Свой список события: меняется через «Редактировать», строка ведёт в карточку упражнения */}
+            <View style={styles.list}>
               {workout.data.items.map((item, i, all) => (
-                <View
+                <Pressable
                   key={item.id}
-                  style={[styles.planRow, i === all.length - 1 && { borderBottomWidth: 0 }]}
+                  accessibilityRole="button"
+                  onPress={() => router.push({ pathname: '/exercise/[id]', params: { id: item.exercise.id } })}
+                  style={({ pressed }) => [
+                    styles.planRow,
+                    i === all.length - 1 && { borderBottomWidth: 0 },
+                    pressed && { opacity: 0.7 },
+                  ]}
                 >
                   <Text style={styles.planName} numberOfLines={1}>
                     {exerciseName(item.exercise, i18n.language)}
                   </Text>
                   <Text style={styles.planTarget}>{formatTarget(item, t)}</Text>
-                </View>
+                </Pressable>
               ))}
-            </Pressable>
+            </View>
             {sessions.isSuccess ? (
               <Button title={runLabel} onPress={runWorkout} loading={startWorkout.isPending} />
             ) : null}
@@ -312,16 +307,6 @@ const makeStyles = (th: Theme) => StyleSheet.create({
   statusText: { fontFamily: th.font.medium, fontSize: 12, color: th.textMuted },
   // заливка чипа — статусный цвет, а он темой не подменяется
   statusTextActive: { color: '#FFFFFF', fontFamily: th.font.semibold },
-  planHead: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.s,
-    paddingHorizontal: spacing.l,
-    paddingVertical: spacing.m,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: th.border,
-  },
   planRow: {
     flexDirection: 'row',
     alignItems: 'center',

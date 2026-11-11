@@ -10,8 +10,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.enums import AttendanceStatus
 from app.models.event import Attendance, Event
 from app.models.team import TeamMembership
+from app.models.workout import Workout
 from app.schemas.event import EventCreateIn, EventUpdateIn
-from app.services import notifications_service
+from app.services import notifications_service, workouts_service
 
 
 def _ensure_workout_allowed(team_id: uuid.UUID | None, workout_id: uuid.UUID | None) -> None:
@@ -24,6 +25,27 @@ def _ensure_workout_allowed(team_id: uuid.UUID | None, workout_id: uuid.UUID | N
         )
 
 
+async def _event_plan_id(
+    db: AsyncSession, workout_id: uuid.UUID | None, event_id: uuid.UUID | None = None
+) -> uuid.UUID | None:
+    """Что ставим на событие: шаблон копируется в новый план, план события идёт
+    как есть. План, уже стоящий на другом событии, тоже копируется: у каждого
+    события свой список, правка одного не меняет другое."""
+    if workout_id is None:
+        return None
+    workout = await db.get(Workout, workout_id)
+    if workout is None:  # роут уже проверил владельца
+        return None
+    if not workout.is_template:
+        query = select(Event.id).where(Event.workout_id == workout_id)
+        if event_id is not None:
+            query = query.where(Event.id != event_id)
+        other = await db.scalar(query.limit(1))
+        if other is None:
+            return workout_id
+    return (await workouts_service.copy_as_event_plan(db, workout)).id
+
+
 async def create_event(db: AsyncSession, creator_id: uuid.UUID, data: EventCreateIn) -> Event:
     _ensure_workout_allowed(data.team_id, data.workout_id)
     event = Event(
@@ -34,7 +56,7 @@ async def create_event(db: AsyncSession, creator_id: uuid.UUID, data: EventCreat
         planned_duration_min=data.planned_duration_min,
         location_id=data.location_id,
         created_by=creator_id,
-        workout_id=data.workout_id,
+        workout_id=await _event_plan_id(db, data.workout_id),
     )
     db.add(event)
     await db.flush()
@@ -54,12 +76,20 @@ async def get_event(db: AsyncSession, event_id: uuid.UUID) -> Event:
 async def update_event(db: AsyncSession, event: Event, data: EventUpdateIn, actor_id: uuid.UUID) -> Event:
     updates = data.model_dump(exclude_unset=True)
     _ensure_workout_allowed(event.team_id, updates.get("workout_id"))
+    released: uuid.UUID | None = None
+    if "workout_id" in updates:
+        new_plan = await _event_plan_id(db, updates["workout_id"], event.id)
+        if new_plan != event.workout_id:
+            released = event.workout_id
+        updates["workout_id"] = new_plan
     changed: set[str] = set()
     for field, value in updates.items():
         if getattr(event, field) != value:
             changed.add(field)
         setattr(event, field, value)
     await notifications_service.notify_event_updated(db, event, changed, actor_id)
+    await db.flush()
+    await workouts_service.release_event_plan(db, released)
     await db.commit()
     await db.refresh(event)
     return event
@@ -67,7 +97,10 @@ async def update_event(db: AsyncSession, event: Event, data: EventUpdateIn, acto
 
 async def delete_event(db: AsyncSession, event: Event, actor_id: uuid.UUID) -> None:
     await notifications_service.notify_event_cancelled(db, event, actor_id)
+    plan_id = event.workout_id
     await db.delete(event)
+    await db.flush()
+    await workouts_service.release_event_plan(db, plan_id)
     await db.commit()
 
 

@@ -708,6 +708,8 @@ export interface WorkoutPayload {
   name: string;
   notes?: string | null;
   items: WorkoutItemPayload[];
+  /** false: список упражнений конкретного события, в шаблонах не виден. Только при создании */
+  is_template?: boolean;
 }
 
 export interface WorkoutItem {
@@ -727,6 +729,7 @@ export interface Workout {
   id: string;
   name: string;
   notes: string | null;
+  is_template: boolean;
   items: WorkoutItem[];
   est_duration_min: number;
   created_at: string;
