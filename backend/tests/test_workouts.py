@@ -324,43 +324,115 @@ async def test_team_staff_does_not_see_athlete_workouts(client, exercises):
         ).status_code == 404, role
 
 
-async def test_workout_only_on_personal_event(client, exercises):
+async def test_team_event_workout_assigned_to_one_athlete(client, exercises):
+    """Этап 2 плана: тренер ставит упражнения на командную тренировку одному
+    игроку. Назначенный видит и выполняет, остальные игроки нет; штаб видит
+    результаты и выполнение игрока только для чтения, без «прошлого раза»."""
     from tests.test_authz import build_org
 
     org = await build_org(client)
     coach_h = org["coach"]["headers"]
-    workout = await _create_workout(client, coach_h, exercises)
-    resp = await client.post(
-        f"{API}/events",
-        json={
-            "team_id": org["team_id"],
-            "type": "training",
-            "planned_start": datetime.now(UTC).isoformat(),
-            "planned_duration_min": 60,
-            "workout_id": workout["id"],
-        },
-        headers=coach_h,
-    )
-    assert resp.status_code == 422
+    a1, a2 = org["athlete1"], org["athlete2"]
+    template = await _create_workout(client, coach_h, exercises)
+    base = {
+        "team_id": org["team_id"],
+        "type": "training",
+        "planned_start": (datetime.now(UTC) + timedelta(hours=2)).isoformat(),
+        "planned_duration_min": 60,
+    }
 
+    # Назначать можно только игрокам команды
+    resp = await client.post(
+        f"{API}/events",
+        json={**base, "workout_id": template["id"], "workout_athlete_ids": [org["medic"]["user_id"]]},
+        headers=coach_h,
+    )
+    assert resp.status_code == 422
+    resp = await client.post(
+        f"{API}/events",
+        json={**base, "workout_id": template["id"], "workout_athlete_ids": [a1["user_id"]]},
+        headers=coach_h,
+    )
+    assert resp.status_code == 201, resp.text
+    event = resp.json()
+    plan_id = event["workout_id"]
+    assert plan_id not in (None, template["id"])
+    assert event["workout_athlete_ids"] == [a1["user_id"]]
+
+    # Список видят штаб и назначенный, шаблон тренера игроку не виден
+    for who, code in ((a1, 200), (org["medic"], 200), (a2, 404), (org["outsider"], 404)):
+        assert (await client.get(f"{API}/workouts/{plan_id}", headers=who["headers"])).status_code == code
+    assert (await client.get(f"{API}/workouts/{template['id']}", headers=a1["headers"])).status_code == 404
+    # Правит только тренер
+    body = _workout_body(exercises)
+    assert (
+        await client.put(f"{API}/workouts/{plan_id}", json=body, headers=a1["headers"])
+    ).status_code == 404
+    assert (await client.put(f"{API}/workouts/{plan_id}", json=body, headers=coach_h)).status_code == 200
+
+    # Выполняет назначенный игрок; второй игрок и тренер не могут
+    start = {"event_id": event["id"]}
+    assert (
+        await client.post(f"{API}/workout-sessions", json=start, headers=a2["headers"])
+    ).status_code == 404
+    assert (await client.post(f"{API}/workout-sessions", json=start, headers=coach_h)).status_code == 404
+    resp = await client.post(f"{API}/workout-sessions", json=start, headers=a1["headers"])
+    assert resp.status_code == 201, resp.text
+    session = resp.json()
+    assert session["athlete_id"] == a1["user_id"]
+    await client.post(f"{API}/workout-sessions/{session['id']}/finish", headers=a1["headers"])
+
+    # RPE открылся только тому, кто завершил
+    day = datetime.now(UTC).date().isoformat()
+    for who, finished in ((a1, True), (a2, False)):
+        rows = (await client.get(f"{API}/rpe/sessions?day={day}", headers=who["headers"])).json()
+        row = next(r for r in rows if r["event_id"] == event["id"])
+        assert row["finished"] is finished
+
+    # Результаты: штаб видит, игрок нет
+    resp = await client.get(f"{API}/events/{event['id']}/workout-results", headers=coach_h)
+    assert resp.status_code == 200
+    assert [(r["athlete_id"], r["status"]) for r in resp.json()] == [(a1["user_id"], "finished")]
+    assert resp.json()[0]["sets_total"] == 5
+    resp = await client.get(f"{API}/events/{event['id']}/workout-results", headers=a1["headers"])
+    assert resp.status_code == 404
+
+    # Выполнение игрока: штаб читает без «прошлого раза», одноклубник нет, править нельзя
+    url = f"{API}/workout-sessions/{session['id']}"
+    resp = await client.get(url, headers=org["medic"]["headers"])
+    assert resp.status_code == 200 and resp.json()["last_results"] == []
+    assert (await client.get(url, headers=a2["headers"])).status_code == 404
+    assert (await client.put(f"{url}/sets", json={"sets": []}, headers=coach_h)).status_code == 404
+
+    # «Всем»: пустой список назначений открывает второму игроку
+    resp = await client.patch(
+        f"{API}/events/{event['id']}", json={"workout_athlete_ids": []}, headers=coach_h
+    )
+    assert resp.status_code == 200 and resp.json()["workout_athlete_ids"] == []
+    assert (await client.get(f"{API}/workouts/{plan_id}", headers=a2["headers"])).status_code == 200
+    resp = await client.get(f"{API}/events/{event['id']}/workout-results", headers=coach_h)
+    assert {r["athlete_id"]: r["status"] for r in resp.json()} == {
+        a1["user_id"]: "finished",
+        a2["user_id"]: "not_started",
+    }
+
+
+async def test_personal_event_cannot_have_assignees(client, exercises):
+    user = await register_user(client, "assign@example.com")
+    h = user["headers"]
+    workout = await _create_workout(client, h, exercises)
     resp = await client.post(
         f"{API}/events",
         json={
-            "team_id": org["team_id"],
-            "type": "training",
+            "type": "individual",
             "planned_start": datetime.now(UTC).isoformat(),
-            "planned_duration_min": 60,
+            "planned_duration_min": 30,
+            "workout_id": workout["id"],
+            "workout_athlete_ids": [user["user_id"]],
         },
-        headers=coach_h,
-    )
-    team_event = resp.json()
-    resp = await client.patch(
-        f"{API}/events/{team_event['id']}", json={"workout_id": workout["id"]}, headers=coach_h
+        headers=h,
     )
     assert resp.status_code == 422
-    # Командное событие не начать как тренировку из конструктора
-    resp = await client.post(f"{API}/workout-sessions", json={"event_id": team_event["id"]}, headers=coach_h)
-    assert resp.status_code == 404
 
 
 # ---------------------------------------------------------------- валидация и лимиты

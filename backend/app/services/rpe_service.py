@@ -32,15 +32,21 @@ def _session_end(event: Event) -> datetime:
     return _aware(event.planned_start) + timedelta(minutes=event.planned_duration_min)
 
 
-async def _finished_by_workout(db: AsyncSession, event_ids: list[uuid.UUID]) -> set[uuid.UUID]:
-    """События, у которых завершено выполнение тренировки (docs/plan-workout-builder.md).
-    Такое событие закончилось фактически, даже если по плану ещё идёт: закончил
-    раньше оценки длительности или начал раньше времени в календаре."""
+async def _finished_by_workout(
+    db: AsyncSession, event_ids: list[uuid.UUID], athlete_id: uuid.UUID
+) -> set[uuid.UUID]:
+    """События, у которых этот игрок завершил выполнение тренировки
+    (docs/plan-workout-builder.md). Такое событие для него закончилось фактически,
+    даже если по плану ещё идёт: закончил раньше оценки длительности или начал
+    раньше времени в календаре. По игроку: на командном событии один завершивший
+    не открывает RPE остальным."""
     if not event_ids:
         return set()
     rows = await db.execute(
         select(WorkoutSession.event_id).where(
-            WorkoutSession.event_id.in_(event_ids), WorkoutSession.finished_at.is_not(None)
+            WorkoutSession.event_id.in_(event_ids),
+            WorkoutSession.athlete_id == athlete_id,
+            WorkoutSession.finished_at.is_not(None),
         )
     )
     return set(rows.scalars())
@@ -59,7 +65,7 @@ async def _resolve_session(db: AsyncSession, athlete_id: uuid.UUID, event_id: uu
     elif event.created_by != athlete_id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Событие не найдено")
 
-    if _session_end(event) > datetime.now(UTC) and not await _finished_by_workout(db, [event.id]):
+    if _session_end(event) > datetime.now(UTC) and not await _finished_by_workout(db, [event.id], athlete_id):
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="Оценить нагрузку можно после окончания тренировки",
@@ -96,7 +102,7 @@ async def day_sessions(
         )
     )
     rated_ids = set(rated.scalars())
-    done_by_workout = await _finished_by_workout(db, [event.id for event in events])
+    done_by_workout = await _finished_by_workout(db, [event.id for event in events], athlete_id)
 
     now = datetime.now(UTC)
     return [

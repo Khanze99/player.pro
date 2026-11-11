@@ -7,22 +7,46 @@ from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.enums import AttendanceStatus
-from app.models.event import Attendance, Event
+from app.models.enums import AttendanceStatus, TeamRole
+from app.models.event import Attendance, Event, EventWorkoutAthlete
 from app.models.team import TeamMembership
 from app.models.workout import Workout
 from app.schemas.event import EventCreateIn, EventUpdateIn
 from app.services import notifications_service, workouts_service
 
 
-def _ensure_workout_allowed(team_id: uuid.UUID | None, workout_id: uuid.UUID | None) -> None:
-    """Шаблон тренировки ставится только на личное событие (docs/plan-workout-builder.md).
-    Что шаблон свой, проверяет роут через authz.require_workout_owner."""
-    if workout_id is not None and team_id is not None:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Шаблон тренировки можно поставить только на личное событие",
+def _unprocessable(detail: str) -> HTTPException:
+    return HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=detail)
+
+
+async def _set_workout_athletes(db: AsyncSession, event: Event, athlete_ids: list[uuid.UUID]) -> None:
+    """Кому назначены упражнения командного события (этап 2 docs/plan-workout-builder.md).
+    Пустой список: всем игрокам команды. Только игроки команды этого события."""
+    ids = list(dict.fromkeys(athlete_ids))
+    if ids:
+        if event.team_id is None:
+            raise _unprocessable("Назначать игроков можно только на командной тренировке")
+        if event.workout_id is None:
+            raise _unprocessable("Сначала добавьте упражнения")
+        athletes = set(
+            await db.scalars(
+                select(TeamMembership.user_id).where(
+                    TeamMembership.team_id == event.team_id,
+                    TeamMembership.team_role == TeamRole.athlete,
+                    TeamMembership.user_id.in_(ids),
+                )
+            )
         )
+        if len(athletes) != len(ids):
+            raise _unprocessable("Назначить упражнения можно только игрокам команды события")
+    event.workout_athletes = [EventWorkoutAthlete(athlete_id=athlete_id) for athlete_id in ids]
+
+
+async def _reload(db: AsyncSession, event_id: uuid.UUID) -> Event:
+    """Событие заново со списком и назначениями: refresh не перечитывает selectin-связи."""
+    return await db.scalar(
+        select(Event).where(Event.id == event_id).execution_options(populate_existing=True)
+    )
 
 
 async def _event_plan_id(
@@ -47,7 +71,6 @@ async def _event_plan_id(
 
 
 async def create_event(db: AsyncSession, creator_id: uuid.UUID, data: EventCreateIn) -> Event:
-    _ensure_workout_allowed(data.team_id, data.workout_id)
     event = Event(
         team_id=data.team_id,
         type=data.type,
@@ -57,13 +80,14 @@ async def create_event(db: AsyncSession, creator_id: uuid.UUID, data: EventCreat
         location_id=data.location_id,
         created_by=creator_id,
         workout_id=await _event_plan_id(db, data.workout_id),
+        workout_athletes=[],
     )
+    await _set_workout_athletes(db, event, data.workout_athlete_ids)
     db.add(event)
     await db.flush()
     await notifications_service.notify_event_created(db, event, creator_id)
     await db.commit()
-    await db.refresh(event)
-    return event
+    return await _reload(db, event.id)
 
 
 async def get_event(db: AsyncSession, event_id: uuid.UUID) -> Event:
@@ -75,7 +99,7 @@ async def get_event(db: AsyncSession, event_id: uuid.UUID) -> Event:
 
 async def update_event(db: AsyncSession, event: Event, data: EventUpdateIn, actor_id: uuid.UUID) -> Event:
     updates = data.model_dump(exclude_unset=True)
-    _ensure_workout_allowed(event.team_id, updates.get("workout_id"))
+    athlete_ids = updates.pop("workout_athlete_ids", None)
     released: uuid.UUID | None = None
     if "workout_id" in updates:
         new_plan = await _event_plan_id(db, updates["workout_id"], event.id)
@@ -87,12 +111,14 @@ async def update_event(db: AsyncSession, event: Event, data: EventUpdateIn, acto
         if getattr(event, field) != value:
             changed.add(field)
         setattr(event, field, value)
+    # Упражнения сняли: назначения очищаются (а непустое назначение без них 422)
+    if athlete_ids is not None or event.workout_id is None:
+        await _set_workout_athletes(db, event, athlete_ids or [])
     await notifications_service.notify_event_updated(db, event, changed, actor_id)
     await db.flush()
     await workouts_service.release_event_plan(db, released)
     await db.commit()
-    await db.refresh(event)
-    return event
+    return await _reload(db, event.id)
 
 
 async def delete_event(db: AsyncSession, event: Event, actor_id: uuid.UUID) -> None:

@@ -18,6 +18,7 @@ from app.models.enums import (
     GlobalRole,
     TeamRole,
 )
+from app.models.event import Event
 from app.models.team import Team, TeamMembership
 from app.models.user import User
 from app.models.workout import Workout, WorkoutSession
@@ -252,20 +253,124 @@ async def ensure_can_manage_season_stats(db: AsyncSession, viewer: User, athlete
 
 
 # ---------------------------------------------------------------- тренировки
-# Строго личные данные (docs/plan-workout-builder.md): только владелец, роли и
-# команды не дают доступа. Чужое отвечает 404, как в дневнике питания: не
-# раскрываем, что такой id существует.
+# Шаблоны и личные тренировки строго личные (docs/plan-workout-builder.md): только
+# владелец, роли и команды доступа не дают. Исключение, этап 2 плана: список
+# упражнений командного события и выполнения по нему. Их видит команда события
+# (штаб и назначенные игроки), правят тренеры команды, выполнения игроков читает
+# штаб. Чужое отвечает 404, как в дневнике питания: не раскрываем, что id существует.
+
+
+def _workout_not_found() -> HTTPException:
+    return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Тренировка не найдена")
 
 
 async def require_workout_owner(db: AsyncSession, user: User, workout_id: uuid.UUID) -> Workout:
     workout = await db.get(Workout, workout_id)
     if workout is None or workout.owner_id != user.id:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Тренировка не найдена")
+        raise _workout_not_found()
     return workout
 
 
 async def require_session_owner(db: AsyncSession, user: User, session_id: uuid.UUID) -> WorkoutSession:
     session = await db.get(WorkoutSession, session_id)
     if session is None or session.athlete_id != user.id:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Тренировка не найдена")
+        raise _workout_not_found()
     return session
+
+
+def is_workout_assigned(event: Event, athlete_id: uuid.UUID) -> bool:
+    """Упражнения командного события назначены игроку: всем (назначений нет) или ему."""
+    ids = event.workout_athlete_ids
+    return not ids or athlete_id in ids
+
+
+async def _team_event_of_plan(db: AsyncSession, workout: Workout) -> Event | None:
+    """Командное событие, на котором стоит этот список. У шаблона его нет никогда."""
+    if workout.is_template:
+        return None
+    return await db.scalar(
+        select(Event).where(Event.workout_id == workout.id, Event.team_id.is_not(None)).limit(1)
+    )
+
+
+async def _team_role_or_admin(db: AsyncSession, user: User, team_id: uuid.UUID) -> TeamRole | str | None:
+    """Роль в команде; "admin" для админа организации команды (как require_team_role)."""
+    team = await db.get(Team, team_id)
+    if team is not None and is_org_admin(user, team.org_id):
+        return "admin"
+    return await get_team_role(db, user.id, team_id)
+
+
+async def require_event_plan_reader(db: AsyncSession, user: User, workout_id: uuid.UUID) -> Workout:
+    """Список упражнений читает владелец, а у командного события ещё штаб команды
+    и игроки, которым упражнения назначены. Шаблоны только владельцу."""
+    workout = await db.get(Workout, workout_id)
+    if workout is None:
+        raise _workout_not_found()
+    if workout.owner_id == user.id:
+        return workout
+    event = await _team_event_of_plan(db, workout)
+    if event is not None:
+        role = await _team_role_or_admin(db, user, event.team_id)
+        if role == "admin" or role in STAFF_ROLES:
+            return workout
+        if role == TeamRole.athlete and is_workout_assigned(event, user.id):
+            return workout
+    raise _workout_not_found()
+
+
+async def require_event_plan_writer(db: AsyncSession, user: User, workout_id: uuid.UUID) -> Workout:
+    """Правит владелец, а список командного события ещё тренеры его команды (те же,
+    кто правит само событие). Игроки и врач только читают."""
+    workout = await db.get(Workout, workout_id)
+    if workout is None:
+        raise _workout_not_found()
+    if workout.owner_id == user.id:
+        return workout
+    event = await _team_event_of_plan(db, workout)
+    if event is not None:
+        role = await _team_role_or_admin(db, user, event.team_id)
+        if role == "admin" or role in COACH_ROLES:
+            return workout
+    raise _workout_not_found()
+
+
+async def require_session_reader(db: AsyncSession, user: User, session_id: uuid.UUID) -> WorkoutSession:
+    """Выполнение читает владелец, а выполнение командного события ещё штаб его
+    команды. Личные тренировки игрока штаб не видит: у их события нет команды."""
+    session = await db.get(WorkoutSession, session_id)
+    if session is None:
+        raise _workout_not_found()
+    if session.athlete_id == user.id:
+        return session
+    event = await db.get(Event, session.event_id) if session.event_id is not None else None
+    if event is not None and event.team_id is not None:
+        role = await _team_role_or_admin(db, user, event.team_id)
+        if role == "admin" or role in STAFF_ROLES:
+            return session
+    raise _workout_not_found()
+
+
+async def require_event_executor(db: AsyncSession, user: User, event_id: uuid.UUID) -> Event:
+    """Кто может начать тренировку по событию: личное начинает автор, командное
+    игрок этой команды, которому назначены упражнения. Штаб командное не выполняет."""
+    event = await db.get(Event, event_id)
+    if event is None:
+        raise _workout_not_found()
+    if event.team_id is None:
+        if event.created_by == user.id:
+            return event
+    elif await get_team_role(db, user.id, event.team_id) == TeamRole.athlete and is_workout_assigned(
+        event, user.id
+    ):
+        return event
+    raise _workout_not_found()
+
+
+async def require_team_event_staff(db: AsyncSession, user: User, event: Event) -> None:
+    """Результаты игроков по командному событию: штаб его команды, чужое 404."""
+    if event.team_id is not None:
+        role = await _team_role_or_admin(db, user, event.team_id)
+        if role == "admin" or role in STAFF_ROLES:
+            return
+    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Событие не найдено")

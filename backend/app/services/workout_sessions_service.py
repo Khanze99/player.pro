@@ -19,10 +19,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.config import settings
-from app.models.enums import EventType
+from app.models.enums import EventType, TeamRole
 from app.models.event import Event
 from app.models.exercise import Exercise
-from app.models.user import User
+from app.models.team import TeamMembership
+from app.models.user import User, display_name
 from app.models.workout import Workout, WorkoutItem, WorkoutSession, WorkoutSessionSet
 from app.schemas.exercise import ExerciseHistoryOut, ExerciseShortOut, HistorySetOut
 from app.schemas.workout import (
@@ -30,6 +31,7 @@ from app.schemas.workout import (
     LastSetOut,
     SessionSetOut,
     SessionSetsIn,
+    WorkoutResultOut,
     WorkoutSessionFinishOut,
     WorkoutSessionOut,
     WorkoutSessionShortOut,
@@ -86,28 +88,39 @@ def _sets_from_template(items: list[WorkoutItem]) -> list[WorkoutSessionSet]:
     ]
 
 
+async def _own_event_session(
+    db: AsyncSession, event_id: uuid.UUID, athlete_id: uuid.UUID
+) -> uuid.UUID | None:
+    return await db.scalar(
+        select(WorkoutSession.id).where(
+            WorkoutSession.event_id == event_id, WorkoutSession.athlete_id == athlete_id
+        )
+    )
+
+
 def _local_date(moment: datetime) -> date:
     """День события для личного режима: таймзоны у пользователя нет, берём общую."""
     return moment.astimezone(ZoneInfo(settings.default_timezone)).date()
 
 
 async def start(
-    db: AsyncSession, user: User, data: WorkoutSessionStartIn, workout: Workout | None
+    db: AsyncSession,
+    user: User,
+    data: WorkoutSessionStartIn,
+    workout: Workout | None,
+    event: Event | None,
 ) -> uuid.UUID:
-    """workout передаёт роут для варианта «начать сейчас» (уже проверен authz).
-    Возвращает id сессии; ответ собирает build_out."""
+    """Роут передаёт уже проверенное authz: шаблон для «начать сейчас» или событие
+    (своё личное или командное, назначенное игроку). Возвращает id сессии; ответ
+    собирает build_out. У командного события своё выполнение у каждого игрока."""
     await _ensure_no_active(db, user.id)
 
-    if data.event_id is not None:
-        event = await db.get(Event, data.event_id)
-        if event is None or event.team_id is not None or event.created_by != user.id:
-            # Командное событие с шаблоном невозможно, чужое не раскрываем
-            raise _not_found()
+    if event is not None:
         if event.workout_id is None:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="К событию не привязана тренировка"
             )
-        existing = await db.scalar(select(WorkoutSession.id).where(WorkoutSession.event_id == event.id))
+        existing = await _own_event_session(db, event.id, user.id)
         if existing is not None:
             raise _conflict("event_has_session", "Эта тренировка уже выполнялась", existing)
         workout = await workouts_service.load(db, event.workout_id)
@@ -149,9 +162,7 @@ async def start(
         # Сначала своё событие: если его сессию только что создал параллельный
         # старт, это «уже выполнялась», а не «идёт другая тренировка»
         if data.event_id is not None:
-            existing = await db.scalar(
-                select(WorkoutSession.id).where(WorkoutSession.event_id == data.event_id)
-            )
+            existing = await _own_event_session(db, data.event_id, user.id)
             if existing is not None:
                 raise _conflict("event_has_session", "Эта тренировка уже выполнялась", existing) from None
         active = await active_session_id(db, user.id)
@@ -215,8 +226,14 @@ async def _last_results(
     ]
 
 
-async def build_out(db: AsyncSession, session_id: uuid.UUID) -> WorkoutSessionOut:
+async def build_out(
+    db: AsyncSession, session_id: uuid.UUID, viewer_id: uuid.UUID | None = None
+) -> WorkoutSessionOut:
+    """viewer_id: кто смотрит, если не владелец (штаб открыл выполнение игрока
+    командного события). Тогда без «прошлого раза»: он может прийти из личных
+    тренировок игрока, а их штаб не видит."""
     session = await _load(db, session_id)
+    own = viewer_id is None or viewer_id == session.athlete_id
     exercise_ids = {s.exercise_id for s in session.sets}
     exercises = (
         list(await db.scalars(select(Exercise).where(Exercise.id.in_(exercise_ids)))) if exercise_ids else []
@@ -246,7 +263,7 @@ async def build_out(db: AsyncSession, session_id: uuid.UUID) -> WorkoutSessionOu
         sets=[SessionSetOut.model_validate(s) for s in session.sets],
         exercises=[ExerciseShortOut.model_validate(e) for e in exercises],
         rest_sec_by_position=rest,
-        last_results=await _last_results(db, session.athlete_id, exercise_ids, session.id),
+        last_results=(await _last_results(db, session.athlete_id, exercise_ids, session.id) if own else []),
     )
 
 
@@ -352,6 +369,53 @@ async def list_mine(
         )
         for session, exercises, done, total in rows
     ]
+
+
+async def event_results(db: AsyncSession, event: Event) -> list[WorkoutResultOut]:
+    """Результаты игроков по командному событию: назначенные (все игроки команды,
+    если назначений нет) и все, кто уже выполнял, даже если их потом сняли.
+    Право смотреть (штаб команды) проверил роут."""
+    assigned = set(event.workout_athlete_ids)
+    if not assigned and event.team_id is not None:
+        assigned = set(
+            await db.scalars(
+                select(TeamMembership.user_id).where(
+                    TeamMembership.team_id == event.team_id, TeamMembership.team_role == TeamRole.athlete
+                )
+            )
+        )
+    counts = (
+        select(
+            WorkoutSessionSet.session_id,
+            func.count().filter(WorkoutSessionSet.done.is_(True)).label("done"),
+            func.count().label("total"),
+        )
+        .group_by(WorkoutSessionSet.session_id)
+        .subquery()
+    )
+    rows = await db.execute(
+        select(WorkoutSession, counts.c.done, counts.c.total)
+        .outerjoin(counts, counts.c.session_id == WorkoutSession.id)
+        .where(WorkoutSession.event_id == event.id)
+    )
+    sessions = {session.athlete_id: (session, done or 0, total or 0) for session, done, total in rows}
+    users = await db.scalars(select(User).where(User.id.in_(assigned | sessions.keys())))
+
+    def row(user: User) -> WorkoutResultOut:
+        session, done, total = sessions.get(user.id, (None, 0, 0))
+        status_ = "not_started" if session is None else "finished" if session.finished_at else "in_progress"
+        return WorkoutResultOut(
+            athlete_id=user.id,
+            name=display_name(user.last_name, user.first_name),
+            status=status_,
+            session_id=session.id if session else None,
+            sets_done=done,
+            sets_total=total,
+            started_at=session.started_at if session else None,
+            finished_at=session.finished_at if session else None,
+        )
+
+    return sorted((row(user) for user in users), key=lambda r: r.name.lower())
 
 
 async def exercise_history(

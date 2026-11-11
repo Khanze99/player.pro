@@ -24,9 +24,12 @@ router = APIRouter(
 @router.post("", response_model=WorkoutSessionOut, status_code=201)
 async def start_session(data: WorkoutSessionStartIn, user: CurrentUser, db: DbSession):
     workout = None
+    event = None
     if data.workout_id is not None:
         workout = await authz.require_workout_owner(db, user, data.workout_id)
-    session_id = await workout_sessions_service.start(db, user, data, workout)
+    if data.event_id is not None:
+        event = await authz.require_event_executor(db, user, data.event_id)
+    session_id = await workout_sessions_service.start(db, user, data, workout, event)
     return await workout_sessions_service.build_out(db, session_id)
 
 
@@ -53,8 +56,9 @@ async def my_sessions(
 
 @router.get("/{session_id}", response_model=WorkoutSessionOut)
 async def get_session(session_id: uuid.UUID, user: CurrentUser, db: DbSession):
-    await authz.require_session_owner(db, user, session_id)
-    return await workout_sessions_service.build_out(db, session_id)
+    # Своё или, у командного события, игрока своей команды для штаба (только чтение)
+    await authz.require_session_reader(db, user, session_id)
+    return await workout_sessions_service.build_out(db, session_id, viewer_id=user.id)
 
 
 @router.put("/{session_id}/sets", response_model=WorkoutSessionOut)

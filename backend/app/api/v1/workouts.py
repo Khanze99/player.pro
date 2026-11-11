@@ -1,4 +1,6 @@
-"""Шаблоны тренировок (docs/plan-workout-builder.md). Только свои, чужое 404."""
+"""Шаблоны тренировок и списки упражнений событий (docs/plan-workout-builder.md).
+Шаблоны только свои. Список командного события читают штаб и назначенные игроки,
+правят тренеры команды (этап 2 плана). Чужое 404."""
 
 import uuid
 
@@ -24,13 +26,13 @@ async def create_workout(data: WorkoutIn, user: CurrentUser, db: DbSession):
 
 @router.get("/{workout_id}", response_model=WorkoutOut)
 async def get_workout(workout_id: uuid.UUID, user: CurrentUser, db: DbSession):
-    await authz.require_workout_owner(db, user, workout_id)
+    await authz.require_event_plan_reader(db, user, workout_id)
     return workouts_service.to_out(await workouts_service.load(db, workout_id))
 
 
 @router.put("/{workout_id}", response_model=WorkoutOut)
 async def replace_workout(workout_id: uuid.UUID, data: WorkoutIn, user: CurrentUser, db: DbSession):
-    workout = await authz.require_workout_owner(db, user, workout_id)
+    workout = await authz.require_event_plan_writer(db, user, workout_id)
     return await workouts_service.replace(db, workout, data)
 
 

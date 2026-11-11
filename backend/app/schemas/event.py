@@ -13,10 +13,13 @@ class EventCreateIn(BaseModel):
     planned_start: datetime
     planned_duration_min: int = Field(ge=1, le=600)
     location_id: uuid.UUID | None = None
-    # План упражнений (docs/plan-workout-builder.md): только у личного события,
-    # у командного 422, чужой 404. Шаблон копируется в план события, план события
-    # (is_template=False) ставится как есть.
+    # Упражнения события (docs/plan-workout-builder.md), у личного и командного.
+    # Шаблон копируется в список события, список события (is_template=False)
+    # ставится как есть. Чужой 404.
     workout_id: uuid.UUID | None = None
+    # Кому назначены упражнения командного события: пусто = всем игрокам команды.
+    # Только игроки команды события, иначе 422; у личного события 422.
+    workout_athlete_ids: list[uuid.UUID] = Field(default_factory=list, max_length=200)
 
 
 class EventUpdateIn(BaseModel):
@@ -27,6 +30,8 @@ class EventUpdateIn(BaseModel):
     location_id: uuid.UUID | None = None
     # null снимает план с события (план удаляется), отсутствие поля его не трогает
     workout_id: uuid.UUID | None = None
+    # Отсутствие поля назначения не трогает, [] возвращает «всем»
+    workout_athlete_ids: list[uuid.UUID] | None = Field(default=None, max_length=200)
 
 
 class EventOut(BaseModel):
@@ -44,6 +49,8 @@ class EventOut(BaseModel):
     # или его удалили (ON DELETE SET NULL).
     workout_id: uuid.UUID | None = None
     workout_name: str | None = None
+    # Кому назначены упражнения: пусто = всем игрокам команды (или личное событие)
+    workout_athlete_ids: list[uuid.UUID] = []
 
 
 class AttendanceIn(BaseModel):

@@ -13,6 +13,7 @@
 import uuid
 from datetime import date as date_type
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -248,3 +249,16 @@ class WorkoutSessionFinishOut(BaseModel):
 
     event_id: uuid.UUID | None
     elapsed_min: int = Field(ge=1, le=600)
+
+
+class WorkoutResultOut(BaseModel):
+    """Строка «Результатов игроков» командного события для штаба (этап 2 плана)."""
+
+    athlete_id: uuid.UUID
+    name: str
+    status: Literal["not_started", "in_progress", "finished"]
+    session_id: uuid.UUID | None
+    sets_done: int
+    sets_total: int
+    started_at: datetime | None
+    finished_at: datetime | None

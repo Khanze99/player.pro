@@ -37,7 +37,7 @@ from app.models.availability import AvailabilityRecord
 from app.models.consent import DataConsent
 from app.models.cycle import CycleLog, CycleSettings
 from app.models.enums import GlobalRole, InvitationStatus, UserStatus
-from app.models.event import Attendance, Event
+from app.models.event import Attendance, Event, EventWorkoutAthlete
 from app.models.exercise import Exercise
 from app.models.injury import InjuryRecord
 from app.models.invitation import Invitation
@@ -71,6 +71,8 @@ LAST_ORG_ADMIN_DETAIL = (
 # сезонной статистики уходят по ondelete=CASCADE; FoodLogEntry раньше FoodItem.
 OWNED = [
     (Attendance, Attendance.user_id),
+    # Назначение упражнений командного события игроку: без игрока смысла не имеет
+    (EventWorkoutAthlete, EventWorkoutAthlete.athlete_id),
     (RpeEntry, RpeEntry.athlete_id),
     (WellnessEntry, WellnessEntry.athlete_id),
     (CycleLog, CycleLog.athlete_id),
