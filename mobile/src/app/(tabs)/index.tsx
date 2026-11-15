@@ -190,11 +190,16 @@ function WeightCard({
             <Text style={[styles.weightValue, { color }]}>{profile?.weight_kg ?? '—'}</Text>
             <Text style={styles.weightUnit}>кг</Text>
           </View>
+          {bmi != null && (
+            <Text style={[styles.weightCategory, { color }]}>
+              {t(`bmi.zone.${profile!.bmi_zone}`)}
+            </Text>
+          )}
         </View>
         <View style={styles.weightHeadRight}>
           {bmi != null && (
             <Text style={[styles.bmiPill, { backgroundColor: `${color}24`, color }]}>
-              {t('athleteReport.weight.bmi')} {bmi.toFixed(1)} · {t(`bmi.zone.${profile!.bmi_zone}`)}
+              {t('athleteReport.weight.bmi')} {bmi.toFixed(1)}
             </Text>
           )}
           <Pressable onPress={openGoalModal} accessibilityRole="button">
@@ -215,9 +220,6 @@ function WeightCard({
         />
       ) : (
         <Text style={styles.weightEmptyText}>{t('home.weightNeedMore')}</Text>
-      )}
-      {bmi != null && profile!.bmi_zone !== 'normal' && (
-        <Text style={styles.weightNote}>{t(`bmi.note.${profile!.bmi_zone}`)}</Text>
       )}
       <WeightGoalModal
         visible={modalOpen}
@@ -405,6 +407,7 @@ const makeStyles = (th: Theme) => StyleSheet.create({
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   headerRight: {
     flexDirection: 'row',
+    justifyContent: 'flex-end',
     alignItems: 'center',
     gap: spacing.s,
     marginTop: -6,
@@ -450,6 +453,7 @@ const makeStyles = (th: Theme) => StyleSheet.create({
   weightNow: { flexDirection: 'row', alignItems: 'baseline', gap: 4 },
   weightValue: { fontFamily: th.font.display, fontSize: 24, color: th.text },
   weightUnit: { fontFamily: th.font.regular, fontSize: 12, color: th.textMuted },
+  weightCategory: { fontFamily: th.font.regular, fontSize: 12, marginTop: spacing.xs },
   bmiPill: {
     fontFamily: th.font.semibold,
     fontSize: 11.5,
@@ -473,13 +477,6 @@ const makeStyles = (th: Theme) => StyleSheet.create({
     color: th.textMuted,
     textAlign: 'center',
     maxWidth: 220,
-  },
-  weightNote: {
-    fontFamily: th.font.regular,
-    fontSize: 11.5,
-    color: th.textMuted,
-    marginTop: spacing.s,
-    lineHeight: 16,
   },
   weightHeadRight: { alignItems: 'flex-end', gap: spacing.xs },
   goalSetButton: {

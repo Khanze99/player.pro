@@ -259,12 +259,6 @@ const en: typeof ru = {
       overweight: 'Overweight',
       obese: 'Obese',
     },
-    note: {
-      underweight: 'Low BMI. Worth discussing with the team doctor.',
-      overweight:
-        'Elevated BMI. For an athlete with developed muscle mass, BMI can overstate the risk — a guide, not a diagnosis. Worth discussing with the team doctor.',
-      obese: 'High BMI. We recommend a consultation with the team doctor.',
-    },
   },
   weightGoal: {
     setButton: 'Set a goal',
@@ -428,7 +422,7 @@ const en: typeof ru = {
     position: 'Position',
     height: 'Height, cm',
     weight: 'Weight, kg',
-    bodyMetricsHint: 'Height and weight are shown to the physician only with your consent →',
+    bodyMetricsHint: 'Coaches and physicians on your team can see your height, weight and weight goal.',
     changePhoto: 'Change photo',
     removePhoto: 'Remove photo',
     photoError: 'Could not upload the photo',
@@ -539,6 +533,7 @@ const en: typeof ru = {
   },
   privacy: {
     title: 'Privacy',
+    empty: 'There are no additional privacy settings. Coaches and physicians on your team can see your height, weight and weight goal.',
     scope: {
       cycle: 'Menstrual cycle',
       nutrition: 'Nutrition and calories',
@@ -557,7 +552,7 @@ const en: typeof ru = {
     },
     granted: 'Access granted',
     revoked: 'Access closed',
-    legal: 'This is a special category of personal data (152-FZ, art. 10). Data is stored on servers in Russia and, unless you choose otherwise here, is visible to no one but you. Withdrawing closes access immediately.',
+    legal: 'These settings apply only to cycle and nutrition data. Data is stored on servers in Russia. Withdrawing consent immediately closes staff access to the selected category.',
     policyVersion: 'Consent version',
   },
   legalDocs: {

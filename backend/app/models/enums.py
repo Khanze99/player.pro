@@ -31,6 +31,8 @@ class ConsentScope(str, enum.Enum):
 
     cycle = "cycle"
     nutrition = "nutrition"
+    # Устаревшее согласие: сохраняется для истории и старых клиентов,
+    # видимость роста/веса/ИМТ/цели теперь определяется командной ролью.
     body_metrics = "body_metrics"
 
 

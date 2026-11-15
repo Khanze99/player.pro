@@ -55,7 +55,7 @@ class WellnessEntry(Base):
     # athlete_profiles.weight_kg (ck_athlete_weight_kg): сознательно одно и то же
     # поле физически, значение синхронизируется в AthleteProfile.weight_kg при
     # сабмите (wellness_service.create_entry) — профиль держит «последнее известное».
-    # Спецкатегория body_metrics (docs/plan-weight-tracking.md): штабу — по согласию.
+    # Вес доступен самому игроку и штабу его команды (docs/plan-weight-tracking.md).
     weight_kg: Mapped[Decimal | None] = mapped_column(Numeric(4, 1), nullable=True)
     comment: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

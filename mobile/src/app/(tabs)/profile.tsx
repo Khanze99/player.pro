@@ -134,17 +134,15 @@ export default function Profile() {
   }
 
   const isAdmin = me.data?.global_role === 'admin';
-  // Приватность/согласия и антропометрия «под согласие» — только для игроков:
-  // их данные (цикл, питание, рост/вес) кто-то из штаба может смотреть. У самого
-  // штаба (админ/тренер/врач) таких потоков нет, экран согласий для них — пустой.
+  // Антропометрия и настройки дополнительных данных — в профиле игрока.
   const isPlayer = me.data?.global_role === 'player';
   // Личный режим (org_id нет) — команд не бывает, пункт «Команда» для него не нужен,
   // даже если роль почему-то не 'player' (см. тот же гейт в (tabs)/_layout.tsx).
   const isStaff = me.data != null && !isPlayer && me.data.org_id != null;
-  // «Приватность» решает, что из личных данных видят врач и тренер. В личном режиме
-  // штаба нет, решать нечего: экран и ссылки на него скрыты. При вступлении в
-  // организацию всё закрыто по умолчанию, пункт появляется сам.
-  const canSharePrivate = isPlayer && me.data?.org_id != null;
+  const isTeamPlayer = isPlayer && me.data?.org_id != null;
+  const canSharePrivate = isTeamPlayer && (
+    features.data?.nutrition || (features.data?.cycle && p?.sex === 'female')
+  );
   // Команда» в меню — только если есть из чего выбирать (как и гейт при входе,
   // docs/plan-team-selector.md): рядовой coach должен мочь переключаться так же,
   // как admin, не только он.
@@ -396,10 +394,8 @@ export default function Profile() {
                   />
                 </View>
               </View>
-              {canSharePrivate ? (
-                <Pressable onPress={() => router.push('/privacy')} accessibilityRole="button">
-                  <Text style={styles.metricsHint}>{t('profile.bodyMetricsHint')}</Text>
-                </Pressable>
+              {isTeamPlayer ? (
+                <Text style={styles.metricsHint}>{t('profile.bodyMetricsHint')}</Text>
               ) : null}
             </>
           ) : null}

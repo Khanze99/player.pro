@@ -171,6 +171,18 @@ async def ensure_can_view_user_avatar(db: AsyncSession, viewer: User, target_id:
     raise _forbidden()
 
 
+async def ensure_can_view_body_metrics(db: AsyncSession, viewer: User, athlete_id: uuid.UUID) -> None:
+    """Рост, вес, ИМТ и цель: себе и штабу общей команды, без отдельного согласия.
+
+    Роль admin сама по себе не открывает антропометрию.
+    """
+    if viewer.id == athlete_id:
+        return
+    await ensure_can_view_athlete(db, viewer, athlete_id)
+    if await _shared_team_staff_role(db, viewer.id, athlete_id) is None:
+        raise _sensitive_forbidden()
+
+
 async def ensure_can_view_sensitive(
     db: AsyncSession, viewer: User, athlete_id: uuid.UUID, scope: ConsentScope
 ) -> None:

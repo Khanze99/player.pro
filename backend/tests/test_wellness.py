@@ -99,9 +99,8 @@ async def test_weight_backfill_does_not_overwrite_newer_value(client):
     assert float(profile.json()["weight_kg"]) == 80.0  # не перетёрлось старым днём
 
 
-async def test_weight_gated_by_body_metrics_consent(client, db):
-    """weight_kg в /wellness/athletes/{id} — спецкатегория body_metrics: нулится
-    без согласия, видно с ним, себе — всегда (ensure_can_view_sensitive)."""
+async def test_weight_visible_to_staff_without_body_metrics_consent(client, db):
+    """Вес виден самому игроку и штабу общей команды без отдельного согласия."""
     org = await build_org(client)
     payload = {**WELLNESS, "weight_kg": 78.4}
     resp = await client.post("/api/v1/wellness", json=payload, headers=org["athlete1"]["headers"])
@@ -113,10 +112,9 @@ async def test_weight_gated_by_body_metrics_consent(client, db):
 
     coach_before = await client.get(f"/api/v1/wellness/athletes/{a1_id}", headers=org["coach"]["headers"])
     assert coach_before.status_code == 200
-    assert coach_before.json()[0]["weight_kg"] is None  # нет согласия
+    assert float(coach_before.json()[0]["weight_kg"]) == 78.4
 
-    # audience=coach — старший ранг (_AUDIENCE_RANK в consent_service): открывает
-    # и coach, и medic. Узкое «только врачу» — audience=medic (как в test_profile.py).
+    # Старые согласия по-прежнему принимаются, но больше не меняют видимость веса.
     await consent_service.grant(db, a1_id, ConsentScope.body_metrics, ConsentAudience.coach)
     coach_after = await client.get(f"/api/v1/wellness/athletes/{a1_id}", headers=org["coach"]["headers"])
     assert float(coach_after.json()[0]["weight_kg"]) == 78.4

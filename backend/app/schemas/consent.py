@@ -6,6 +6,7 @@ from app.models.enums import ConsentAudience, ConsentScope
 
 
 class ConsentSetIn(BaseModel):
+    # body_metrics — legacy: больше не управляет видимостью антропометрии.
     scope: ConsentScope
     audience: ConsentAudience  # none — отзыв
 

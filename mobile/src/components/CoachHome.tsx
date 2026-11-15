@@ -164,6 +164,7 @@ const makeStyles = (th: Theme) => StyleSheet.create({
   },
   headerRight: {
     flexDirection: 'row',
+    justifyContent: 'flex-end',
     alignItems: 'center',
     gap: spacing.s,
     marginTop: -6,

@@ -145,8 +145,7 @@ export interface WellnessEntry {
   symptom_type: SymptomType | null;
   symptom_details: string | null;
   resting_hr: number | null;
-  // Спецкатегория body_metrics (docs/plan-weight-tracking.md): null либо не
-  // заполнено, либо смотрящему нет согласия — не различаем, как рост/вес профиля.
+  // Вес доступен штабу команды; null — не заполнено или нет роли штаба.
   weight_kg: number | null;
   comment: string | null;
   pain_points: PainPoint[];
@@ -464,12 +463,11 @@ export interface AthleteProfile {
   baseline_resting_hr: number | null;
   birthdate: string | null;
   sex: Sex;
-  // null может значить «не заполнено» либо «нет согласия body_metrics» — на своём
-  // профиле всегда приходит фактическое значение.
+  // null — не заполнено или нет роли штаба; себе приходит фактическое значение.
   height_cm: number | null;
   weight_kg: number | null;
   // ИМТ — не из БД, считается на лету на бэкенде из height_cm/weight_kg выше
-  // (docs/plan-weight-tracking.md), тот же null-или-"нет согласия" принцип.
+  // (docs/plan-weight-tracking.md), после проверки доступа к антропометрии.
   bmi: number | null;
   bmi_zone: 'no_data' | 'underweight' | 'normal' | 'overweight' | 'obese';
 }
@@ -477,7 +475,7 @@ export interface AthleteProfile {
 // Цель по весу (docs/plan-weight-tracking.md, «Дополнение: цель веса») — одна
 // активная запись, ставит сам игрок. start_weight_kg — снимок веса на момент
 // сохранения/правки цели, не дата первой постановки (пересчитывается заново
-// при каждой правке). Та же спецкатегория body_metrics, что и сам вес.
+// при каждой правке). Видимость для штаба — как у самого веса.
 export interface WeightGoal {
   start_weight_kg: number;
   target_weight_kg: number;

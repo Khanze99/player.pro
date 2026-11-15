@@ -99,10 +99,7 @@ function Sparkline({ points }: { points: DailyMetric[] }) {
   );
 }
 
-// Вес и ИМТ (docs/plan-weight-tracking.md) — спецкатегория body_metrics, та же
-// видимость, что рост/вес профиля: по согласию игрока. «Недостаточно данных» —
-// одна формулировка для «нет согласия» и «правда нечего показывать» (тренер не
-// должен видеть, кто отказался делиться), ровно как у CycleCard.
+// Вес, ИМТ и цель доступны тренерам и врачам своей команды.
 function goalChipText(goal: WeightGoal): string {
   const n = goal.target_weight_kg;
   if (goal.target_weight_kg < goal.start_weight_kg) return `Цель: сбросить до ${n} кг`;
@@ -127,7 +124,7 @@ export function WeightCard({
   return (
     <Card>
       <h2 className="font-medium text-[var(--text)] mb-1">Вес и ИМТ</h2>
-      <p className="text-xs text-[var(--text-faint)] mb-4">по согласию игрока (body_metrics)</p>
+      <p className="text-xs text-[var(--text-faint)] mb-4">Доступно тренерам и врачам команды</p>
       {bmi == null && points.length < 2 ? (
         <p className="text-sm text-[var(--text-muted)]">Недостаточно данных</p>
       ) : (

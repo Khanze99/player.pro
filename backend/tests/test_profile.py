@@ -1,4 +1,4 @@
-"""Расширенный профиль: контакты и роли в /auth/me, антропометрия за согласием,
+"""Расширенный профиль: контакты и роли в /auth/me, антропометрия доступна штабу команды,
 аватар (приватная раздача + снятие метадаты)."""
 
 import io
@@ -102,7 +102,7 @@ async def test_profile_rejects_out_of_range_body_metrics(client, payload):
     assert resp.status_code == 422, resp.text
 
 
-# ----------------------------------------- витрина игрока: body_metrics за согласием
+# ----------------------------------------- витрина игрока: антропометрия для штаба команды
 
 
 async def _club_with_player_and_staff(db) -> dict:
@@ -154,7 +154,7 @@ def _token(client, user_id):
     return {"Authorization": f"Bearer {create_access_token(user_id)}"}
 
 
-async def test_staff_without_consent_sees_profile_but_not_body_metrics(client, db):
+async def test_staff_without_consent_sees_profile_and_body_metrics(client, db):
     world = await _club_with_player_and_staff(db)
     resp = await client.get(
         f"/api/v1/users/athletes/{world['athlete'].id}/profile",
@@ -163,11 +163,11 @@ async def test_staff_without_consent_sees_profile_but_not_body_metrics(client, d
     assert resp.status_code == 200, resp.text
     body = resp.json()
     assert body["position"] == "ЦЗ"  # обычные поля видны
-    assert body["height_cm"] is None  # спецкатегория — нет
-    assert body["weight_kg"] is None
+    assert body["height_cm"] == 190
+    assert float(body["weight_kg"]) == 85
 
 
-async def test_body_metrics_consent_is_medic_scoped(client, db):
+async def test_body_metrics_medic_consent_does_not_hide_from_coach(client, db):
     world = await _club_with_player_and_staff(db)
     await consent_service.grant(db, world["athlete"].id, ConsentScope.body_metrics, ConsentAudience.medic)
 
@@ -181,7 +181,7 @@ async def test_body_metrics_consent_is_medic_scoped(client, db):
         f"/api/v1/users/athletes/{world['athlete'].id}/profile",
         headers=_token(client, world["coach"].id),
     )
-    assert coach_view.json()["height_cm"] is None  # medic-согласие тренеру не открывает
+    assert coach_view.json()["height_cm"] == 190
 
 
 async def test_athlete_always_sees_own_body_metrics(client, db):
@@ -242,9 +242,8 @@ async def test_weight_goal_start_updates_with_current_weight(client):
     assert float(resp.json()["target_weight_kg"]) == 74.0
 
 
-async def test_weight_goal_gated_by_body_metrics_consent(client, db):
-    """Тот же гейт, что у weight_kg самого: нет согласия → null, не 403 —
-    формулировка не должна различать «нет согласия» и «нет цели»."""
+async def test_weight_goal_visible_without_body_metrics_consent(client, db):
+    """Штаб видит цель без отдельного согласия; редактирует только владелец."""
     world = await _club_with_player_and_staff(db)
     athlete_id = world["athlete"].id
     set_goal = await client.put(
@@ -258,7 +257,7 @@ async def test_weight_goal_gated_by_body_metrics_consent(client, db):
         f"/api/v1/users/athletes/{athlete_id}/weight-goal", headers=_token(client, world["coach"].id)
     )
     assert coach_before.status_code == 200
-    assert coach_before.json() is None  # нет согласия
+    assert float(coach_before.json()["target_weight_kg"]) == 80.0
 
     await consent_service.grant(db, athlete_id, ConsentScope.body_metrics, ConsentAudience.coach)
     coach_after = await client.get(

@@ -35,12 +35,11 @@ class AthleteProfileOut(BaseModel):
     baseline_resting_hr: int | None
     birthdate: date_type | None
     sex: Sex
-    # None либо потому, что не заполнено, либо потому, что смотрящему нет согласия
-    # на body_metrics — формулировка ответа не должна их различать (см. роут).
+    # None: не заполнено или смотрящий не входит в штаб команды (admin-only).
     height_cm: int | None
     weight_kg: Decimal | None
     # Не из БД — считаются роутом (calculations.bmi/bmi_zone) после финального
-    # height_cm/weight_kg, т.е. уже после гейта: при отсутствии согласия тоже null.
+    # height_cm/weight_kg, т.е. после проверки доступа к антропометрии.
     # bmi_zone как у load_zone/readiness_zone — всегда строка, "no_data" а не null.
     bmi: float | None = None
     bmi_zone: str = "no_data"

@@ -1,12 +1,7 @@
 // Приватность и согласия (152-ФЗ, ст. 10 — специальные категории персданных).
 //
-// Три принципа, заданные на бэкенде и отражённые здесь:
-//   · по умолчанию всё закрыто — «нет записи» значит запрет;
-//   · уровни вложены: открыть тренеру = открыть и врачу, но не наоборот;
-//   · отзыв в один тап и в любой момент.
-// Экран показывается игроку в организации (в личном режиме штаба нет). Карточки
-// только про то, что человек реально ведёт: цикл при женском поле и включённом
-// флаге, питание при включённом флаге, замеры тела всегда.
+// Настройки управляют только циклом и питанием. Рост, вес, ИМТ и цель
+// доступны штабу своей команды без отдельного переключателя.
 
 import { useRouter } from 'expo-router';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -37,7 +32,6 @@ export default function Privacy() {
   const scopes: ConsentScope[] = [
     ...(features.data?.cycle && profile.data?.sex === 'female' ? (['cycle'] as const) : []),
     ...(features.data?.nutrition ? (['nutrition'] as const) : []),
-    'body_metrics',
   ];
 
   const audienceFor = (scope: ConsentScope): ConsentAudience =>
@@ -66,6 +60,8 @@ export default function Privacy() {
               <CloseIcon color={th.textMuted} />
             </Pressable>
           </View>
+
+          {scopes.length === 0 ? <Text style={styles.scopeHint}>{t('privacy.empty')}</Text> : null}
 
           {scopes.map((scope) => (
             <View key={scope} style={styles.card}>

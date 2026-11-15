@@ -278,8 +278,7 @@ export interface WellnessEntry {
   symptom_details: string | null;
   symptom_type: SymptomType | null;
   resting_hr: number | null;
-  // Спецкатегория body_metrics (docs/plan-weight-tracking.md) — null либо не
-  // заполнено, либо нет согласия, как рост/вес профиля. Бэкенд уже нулит.
+  // Вес доступен штабу команды; null — не заполнено или нет роли штаба.
   weight_kg: number | null;
   comment: string | null;
   pain_points: PainPoint[];
@@ -289,8 +288,8 @@ export interface WellnessEntry {
 export type BmiZone = "no_data" | "underweight" | "normal" | "overweight" | "obese";
 
 // GET /users/athletes/{id}/profile (docs/plan-weight-tracking.md) — height_cm/
-// weight_kg/bmi/bmi_zone нулятся бэкендом без согласия body_metrics, одна
-// формулировка для «не заполнено» и «нет согласия», как и у WellnessEntry.weight_kg.
+// weight_kg/bmi скрыты от admin без командной роли; штабу видны без согласия.
+// bmi_zone при отсутствии ИМТ — "no_data".
 export interface AthleteProfile {
   user_id: string;
   position: string | null;
@@ -301,8 +300,7 @@ export interface AthleteProfile {
 }
 
 // Цель по весу (docs/plan-weight-tracking.md, «Дополнение: цель веса») —
-// только чтение на вебе (штаб не ставит цель), тот же гейт body_metrics, что
-// у AthleteProfile.weight_kg выше.
+// только чтение на вебе (штаб не ставит цель), видимость как у веса.
 export interface WeightGoal {
   start_weight_kg: number;
   target_weight_kg: number;

@@ -36,31 +36,25 @@ export function TeamBadge({ showPersonal = false, teamName: explicitTeam, inline
   // с несколькими командами) > первая из списка (игрок — у него она обычно одна).
   const activeTeam = teams.data?.find((team) => team.id === activeTeamId) ?? teams.data?.[0];
   // В тесной шапке с колокольчиком: короткое имя, если админ его задал; иначе
-  // полное название в две строки (дальше многоточие).
+  // полное название в одну строку, что не влезло, уходит в многоточие.
   const shortName = inline && !explicitTeam ? activeTeam?.short_name : null;
   const teamName = explicitTeam ?? shortName ?? activeTeam?.name;
-  const lines = inline && !shortName ? 2 : 1;
   const logo = logoUri(branding);
   if (!teamName && !showPersonal) return null;
 
   // Герб заменяет точку: он и так говорит, что режим командный
   const withLogo = Boolean(teamName && logo) && !broken;
 
+  const label = (teamName ?? t('home.personalMode')).toUpperCase();
+
+  const dotTone = teamName ? th.brandOn : th.low;
+  const dotColor = { backgroundColor: dotTone, shadowColor: dotTone };
+
   return (
     <View style={[styles.wrap, inline && styles.inline]}>
-      {withLogo ? null : (
-        <View
-          style={[
-            styles.dot,
-            {
-              backgroundColor: teamName ? th.brandOn : th.low,
-              shadowColor: teamName ? th.brandOn : th.low,
-            },
-          ]}
-        />
-      )}
-      <Text style={[styles.label, lines > 1 && styles.labelWrap]} numberOfLines={lines}>
-        {(teamName ?? t('home.personalMode')).toUpperCase()}
+      {withLogo ? null : <View style={[styles.dot, dotColor]} />}
+      <Text style={styles.label} numberOfLines={1}>
+        {label}
       </Text>
       {withLogo ? (
         <Image
@@ -77,8 +71,7 @@ export function TeamBadge({ showPersonal = false, teamName: explicitTeam, inline
 
 const makeStyles = (th: Theme) => StyleSheet.create({
   wrap: { flexDirection: 'row', alignItems: 'center', gap: spacing.s, maxWidth: '55%' },
-  inline: { maxWidth: undefined, flexShrink: 1 },
-  labelWrap: { textAlign: 'right', lineHeight: 14 },
+  inline: { maxWidth: undefined, flexShrink: 1, justifyContent: 'flex-end' },
   label: { fontFamily: th.font.semibold, fontSize: 10.5, color: th.text, letterSpacing: 1, flexShrink: 1 },
   // Герб вписан в квадрат по длинной стороне, поэтому без скругления и обрезки
   logo: { width: 24, height: 24 },

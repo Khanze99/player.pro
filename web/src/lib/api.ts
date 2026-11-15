@@ -159,7 +159,7 @@ export const api = {
     }),
 
   // Вес/ИМТ (docs/plan-weight-tracking.md) — height_cm/weight_kg/bmi уже null
-  // в ответе, если нет согласия body_metrics (ensure_can_view_sensitive внутри
+  // в ответе, если смотрящий не входит в штаб команды (проверка доступа внутри
   // роута). 404 — профиль ещё не заполнен, нормальное состояние нового игрока,
   // не ошибка страницы (как cycleAthleteState молча не рисует секцию на 403).
   athleteProfile: (athleteId: string, token: string) =>

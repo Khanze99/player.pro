@@ -70,7 +70,6 @@ class AthleteProfile(Base):
     birthdate: Mapped[date | None] = mapped_column(nullable=True)
     # Самодекларация. Входной параметр для цикл-трекинга, никогда не навязывается.
     sex: Mapped[Sex] = mapped_column(String(16), default=Sex.not_specified)
-    # Спецкатегория body_metrics: штабу видны только по согласию игрока (см.
-    # authz.ensure_can_view_sensitive), себе — всегда.
+    # Антропометрия: себе и штабу общей команды (ensure_can_view_body_metrics).
     height_cm: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
     weight_kg: Mapped[Decimal | None] = mapped_column(Numeric(4, 1), nullable=True)

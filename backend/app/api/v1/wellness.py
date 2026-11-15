@@ -5,7 +5,6 @@ from fastapi import APIRouter, HTTPException
 
 from app.api.deps import CurrentUser, DbSession
 from app.core import authz
-from app.models.enums import ConsentScope
 from app.schemas.wellness import WellnessCreateIn, WellnessCreateOut, WellnessOut
 from app.services import analytics_service, wellness_service
 
@@ -50,12 +49,9 @@ async def athlete_history(
     date_to = date_to or date.today()
     date_from = date_from or date_to - timedelta(days=30)
     entries = await wellness_service.get_history(db, athlete_id, date_from, date_to)
-    # weight_kg — спецкатегория body_metrics (docs/plan-weight-tracking.md), в
-    # отличие от остальных полей этого ответа (pain_points/comment и т.п., см.
-    # docs/plan-recovery-methods.md). Тот же приём нулирования, что в
-    # users.py:athlete_profile — проверяем раз на весь список, не на каждую запись.
+    # Проверка одна на весь список: вес видит только сам игрок и штаб команды.
     try:
-        await authz.ensure_can_view_sensitive(db, user, athlete_id, ConsentScope.body_metrics)
+        await authz.ensure_can_view_body_metrics(db, user, athlete_id)
     except HTTPException:
         for entry in entries:
             entry.weight_kg = None

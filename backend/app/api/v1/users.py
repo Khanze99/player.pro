@@ -5,7 +5,7 @@ from fastapi.responses import FileResponse
 
 from app.api.deps import CurrentUser, DbSession
 from app.core import authz, calculations
-from app.models.enums import ConsentScope, Sex
+from app.models.enums import Sex
 from app.models.user import User
 from app.schemas.auth import MeOut
 from app.schemas.user import AthleteProfileIn, AthleteProfileOut, UserUpdateIn, WeightGoalIn, WeightGoalOut
@@ -22,7 +22,7 @@ async def update_me(data: UserUpdateIn, user: CurrentUser, db: DbSession):
 
 def _with_bmi(out: AthleteProfileOut) -> AthleteProfileOut:
     """ИМТ не хранится — считаем из уже итоговых height_cm/weight_kg (после
-    гейта body_metrics, если он применялся выше): при нулированном весе ИМТ
+    проверки доступа к антропометрии, если она применялась выше): при нулированном весе ИМТ
     тоже уйдёт в no_data, не утечёт отдельно."""
     out.bmi = calculations.bmi(out.height_cm, out.weight_kg)
     out.bmi_zone = calculations.bmi_zone(out.bmi)
@@ -85,11 +85,10 @@ async def athlete_profile(athlete_id: uuid.UUID, user: CurrentUser, db: DbSessio
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Профиль не заполнен")
 
     out = AthleteProfileOut.model_validate(profile)
-    # Рост/вес — спецкатегория body_metrics: без согласия игрока их не отдаём.
-    # Тот же приём, что с медицинской детализацией в других витринах.
+    # Антропометрия доступна штабу команды; admin без командной роли её не видит.
     if user.id != athlete_id:
         try:
-            await authz.ensure_can_view_sensitive(db, user, athlete_id, ConsentScope.body_metrics)
+            await authz.ensure_can_view_body_metrics(db, user, athlete_id)
         except HTTPException:
             out.height_cm = None
             out.weight_kg = None
@@ -100,14 +99,12 @@ async def athlete_profile(athlete_id: uuid.UUID, user: CurrentUser, db: DbSessio
 async def athlete_weight_goal(athlete_id: uuid.UUID, user: CurrentUser, db: DbSession):
     """Штаб только читает — ставит и меняет цель только сам игрок (PUT нет).
 
-    Нет согласия body_metrics → None, тем же приёмом, что height_cm/weight_kg
-    в athlete_profile: формулировка ответа не должна отличать «нет согласия»
-    от «цели не существует».
+    Admin без роли штаба получает None, как для антропометрии в athlete_profile.
     """
     await authz.ensure_can_view_athlete(db, user, athlete_id)
     if user.id != athlete_id:
         try:
-            await authz.ensure_can_view_sensitive(db, user, athlete_id, ConsentScope.body_metrics)
+            await authz.ensure_can_view_body_metrics(db, user, athlete_id)
         except HTTPException:
             return None
     return await users_service.get_weight_goal(db, athlete_id)

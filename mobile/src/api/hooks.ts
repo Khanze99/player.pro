@@ -232,8 +232,7 @@ export const useMyProfile = () =>
   useQuery({ queryKey: ['profile'], queryFn: () => api<AthleteProfile>('/users/me/profile') });
 
 /** Профиль другого игрока — отчёт тренера/врача (вес/ИМТ, docs/plan-weight-tracking.md).
- * height_cm/weight_kg/bmi уже null на бэкенде, если нет согласия body_metrics —
- * здесь это не разводится отдельно, та же схема, что у себя. */
+ * height_cm/weight_kg/bmi доступны штабу команды; admin-only получает null. */
 export const useAthleteProfile = (athleteId: string | undefined) =>
   useQuery({
     queryKey: ['athlete-profile', athleteId],
@@ -273,8 +272,8 @@ export function useSetWeightGoal() {
 }
 
 /** Цель другого игрока — отчёт тренера/врача, только чтение (PUT нет: ставит
- * и меняет цель только сам игрок). null — либо нет согласия body_metrics,
- * либо цели нет, бэкенд не различает (docs/plan-weight-tracking.md). */
+ * и меняет цель только сам игрок). null — цели нет или смотрящий не входит
+ * в штаб команды (docs/plan-weight-tracking.md). */
 export const useAthleteWeightGoal = (athleteId: string | undefined) =>
   useQuery({
     queryKey: ['athlete-weight-goal', athleteId],

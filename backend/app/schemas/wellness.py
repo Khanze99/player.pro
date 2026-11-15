@@ -40,7 +40,7 @@ class WellnessCreateIn(BaseModel):
     symptom_type: SymptomType | None = None
     resting_hr: int | None = Field(default=None, ge=20, le=250)
     # Необязательно, как sleep_hours/resting_hr. Границы — те же, что у
-    # AthleteProfileIn.weight_kg (ck_athlete_weight_kg): спецкатегория body_metrics,
+    # AthleteProfileIn.weight_kg (ck_athlete_weight_kg): антропометрия,
     # синхронизируется в AthleteProfile.weight_kg при сабмите (wellness_service).
     weight_kg: Decimal | None = Field(default=None, ge=30, le=250, decimal_places=1)
     comment: str | None = Field(default=None, max_length=1000)
@@ -74,8 +74,7 @@ class WellnessOut(BaseModel):
     symptom_details: str | None
     symptom_type: SymptomType | None
     resting_hr: int | None
-    # Спецкатегория body_metrics: нулится в api/v1/wellness.py:athlete_history
-    # при отсутствии ensure_can_view_sensitive. GET /wellness/me — себе всегда.
+    # Вес виден самому игроку и штабу команды; admin-only получает null.
     weight_kg: Decimal | None
     comment: str | None
     pain_points: list[PainPointOut] = Field(default_factory=list)

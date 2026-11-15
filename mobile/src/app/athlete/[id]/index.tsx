@@ -42,9 +42,7 @@ import {
   useTheme,
 } from '@/theme';
 
-/** Вес и ИМТ (docs/plan-weight-tracking.md) — спецкатегория body_metrics, та же
- * видимость, что рост/вес в профиле: по согласию игрока, формулировка «нет
- * данных» одна и та же для «нет согласия» и «правда нечего показывать». */
+/** Вес, ИМТ и цель доступны тренерам и врачам своей команды без отдельного согласия. */
 function WeightSection({ athleteId, wellness }: { athleteId: string; wellness: WellnessEntry[] }) {
   const styles = useStyles(makeStyles);
   const { t } = useTranslation();
@@ -65,13 +63,16 @@ function WeightSection({ athleteId, wellness }: { athleteId: string; wellness: W
         ) : (
           <>
             {bmi != null && (
-              <View style={styles.summaryRow}>
+              <View style={styles.weightSummaryRow}>
                 <View style={styles.summaryItem}>
                   <MicroLabel>{t('athleteReport.weight.current')}</MicroLabel>
                   <Text style={[styles.summaryValue, { color }]}>{profile.data?.weight_kg} кг</Text>
+                  <Text style={[styles.weightCategory, { color }]}>
+                    {t(`bmi.zone.${profile.data!.bmi_zone}`)}
+                  </Text>
                 </View>
                 <Chip
-                  label={`${t('athleteReport.weight.bmi')} ${bmi.toFixed(1)} · ${t(`bmi.zone.${profile.data!.bmi_zone}`)}`}
+                  label={`${t('athleteReport.weight.bmi')} ${bmi.toFixed(1)}`}
                   dotColor={color}
                 />
               </View>
@@ -84,9 +85,6 @@ function WeightSection({ athleteId, wellness }: { athleteId: string; wellness: W
                 target={goal.data?.target_weight_kg}
               />
             ) : null}
-            {bmi != null && profile.data!.bmi_zone !== 'normal' && (
-              <Text style={styles.hint}>{t(`bmi.note.${profile.data!.bmi_zone}`)}</Text>
-            )}
           </>
         )}
       </View>
@@ -130,7 +128,7 @@ function ActivitySection({ wellness, rpe }: { wellness: WellnessEntry[]; rpe: Rp
 
 /** Цикл — спецкатегория, доступ по согласию игрока (ensure_can_view_sensitive).
  * Без согласия хук получает 403 и секция просто не рисуется — без тоста с ошибкой,
- * как и остальные данные, закрытые согласием (body_metrics и т.п.). Витрина одна
+ * как и остальные поля отчёта. Витрина одна
  * для coach и medic — минимальный трекинг (решение 2026-10-16), детализации не
  * осталось скрывать. */
 function CycleSection({ athleteId }: { athleteId: string }) {
@@ -427,8 +425,15 @@ const makeStyles = (th: Theme) =>
       overflow: 'hidden',
     },
     summaryRow: { flexDirection: 'row', gap: spacing.xl },
+    weightSummaryRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      gap: spacing.m,
+    },
     summaryItem: { gap: spacing.xs },
     summaryValue: { fontFamily: th.font.display, fontSize: 30 },
+    weightCategory: { fontFamily: th.font.regular, fontSize: 12 },
     hint: { fontFamily: th.font.regular, fontSize: 13, color: th.textMuted },
     empty: { fontFamily: th.font.regular, fontSize: 15, color: th.textMuted },
     // Заголовок-полоса — брендинг организации (theme.brand/brandDark уже меняется

@@ -259,12 +259,6 @@ const es: typeof ru = {
       overweight: 'Sobrepeso',
       obese: 'Obesidad',
     },
-    note: {
-      underweight: 'IMC bajo. Conviene hablar con el médico del equipo.',
-      overweight:
-        'IMC elevado. En un deportista con masa muscular desarrollada, el IMC puede sobreestimar el riesgo: es una referencia, no un diagnóstico. Conviene hablar con el médico del equipo.',
-      obese: 'IMC alto. Se recomienda consultar con el médico del equipo.',
-    },
   },
   weightGoal: {
     setButton: 'Poner una meta',
@@ -428,7 +422,7 @@ const es: typeof ru = {
     position: 'Posición',
     height: 'Altura, cm',
     weight: 'Peso, kg',
-    bodyMetricsHint: 'La altura y el peso los ve el médico solo con tu consentimiento →',
+    bodyMetricsHint: 'Los entrenadores y médicos de tu equipo pueden ver tu altura, peso y objetivo de peso.',
     changePhoto: 'Cambiar foto',
     removePhoto: 'Quitar foto',
     photoError: 'No se pudo subir la foto',
@@ -539,6 +533,7 @@ const es: typeof ru = {
   },
   privacy: {
     title: 'Privacidad',
+    empty: 'No hay ajustes adicionales de privacidad. Los entrenadores y médicos de tu equipo pueden ver tu altura, peso y objetivo de peso.',
     scope: {
       cycle: 'Ciclo menstrual',
       nutrition: 'Nutrición y calorías',
@@ -557,7 +552,7 @@ const es: typeof ru = {
     },
     granted: 'Acceso concedido',
     revoked: 'Acceso cerrado',
-    legal: 'Categoría especial de datos personales (152-FZ, art. 10). Los datos se guardan en servidores en Rusia y, si no eliges otra cosa aquí, solo los ves tú. Retirarlo cierra el acceso de inmediato.',
+    legal: 'Estos ajustes solo se aplican al ciclo y la alimentación. Los datos se guardan en servidores en Rusia. Retirar el consentimiento cierra de inmediato el acceso del personal a la categoría seleccionada.',
     policyVersion: 'Versión del consentimiento',
   },
   legalDocs: {
