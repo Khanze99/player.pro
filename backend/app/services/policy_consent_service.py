@@ -40,18 +40,13 @@ async def get_active(db: AsyncSession, user_id: uuid.UUID, kind: PolicyConsentKi
     return row.scalar_one_or_none()
 
 
-def _is_current(consent: PolicyConsent | None, kind: PolicyConsentKind) -> bool:
-    """Нет записи или версия текста устарела — считаем, что согласия нет."""
-    return consent is not None and consent.policy_version == _current_version(kind)
-
-
 async def status_for(db: AsyncSession, user_id: uuid.UUID) -> dict[PolicyConsentKind, PolicyConsentStatusOut]:
-    """Статус согласия по каждому kind — для GET /consents/policy и MeOut."""
+    """Публикация новой редакции не отзывает ранее подписанное активное согласие."""
     statuses: dict[PolicyConsentKind, PolicyConsentStatusOut] = {}
     for kind in PolicyConsentKind:
         active = await get_active(db, user_id, kind)
         statuses[kind] = PolicyConsentStatusOut(
-            granted=_is_current(active, kind),
+            granted=active is not None,
             policy_version=active.policy_version if active else None,
             granted_at=active.granted_at if active else None,
         )
@@ -59,8 +54,10 @@ async def status_for(db: AsyncSession, user_id: uuid.UUID) -> dict[PolicyConsent
 
 
 async def has_all(db: AsyncSession, user_id: uuid.UUID) -> bool:
-    """Есть ли активное согласие актуальной версии по обоим kind — серверный
-    гейт онбординга (`require_consented`)."""
+    """Есть ли активное согласие по обоим kind — гейт первичного онбординга/отзыва.
+
+    Версии текстов не блокируют использование приложения уже подписавшими его.
+    """
     statuses = await status_for(db, user_id)
     return all(status.granted for status in statuses.values())
 

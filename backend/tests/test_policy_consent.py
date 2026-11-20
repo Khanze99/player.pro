@@ -6,7 +6,9 @@
 """
 
 import types
+import uuid
 
+import pytest
 from httpx import AsyncClient
 from sqlalchemy import func, select
 
@@ -145,8 +147,8 @@ async def test_has_all_true_when_both_kinds_granted(db):
     assert await policy_consent_service.has_all(db, user.id) is True
 
 
-async def test_stale_policy_version_does_not_count_as_consented(db, monkeypatch):
-    """Согласие дано под старым текстом — при смене версии его нужно переспросить."""
+async def test_policy_revision_does_not_invalidate_existing_consents(db, monkeypatch):
+    """Публикация текста не отзывает уже подписанные документы."""
     user = await _make_user(db, "stale@example.com")
     await policy_consent_service.grant(db, user.id, PolicyConsentKind.terms)
     await policy_consent_service.grant(db, user.id, PolicyConsentKind.health_data)
@@ -154,11 +156,32 @@ async def test_stale_policy_version_does_not_count_as_consented(db, monkeypatch)
 
     monkeypatch.setattr(settings, "terms_policy_version", "2099-01-01")
 
-    assert await policy_consent_service.has_all(db, user.id) is False
+    assert await policy_consent_service.has_all(db, user.id) is True
     status = await policy_consent_service.status_for(db, user.id)
-    assert status[PolicyConsentKind.terms].granted is False
-    # health_data не задет сменой версии terms — независимость kind'ов
+    assert status[PolicyConsentKind.terms].granted is True
     assert status[PolicyConsentKind.health_data].granted is True
+
+
+async def test_health_consent_remains_active_after_later_policy_revisions(db, monkeypatch):
+    user = await _make_user(db, "health-future@example.com")
+    await policy_consent_service.grant(db, user.id, PolicyConsentKind.terms)
+    for version in ("2026-11-08", "2026-11-19"):
+        monkeypatch.setattr(settings, "health_consent_policy_version", version)
+        await policy_consent_service.grant(db, user.id, PolicyConsentKind.health_data)
+        assert await policy_consent_service.has_all(db, user.id) is True
+        monkeypatch.setattr(settings, "health_consent_policy_version", "2099-01-01")
+        assert await policy_consent_service.has_all(db, user.id) is True
+
+
+async def test_revoked_legacy_health_consent_is_not_accepted(db):
+    user = await _make_user(db, "health-legacy-revoked@example.com")
+    await policy_consent_service.grant(db, user.id, PolicyConsentKind.terms)
+    consent = await policy_consent_service.grant(db, user.id, PolicyConsentKind.health_data)
+    assert await policy_consent_service.has_all(db, user.id) is True
+    await policy_consent_service.revoke(db, user.id, PolicyConsentKind.health_data)
+    assert consent.revoked_at is not None
+    assert consent.policy_version == "2026-11-08"
+    assert await policy_consent_service.has_all(db, user.id) is False
 
 
 async def test_kinds_are_independent(db):
@@ -184,6 +207,19 @@ async def test_policy_consent_api_default_is_not_granted(client):
     assert body["health_data"]["granted"] is False
 
 
+@pytest.mark.parametrize("kind", ["terms", "health_data"])
+async def test_policy_consent_uses_existing_document_without_new_version_requirement(client, kind):
+    user = await _register_without_consent(client, "policy-existing@example.com", "dev-existing")
+    response = await client.put(
+        "/api/v1/consents/policy",
+        json={"kind": kind, "granted": True},
+        headers=user["headers"],
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()[kind]["granted"] is True
+    assert response.json()[kind]["policy_version"] == "2026-11-08"
+
+
 async def test_policy_consent_api_grant_and_revoke_roundtrip(client):
     user = await _register_without_consent(client, "policy-roundtrip@example.com", "dev-rt-0001")
 
@@ -198,7 +234,13 @@ async def test_policy_consent_api_grant_and_revoke_roundtrip(client):
     assert body["health_data"]["granted"] is False
 
     resp = await client.put(
-        "/api/v1/consents/policy", json={"kind": "health_data", "granted": True}, headers=user["headers"]
+        "/api/v1/consents/policy",
+        json={
+            "kind": "health_data",
+            "granted": True,
+            "policy_version": settings.health_consent_policy_version,
+        },
+        headers=user["headers"],
     )
     assert resp.status_code == 200
     body = resp.json()
@@ -229,12 +271,48 @@ async def test_gated_endpoint_returns_200_after_both_consents_granted(client):
 
     for kind in ("terms", "health_data"):
         resp = await client.put(
-            "/api/v1/consents/policy", json={"kind": kind, "granted": True}, headers=user["headers"]
+            "/api/v1/consents/policy",
+            json={
+                "kind": kind,
+                "granted": True,
+                "policy_version": settings.terms_policy_version
+                if kind == "terms"
+                else settings.health_consent_policy_version,
+            },
+            headers=user["headers"],
         )
         assert resp.status_code == 200, resp.text
 
     resp = await client.get("/api/v1/wellness/me", headers=user["headers"])
     assert resp.status_code == 200, resp.text
+
+
+async def test_older_signed_documents_keep_app_open_without_rewriting_records(client, db, monkeypatch):
+    from tests.conftest import register_user
+
+    user = await register_user(client, "older-signed@example.com")
+    user_id = uuid.UUID(user["user_id"])
+    consents = list(await db.scalars(select(PolicyConsent).where(PolicyConsent.user_id == user_id)))
+    for consent in consents:
+        consent.policy_version = "2026-09-03"
+    await db.commit()
+    before = [(c.id, c.policy_version, c.granted_at, c.revoked_at) for c in consents]
+    monkeypatch.setattr(settings, "terms_policy_version", "2099-01-01")
+    monkeypatch.setattr(settings, "health_consent_policy_version", "2099-01-01")
+
+    me = await client.get("/api/v1/auth/me", headers=user["headers"])
+    assert me.status_code == 200, me.text
+    assert me.json()["terms_accepted"] is True
+    assert me.json()["health_consent_accepted"] is True
+    status = await client.get("/api/v1/consents/policy", headers=user["headers"])
+    for kind in ("terms", "health_data"):
+        assert status.json()[kind]["granted"] is True
+        assert status.json()[kind]["policy_version"] == "2026-09-03"
+    wellness = await client.get("/api/v1/wellness/me", headers=user["headers"])
+    assert wellness.status_code == 200, wellness.text
+    db.expire_all()
+    after = list(await db.scalars(select(PolicyConsent).where(PolicyConsent.user_id == user_id)))
+    assert sorted(before) == sorted((c.id, c.policy_version, c.granted_at, c.revoked_at) for c in after)
 
 
 async def test_gated_endpoint_still_403_with_only_one_consent(client):
@@ -253,7 +331,15 @@ async def test_revoking_consent_closes_gate_again(client):
     user = await _register_without_consent(client, "gate-revoke@example.com", "dev-gate-0004")
     for kind in ("terms", "health_data"):
         resp = await client.put(
-            "/api/v1/consents/policy", json={"kind": kind, "granted": True}, headers=user["headers"]
+            "/api/v1/consents/policy",
+            json={
+                "kind": kind,
+                "granted": True,
+                "policy_version": settings.terms_policy_version
+                if kind == "terms"
+                else settings.health_consent_policy_version,
+            },
+            headers=user["headers"],
         )
         assert resp.status_code == 200
 
@@ -406,7 +492,13 @@ async def test_me_out_reflects_each_consent_independently(client):
     assert body["health_consent_accepted"] is False, "грант terms не должен подтягивать health_data"
 
     resp = await client.put(
-        "/api/v1/consents/policy", json={"kind": "health_data", "granted": True}, headers=user["headers"]
+        "/api/v1/consents/policy",
+        json={
+            "kind": "health_data",
+            "granted": True,
+            "policy_version": settings.health_consent_policy_version,
+        },
+        headers=user["headers"],
     )
     assert resp.status_code == 200
 

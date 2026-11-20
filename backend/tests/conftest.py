@@ -31,6 +31,7 @@ from httpx import ASGITransport, AsyncClient  # noqa: E402
 
 import app.core.otp as otp_module  # noqa: E402
 import app.models  # noqa: E402, F401 — регистрация моделей в metadata
+from app.config import settings  # noqa: E402
 from app.database import AsyncSessionLocal, Base, engine  # noqa: E402
 from app.main import app as fastapi_app  # noqa: E402
 
@@ -112,7 +113,15 @@ async def register_user(client: AsyncClient, identifier: str, device_id: str = "
     headers = {"Authorization": f"Bearer {tokens['access_token']}"}
     for kind in ("terms", "health_data"):
         resp = await client.put(
-            "/api/v1/consents/policy", json={"kind": kind, "granted": True}, headers=headers
+            "/api/v1/consents/policy",
+            json={
+                "kind": kind,
+                "granted": True,
+                "policy_version": settings.terms_policy_version
+                if kind == "terms"
+                else settings.health_consent_policy_version,
+            },
+            headers=headers,
         )
         assert resp.status_code == 200, resp.text
     me = await client.get("/api/v1/auth/me", headers=headers)

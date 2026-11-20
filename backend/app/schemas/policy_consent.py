@@ -6,8 +6,10 @@ from app.models.enums import PolicyConsentKind
 
 
 class PolicyConsentStatusOut(BaseModel):
-    """Статус согласия по одному kind. Отсутствие активной записи актуальной
-    версии — granted=False, а не ошибка."""
+    """Статус согласия по одному kind. Нет активной записи — granted=False.
+
+    Новая редакция текста сама по себе не отменяет ранее подписанное согласие.
+    """
 
     granted: bool
     policy_version: str | None = None

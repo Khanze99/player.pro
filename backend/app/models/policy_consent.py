@@ -34,7 +34,7 @@ class PolicyConsent(Base):
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), index=True)
     kind: Mapped[PolicyConsentKind] = mapped_column(String(16))
-    # Версия текста согласия на момент дачи — при смене текста согласие надо переспросить
+    # Фактически подписанная версия; публикация нового текста не меняет эту запись.
     policy_version: Mapped[str] = mapped_column(String(32))
     granted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
