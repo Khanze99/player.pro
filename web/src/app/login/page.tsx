@@ -17,7 +17,6 @@ export default function LoginPage() {
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [debugCode, setDebugCode] = useState<string | null>(null);
 
   async function requestCode(e: FormEvent) {
     e.preventDefault();
@@ -31,7 +30,6 @@ export default function LoginPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail ?? "Не удалось отправить код");
-      setDebugCode(data.debug_code ?? null);
       setStep("code");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Ошибка");
@@ -101,9 +99,6 @@ export default function LoginPage() {
                 autoFocus
                 className="w-full bg-[var(--surface)] border border-[var(--border-strong)] rounded-sm px-3 py-2.5 text-sm text-[var(--text)] tracking-[0.3em] text-center placeholder-[var(--text-faint)] focus:outline-none focus:border-[var(--accent)] transition-colors"
               />
-              {debugCode && (
-                <p className="text-xs text-[var(--text-faint)] mt-1.5">Debug-код: {debugCode}</p>
-              )}
               <button
                 type="button"
                 onClick={() => {

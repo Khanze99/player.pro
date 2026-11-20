@@ -15,5 +15,12 @@ export async function POST(request: Request) {
     body: JSON.stringify({ identifier }),
   });
   const data = await res.json().catch(() => ({}));
-  return NextResponse.json(data, { status: res.status });
+  // Never expose OTPs to the browser, even if the backend has DEBUG enabled.
+  const body = res.ok
+    ? { sent: data.sent === true }
+    : { detail: data.detail ?? "Не удалось отправить код" };
+  return NextResponse.json(body, {
+    status: res.status,
+    headers: { "Cache-Control": "no-store" },
+  });
 }
