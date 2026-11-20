@@ -268,7 +268,7 @@ function PlayerRow({ player, tab }: { player: SquadPlayer; tab: StatusTab }) {
               ? 'yellow'
               : 'red',
       ),
-      hint: t(`coach.availability.${player.availability ?? 'full'}`),
+      hint: player.availability ? t(`coach.availability.${player.availability}`) : t('availabilityEditor.unknown'),
     },
   };
   const { value, color, hint } = view[tab];

@@ -73,7 +73,7 @@ function PlayerRow({ player, last }: { player: SquadPlayer; last: boolean }) {
           </View>
         ) : (
           <Text style={[rowStyles.flag, { color: th.textMuted }]}>
-            {t(`coach.availability.${player.availability ?? 'full'}`).toUpperCase()}
+            {(player.availability ? t(`coach.availability.${player.availability}`) : t('availabilityEditor.unknown')).toUpperCase()}
           </Text>
         )}
       </View>

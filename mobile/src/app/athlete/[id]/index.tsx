@@ -18,6 +18,7 @@ import {
   useAthleteWellnessHistory,
 } from '@/api/hooks';
 import type { RpeEntry, WellnessEntry } from '@/api/types';
+import { AvailabilityCard } from '@/components/AvailabilityCard';
 import { ActivityHeatmap } from '@/components/ActivityHeatmap';
 import { BodyMap } from '@/components/BodyMap';
 import { Chip } from '@/components/Chip';
@@ -197,6 +198,8 @@ export default function AthleteReport() {
             <CloseIcon color={th.textMuted} />
           </Pressable>
         </View>
+
+        <AvailabilityCard key={params.id} athleteId={params.id} />
 
         <View style={styles.card}>
           <View style={styles.cardHead}>
