@@ -6,6 +6,7 @@
 // отозванный/невалидный refresh, и его чинит только повторный логин.
 
 import { API_URL } from "@/lib/env";
+import type { AvailabilityNotes, AvailabilityPage, AvailabilityPayload, AvailabilitySaved, AvailabilityState } from "@/types/availability";
 import type {
   AthleteProfile,
   Branding,
@@ -173,6 +174,15 @@ export const api = {
   // (docs/plan-weight-tracking.md).
   athleteWeightGoal: (athleteId: string, token: string) =>
     request<WeightGoal | null>(`/users/athletes/${athleteId}/weight-goal`, token),
+
+  availabilityState: (id: string, token: string) =>
+    request<AvailabilityState>(`/availability/athletes/${id}/state`, token),
+  availabilityHistory: (id: string, token: string, page = 1) =>
+    request<AvailabilityPage>(`/availability/athletes/${id}/changes?page=${page}`, token),
+  availabilityNotes: (id: string, token: string, page = 1) =>
+    request<AvailabilityNotes>(`/availability/athletes/${id}/medical-notes?page=${page}`, token),
+  changeAvailability: (data: AvailabilityPayload, token: string) =>
+    post<AvailabilitySaved>("/availability/changes", token, data),
 
   medicalExams: (athleteId: string, token: string) =>
     request<MedicalExams>(`/medical-exams/athletes/${athleteId}`, token),

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { AvailabilityCard } from "@/components/AvailabilityCard";
 import { CycleCard } from "@/components/CycleCard";
 import { DayDetailPanel } from "@/components/DayDetailPanel";
 import { LoadChart, ReadinessTrendChart, WeightCard } from "@/components/LoadChart";
@@ -94,6 +95,8 @@ export default async function AthletePage({
           </div>
         )}
       </div>
+
+      <AvailabilityCard key={athleteId} athleteId={athleteId} />
 
       <MedicalExamsCard athleteId={athleteId} data={medicalExams} canEdit={canEditMedicalExams} />
 
