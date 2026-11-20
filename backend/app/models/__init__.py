@@ -1,5 +1,5 @@
 from app.models.audit import AuditLog
-from app.models.availability import AvailabilityRecord
+from app.models.availability import AvailabilityBaseline, AvailabilityChange, AvailabilityRecord
 from app.models.branding import OrganizationBranding
 from app.models.consent import DataConsent
 from app.models.cycle import CycleLog, CycleSettings
@@ -55,6 +55,8 @@ from app.models.workout import Workout, WorkoutItem, WorkoutSession, WorkoutSess
 __all__ = [
     "AuditLog",
     "AvailabilityRecord",
+    "AvailabilityBaseline",
+    "AvailabilityChange",
     "AttendanceStatus",
     "AvailabilityStatus",
     "DataConsent",

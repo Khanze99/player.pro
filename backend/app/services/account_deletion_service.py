@@ -33,7 +33,7 @@ from sqlalchemy import delete, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.audit import AuditLog
-from app.models.availability import AvailabilityRecord
+from app.models.availability import AvailabilityBaseline, AvailabilityChange, AvailabilityRecord
 from app.models.consent import DataConsent
 from app.models.cycle import CycleLog, CycleSettings
 from app.models.enums import GlobalRole, InvitationStatus, UserStatus
@@ -94,6 +94,8 @@ OWNED = [
     (Streak, Streak.athlete_id),
     (InjuryRecord, InjuryRecord.athlete_id),
     (MedicalExam, MedicalExam.athlete_id),
+    (AvailabilityChange, AvailabilityChange.athlete_id),
+    (AvailabilityBaseline, AvailabilityBaseline.athlete_id),
     (AvailabilityRecord, AvailabilityRecord.athlete_id),
     (SeasonPlayerStats, SeasonPlayerStats.athlete_id),
     (Notification, Notification.user_id),
@@ -110,6 +112,7 @@ KEPT_REFERENCES = {
     "workouts.owner_id": "списки упражнений командных событий выполняют игроки (шаблоны и личные удаляются)",
     "injury_records.created_by": "травмы, которые он как врач вёл другим игрокам",
     "medical_exams.created_by": "медосмотры других игроков, внесённые им",
+    "availability_changes.actor_id": "решения доступности других игроков, внесённые сотрудником",
     "availability_records.set_by": "статусы допуска других игроков, выставленные им",
     "season_player_stats.created_by": "статистика других игроков, внесённая им",
     "invitations.invited_by": "клубные приглашения (ожидающие отзываются, если он был последним админом)",

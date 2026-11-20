@@ -235,6 +235,31 @@ async def ensure_can_manage_medical_exams(db: AsyncSession, viewer: User, athlet
         raise _forbidden()
 
 
+async def availability_roles(db: AsyncSession, viewer: User, athlete_id: uuid.UUID) -> set[TeamRole]:
+    """Explicit tenant and athlete-membership checks; never pick an arbitrary shared role."""
+    athlete = await db.get(User, athlete_id)
+    if athlete is None or (viewer.id != athlete_id and viewer.org_id != athlete.org_id):
+        raise HTTPException(status_code=404, detail="Игрок не найден")
+    viewer_tm = TeamMembership.__table__.alias("availability_viewer")
+    athlete_tm = TeamMembership.__table__.alias("availability_athlete")
+    roles = await db.scalars(
+        select(viewer_tm.c.team_role)
+        .join(athlete_tm, viewer_tm.c.team_id == athlete_tm.c.team_id)
+        .join(Team, Team.id == athlete_tm.c.team_id)
+        .where(
+            viewer_tm.c.user_id == viewer.id,
+            athlete_tm.c.user_id == athlete_id,
+            athlete_tm.c.team_role == TeamRole.athlete,
+            Team.org_id == athlete.org_id,
+            viewer_tm.c.team_role.in_([r.value for r in STAFF_ROLES]),
+        )
+    )
+    result = {TeamRole(role) for role in roles}
+    if not result and viewer.id != athlete_id and not is_org_admin(viewer, athlete.org_id):
+        raise _forbidden()
+    return result
+
+
 async def ensure_can_manage_athlete_status(db: AsyncSession, viewer: User, athlete_id: uuid.UUID) -> None:
     """Статусы доступности/травмы: medic — CRUD, coach/head_coach — запись статуса, admin — да."""
     athlete = await db.get(User, athlete_id)

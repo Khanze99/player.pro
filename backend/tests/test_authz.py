@@ -150,21 +150,28 @@ async def test_dashboard_access(client):
 
 async def test_availability_write_rules(client):
     org = await build_org(client)
-    payload = {"athlete_id": org["athlete1"]["user_id"], "date": str(date.today()), "status": "modified"}
-    # Врач и тренер — можно
+    from uuid import uuid4
+
+    payload = {
+        "athlete_id": org["athlete1"]["user_id"],
+        "date": str(date.today()),
+        "status": "modified",
+        "comment": "Тестовое ограничение",
+        "direction": "medical",
+        "expected_version": 0,
+        "request_id": str(uuid4()),
+    }
     assert (
-        await client.put("/api/v1/availability", json=payload, headers=org["medic"]["headers"])
-    ).status_code == 200
+        await client.post("/api/v1/availability/changes", json=payload, headers=org["medic"]["headers"])
+    ).status_code == 201
+    payload.update(direction="coaching", expected_version=1, request_id=str(uuid4()))
     assert (
-        await client.put("/api/v1/availability", json=payload, headers=org["coach"]["headers"])
-    ).status_code == 200
-    # Игрок (даже про себя) и посторонний — нельзя
-    assert (
-        await client.put("/api/v1/availability", json=payload, headers=org["athlete1"]["headers"])
-    ).status_code == 403
-    assert (
-        await client.put("/api/v1/availability", json=payload, headers=org["outsider"]["headers"])
-    ).status_code == 403
+        await client.post("/api/v1/availability/changes", json=payload, headers=org["coach"]["headers"])
+    ).status_code == 201
+    for who in ("athlete1", "outsider"):
+        assert (
+            await client.post("/api/v1/availability/changes", json=payload, headers=org[who]["headers"])
+        ).status_code in (403, 404)
 
 
 async def test_team_management_requires_admin(client):

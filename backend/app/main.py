@@ -8,7 +8,8 @@ from fastapi.staticfiles import StaticFiles
 
 from app.api.v1.router import router
 from app.config import settings
-from app.core.errors import validation_exception_handler
+from app.core.availability import AvailabilityError
+from app.core.errors import availability_exception_handler, validation_exception_handler
 
 logging.basicConfig(
     level=logging.DEBUG if settings.debug else logging.INFO,
@@ -42,6 +43,7 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 (Path(__file__).resolve().parent.parent / settings.media_dir / "avatars").mkdir(parents=True, exist_ok=True)
 
 app.add_exception_handler(RequestValidationError, validation_exception_handler)
+app.add_exception_handler(AvailabilityError, availability_exception_handler)
 app.include_router(router)
 
 

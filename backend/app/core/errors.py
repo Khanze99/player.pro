@@ -14,6 +14,8 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
+from app.core.availability import AvailabilityError
+
 
 def _finite(value: Any) -> Any:
     if isinstance(value, float) and not math.isfinite(value):
@@ -26,4 +28,17 @@ def _finite(value: Any) -> Any:
 
 
 async def validation_exception_handler(_request: Request, exc: RequestValidationError) -> JSONResponse:
-    return JSONResponse(status_code=422, content={"detail": _finite(jsonable_encoder(exc.errors()))})
+    errors = exc.errors()
+    if _request.url.path.startswith("/api/v1/availability"):
+        errors = [{k: v for k, v in error.items() if k in {"loc", "msg", "type"}} for error in errors]
+    return JSONResponse(status_code=422, content={"detail": _finite(jsonable_encoder(errors))})
+
+
+async def availability_exception_handler(_request: Request, exc: Exception) -> JSONResponse:
+    assert isinstance(exc, AvailabilityError)
+    codes = {"forbidden": 403, "not_found": 404, "conflict": 409, "invalid": 422, "retired": 410}
+    return JSONResponse(
+        status_code=codes[exc.code],
+        content={"detail": str(exc), "code": exc.code},
+        headers={"Cache-Control": "private, no-store"},
+    )

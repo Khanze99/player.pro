@@ -10,7 +10,7 @@ from app.models.enums import STAFF_ROLES, TeamRole
 from app.models.team import Location, Team, TeamMembership
 from app.models.user import User, display_name
 from app.schemas.team import LocationIn, MemberOut, TeamCreateIn, TeamUpdateIn, TransferIn
-from app.services import audit_service
+from app.services import audit_service, availability_service
 
 
 def _is_staff_role(role: TeamRole) -> bool:
@@ -103,6 +103,9 @@ async def upsert_member(db: AsyncSession, team: Team, user_id: uuid.UUID, team_r
         db.add(TeamMembership(user_id=user_id, team_id=team.id, team_role=team_role))
     else:
         existing.team_role = team_role
+    if team_role == TeamRole.athlete:
+        await db.flush()
+        await availability_service.initialize_athlete(db, member)
     await db.commit()
 
 

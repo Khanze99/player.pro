@@ -425,12 +425,21 @@ async def test_audit_details_about_deleted_user_are_redacted(client, db):
     athlete_id = org["athlete1"]["user_id"]
     other_id = org["athlete2"]["user_id"]
     for target in (athlete_id, other_id):
-        resp = await client.put(
-            "/api/v1/availability",
-            json={"athlete_id": target, "date": str(date.today()), "status": "unavailable"},
+        resp = await client.post(
+            "/api/v1/availability/changes",
+            json={
+                "athlete_id": target,
+                "date": str(date.today()),
+                "status": "unavailable",
+                "direction": "medical",
+                "comment": "Тестовое ограничение",
+                "medical_note": "Синтетический диагноз",
+                "expected_version": 0,
+                "request_id": str(uuid.uuid4()),
+            },
             headers=org["medic"]["headers"],
         )
-        assert resp.status_code == 200, resp.text
+        assert resp.status_code == 201, resp.text
     resp = await client.post(
         "/api/v1/injuries",
         json={

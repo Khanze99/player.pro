@@ -7,13 +7,13 @@
 import uuid
 from collections import Counter
 from datetime import UTC, date, datetime, time, timedelta
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.core import calculations as calc
-from app.models.availability import AvailabilityRecord
 from app.models.consent import DataConsent
 from app.models.cycle import CycleLog
 from app.models.enums import (
@@ -27,6 +27,7 @@ from app.models.enums import (
 from app.models.event import Attendance, Event
 from app.models.injury import InjuryRecord
 from app.models.metric import DailyMetric
+from app.models.organization import Organization
 from app.models.pain_point import PainPoint
 from app.models.rpe import RpeEntry
 from app.models.team import Team, TeamMembership
@@ -52,6 +53,13 @@ EVENTS_LIMIT = 5
 PAIN_THRESHOLD = 7  # soreness >= 7 считаем «есть боль» для утреннего отчёта
 
 
+async def local_today(db: AsyncSession, team_id: uuid.UUID) -> date:
+    timezone = await db.scalar(
+        select(Organization.timezone).join(Team, Team.org_id == Organization.id).where(Team.id == team_id)
+    )
+    return datetime.now(UTC).astimezone(ZoneInfo(timezone or "UTC")).date()
+
+
 async def _team_athletes(db: AsyncSession, team_id: uuid.UUID) -> list[tuple[uuid.UUID, str]]:
     rows = await db.execute(
         select(User.id, User.last_name, User.first_name)
@@ -65,16 +73,8 @@ async def _team_athletes(db: AsyncSession, team_id: uuid.UUID) -> list[tuple[uui
 async def _current_availability(
     db: AsyncSession, athlete_ids: list[uuid.UUID], day: date
 ) -> dict[uuid.UUID, AvailabilityStatus]:
-    """Статус дня наследуется от последней записи не позже day."""
-    result: dict[uuid.UUID, AvailabilityStatus] = {}
-    rows = await db.execute(
-        select(AvailabilityRecord.athlete_id, AvailabilityRecord.status)
-        .where(AvailabilityRecord.athlete_id.in_(athlete_ids), AvailabilityRecord.date <= day)
-        .order_by(AvailabilityRecord.athlete_id, AvailabilityRecord.date)
-    )
-    for athlete_id, status_value in rows:
-        result[athlete_id] = AvailabilityStatus(status_value)  # последняя по дате перезапишет
-    return result
+    timelines = await availability_service.load_timelines(db, athlete_ids)
+    return {key: value for key, timeline in timelines.items() if (value := timeline.status(day)) is not None}
 
 
 async def _active_injuries(db: AsyncSession, athlete_ids: list[uuid.UUID]) -> set[uuid.UUID]:
@@ -159,16 +159,18 @@ async def squad_status(db: AsyncSession, team_id: uuid.UUID, day: date) -> Squad
     )
     positions = dict(positions_rows.all())
 
-    availability = await _current_availability(db, athlete_ids, day)
+    timelines = await availability_service.load_timelines(db, athlete_ids)
+    availability = {
+        key: value for key, timeline in timelines.items() if (value := timeline.status(day)) is not None
+    }
     injured = await _active_injuries(db, athlete_ids)
     pain_marked = await _pain_marked_today(db, athlete_ids, day)
     on_period = await _on_period_today(db, athlete_ids, day)
     window = await _window_metrics(db, athlete_ids, day, LOAD_WINDOW_DAYS)
 
-    availability_pct: dict[uuid.UUID, float | None] = {}
-    for athlete_id in athlete_ids:
-        summary = await availability_service.summary_90d(db, athlete_id, day)
-        availability_pct[athlete_id] = summary.availability_percent
+    availability_pct = {
+        athlete_id: timeline.summary(day).availability_percent for athlete_id, timeline in timelines.items()
+    }
 
     players = []
     for athlete_id, name in athletes:

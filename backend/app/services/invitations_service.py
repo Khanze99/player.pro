@@ -13,13 +13,13 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.models.enums import InvitationStatus
+from app.models.enums import InvitationStatus, TeamRole
 from app.models.invitation import Invitation
 from app.models.organization import Organization
 from app.models.team import Team, TeamMembership
 from app.models.user import User
 from app.schemas.organization import InvitationCreateIn
-from app.services import notify_service, teams_service, users_service
+from app.services import availability_service, notify_service, teams_service, users_service
 from app.services.auth_service import _find_user, normalize_identifier
 from app.services.notify_service import NotifyError
 
@@ -160,6 +160,9 @@ async def consume_for_user(db: AsyncSession, user: User) -> None:
             )
         else:
             existing.team_role = invitation.team_role
+        if invitation.team_role == TeamRole.athlete:
+            await db.flush()
+            await availability_service.initialize_athlete(db, user)
 
     invitation.status = InvitationStatus.accepted
     invitation.accepted_at = now

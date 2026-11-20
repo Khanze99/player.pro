@@ -14,16 +14,22 @@ router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 @router.get("/teams/{team_id}/squad-status", response_model=SquadStatusOut)
 async def squad_status(team_id: uuid.UUID, user: CurrentUser, db: DbSession, day: date | None = None):
     await authz.require_team_staff(db, user, team_id)
-    return await dashboard_service.squad_status(db, team_id, day or date.today())
+    return await dashboard_service.squad_status(
+        db, team_id, day or await dashboard_service.local_today(db, team_id)
+    )
 
 
 @router.get("/teams/{team_id}/summary", response_model=TeamSummaryOut)
 async def team_summary(team_id: uuid.UUID, user: CurrentUser, db: DbSession, day: date | None = None):
     await authz.require_team_staff(db, user, team_id)
-    return await dashboard_service.team_summary(db, team_id, day or date.today())
+    return await dashboard_service.team_summary(
+        db, team_id, day or await dashboard_service.local_today(db, team_id)
+    )
 
 
 @router.get("/teams/{team_id}/injuries", response_model=TeamInjuriesOut)
 async def team_injuries(team_id: uuid.UUID, user: CurrentUser, db: DbSession, day: date | None = None):
     await authz.require_team_staff(db, user, team_id)
-    return await dashboard_service.team_injuries(db, team_id, day or date.today())
+    return await dashboard_service.team_injuries(
+        db, team_id, day or await dashboard_service.local_today(db, team_id)
+    )

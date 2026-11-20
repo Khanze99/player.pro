@@ -193,13 +193,23 @@ async def test_past_event_does_not_notify(client, db):
 
 
 async def test_availability_change_notifies_athlete(client):
+    from uuid import uuid4
+
     org = await build_org(client)
-    resp = await client.put(
-        "/api/v1/availability",
-        json={"athlete_id": org["athlete1"]["user_id"], "date": str(date.today()), "status": "unavailable"},
+    resp = await client.post(
+        "/api/v1/availability/changes",
+        json={
+            "athlete_id": org["athlete1"]["user_id"],
+            "date": str(date.today()),
+            "status": "unavailable",
+            "direction": "medical",
+            "comment": "Тестовое ограничение",
+            "expected_version": 0,
+            "request_id": str(uuid4()),
+        },
         headers=org["medic"]["headers"],
     )
-    assert resp.status_code == 200, resp.text
+    assert resp.status_code == 201, resp.text
     items = await _feed(client, org["athlete1"])
     assert [(i["type"], i["status"]) for i in items] == [("availability_changed", "unavailable")]
 
