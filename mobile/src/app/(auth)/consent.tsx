@@ -5,7 +5,7 @@
 
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState, type ReactNode } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { usePolicyConsents, useSetPolicyConsent } from '@/api/hooks';
@@ -34,6 +34,7 @@ export default function Consent() {
   const [health, setHealth] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [seeded, setSeeded] = useState(false);
+  const [error, setError] = useState('');
 
   // Уже частично согласился раньше (например, вернулся на этот шаг) — подставляем
   if (status.data && !seeded) {
@@ -47,6 +48,7 @@ export default function Consent() {
 
   const continueOnboarding = async () => {
     setSubmitting(true);
+    setError('');
     try {
       await Promise.all([
         setConsent.mutateAsync({ kind: 'terms', granted: true }),
@@ -59,6 +61,8 @@ export default function Consent() {
         // сюда же, к пересмотру согласий (без стека canGoBack() всегда false)
         router.push('/(auth)/profile-setup');
       }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('common.error'));
     } finally {
       setSubmitting(false);
     }
@@ -70,7 +74,7 @@ export default function Consent() {
           отдаём BackButton явный fallback: у обычного онбординга это старт, у
           вернувшегося по PIN — обратно на ввод PIN. */}
       <BackButton fallbackTo={next === 'active' ? '/(auth)/pin' : '/(auth)/welcome'} />
-      <View style={styles.content}>
+      <ScrollView contentContainerStyle={styles.content}>
         <ScreenTitle>{t('consent.title')}</ScreenTitle>
         <Text style={styles.intro}>{t('consent.intro')}</Text>
 
@@ -93,8 +97,9 @@ export default function Consent() {
             <Text style={styles.rowText}>{t('consent.health')}</Text>
           </ConsentRow>
         </View>
-      </View>
+      </ScrollView>
       <View style={styles.footer}>
+        {!!error && <Text accessibilityRole="alert" style={styles.intro}>{error}</Text>}
         <Button
           title={t('consent.continue')}
           onPress={() => void continueOnboarding()}
@@ -138,7 +143,7 @@ function ConsentRow({
 }
 
 const makeStyles = (th: Theme) => StyleSheet.create({
-  content: { flex: 1, padding: spacing.screen, gap: spacing.l, justifyContent: 'center' },
+  content: { flexGrow: 1, padding: spacing.screen, gap: spacing.l, justifyContent: 'center' },
   intro: { fontFamily: th.font.regular, fontSize: 14, color: th.textMuted, lineHeight: 20, marginTop: -spacing.s },
   list: { gap: spacing.m, marginTop: spacing.s },
   row: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.m },
