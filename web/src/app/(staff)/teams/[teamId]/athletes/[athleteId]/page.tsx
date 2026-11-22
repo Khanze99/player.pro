@@ -9,6 +9,7 @@ import { MedicalExamsCard } from "@/components/MedicalExamsCard";
 import { ReadinessBreakdownPanel } from "@/components/ReadinessBreakdownPanel";
 import { RpeHistoryTable } from "@/components/RpeHistoryTable";
 import { Card } from "@/components/ui/Card";
+import { WellnessHistoryPanel } from "@/components/WellnessHistoryPanel";
 import { WellnessHistoryTable } from "@/components/WellnessHistoryTable";
 import { api, ApiError } from "@/lib/api";
 import { requireSession } from "@/lib/session";
@@ -97,6 +98,8 @@ export default async function AthletePage({
       </div>
 
       <AvailabilityCard key={athleteId} athleteId={athleteId} />
+
+      <WellnessHistoryPanel key={`${teamId}-${athleteId}`} teamId={teamId} athleteId={athleteId} />
 
       <MedicalExamsCard athleteId={athleteId} data={medicalExams} canEdit={canEditMedicalExams} />
 

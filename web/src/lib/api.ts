@@ -6,6 +6,7 @@
 // отозванный/невалидный refresh, и его чинит только повторный логин.
 
 import { API_URL } from "@/lib/env";
+import type { WellnessHistory } from "@/types/wellness-history";
 import type { AvailabilityNotes, AvailabilityPage, AvailabilityPayload, AvailabilitySaved, AvailabilityState } from "@/types/availability";
 import type {
   AthleteProfile,
@@ -133,6 +134,12 @@ export const api = {
   // доступ не разграничен по роли (как и в мобилке).
   wellnessHistory: (athleteId: string, token: string, days = 30) =>
     request<WellnessEntry[]>(`/wellness/athletes/${athleteId}${qs({ date_from: daysAgoISO(days) })}`, token),
+
+  wellnessHistorySeries: (teamId: string, athleteId: string, token: string, dateFrom?: string, dateTo?: string) =>
+    request<WellnessHistory>(
+      `/analytics/athletes/${athleteId}/wellness-history${qs({ team_id: teamId, date_from: dateFrom, date_to: dateTo })}`,
+      token,
+    ),
 
   readinessBreakdown: (athleteId: string, day: string, token: string) =>
     request<ReadinessBreakdown | null>(

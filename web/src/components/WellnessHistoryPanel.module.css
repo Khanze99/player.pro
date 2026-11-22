@@ -1,0 +1,115 @@
+.panel {
+  --team-line: #8956a6;
+  --period: #9c3c6a;
+  --period-soft: #f9e8f0;
+  --metric-stress: #b35812;
+  --metric-sleep: #326cdb;
+  --metric-energy: #15796f;
+  --metric-soreness: #bd3972;
+  --metric-mood: #7954bd;
+  display: grid;
+  gap: 20px;
+  min-width: 0;
+  color-scheme: light;
+}
+:global([data-theme="dark"]) .panel {
+  --team-line: #c69dde;
+  --period: #f0aac7;
+  --period-soft: #36202d;
+  --metric-stress: #f6b15f;
+  --metric-sleep: #80adff;
+  --metric-energy: #5bd4c3;
+  --metric-soreness: #f38eb8;
+  --metric-mood: #b99af5;
+  color-scheme: dark;
+}
+.title { font-size: 20px; font-weight: 650; color: var(--text); }
+.chartTitle { font-size: 17px; font-weight: 650; color: var(--text); }
+.smallTitle { font-size: 14px; font-weight: 600; color: var(--text); }
+.hint, .muted { color: var(--text-muted); }
+.hint { font-size: 12px; line-height: 1.6; }
+.toolbar { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 16px; min-width: 0; }
+.periodControls { display: grid; justify-items: end; gap: 10px; max-width: 100%; }
+.presets, .dateRange { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.dateRange label { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-muted); }
+.input { max-width: 100%; min-height: 40px; padding: 8px 10px; border: 1px solid var(--border-strong); border-radius: 9px; background: var(--surface); color: var(--text); font: inherit; font-size: 13px; color-scheme: light; }
+:global([data-theme="dark"]) .input { color-scheme: dark; }
+.primary, .secondary { min-height: 40px; padding: 8px 12px; border: 1px solid var(--border-strong); border-radius: 9px; font-size: 13px; font-weight: 500; cursor: pointer; transition: background-color 150ms; }
+.primary { color: #fff; background: var(--accent); border-color: var(--accent); }
+.primary:hover { background: var(--accent-hover); }
+.secondary { background: var(--surface); color: var(--text); }
+.secondary:hover:not(:disabled) { background: var(--surface-muted); }
+.secondary[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+.primary:disabled, .secondary:disabled { cursor: not-allowed; opacity: .45; }
+.panel button:focus-visible, .input:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+.layout { display: grid; grid-template-columns: minmax(0, 1fr) 290px; gap: 20px; min-width: 0; align-items: start; }
+.card { min-width: 0; padding: 20px; border: 1px solid var(--border); border-radius: 16px; background: var(--surface); }
+.selectionHint { margin-top: 14px; color: var(--text-muted); font-size: 12px; }
+.metrics { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0 14px; }
+.metricButton { display: inline-flex; gap: 8px; align-items: center; }
+.metricDot { width: 8px; height: 8px; border-radius: 50%; background: var(--metric-color); flex: none; }
+.metricCheck { width: 12px; color: var(--text-muted); }
+.metricButton[aria-pressed="true"] { border-color: var(--metric-color); color: var(--metric-color); background: color-mix(in srgb, var(--metric-color) 9%, var(--surface)); }
+.metricButton[aria-pressed="true"] .metricCheck { color: inherit; }
+.teamToggle { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 10px 12px; margin-bottom: 14px; border-radius: 10px; background: var(--surface-muted); color: var(--text); font-size: 12px; cursor: pointer; }
+.teamToggle input { width: 16px; height: 16px; accent-color: var(--accent); flex: none; }
+.teamToggle input:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+.periodToggle { background: var(--period-soft); color: var(--period); }
+.periodToggle input { accent-color: var(--period); }
+.periodBadge { display: inline-block; margin-top: 12px; padding: 5px 9px; border-radius: 7px; background: var(--period-soft); color: var(--period); font-size: 11px; line-height: 1.5; font-weight: 500; }
+.tablePeriod { display: block; width: fit-content; margin-top: 5px; }
+.periodSwatch { width: 14px; height: 11px; border-radius: 3px; background: var(--period-soft); border-bottom: 3px solid var(--period); flex: none; }
+.dayButtons button.periodDay::after { content: ""; display: block; width: 4px; height: 4px; margin: 2px auto 0; border-radius: 50%; background: var(--period); }
+.directions { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 11px; line-height: 1.6; }
+.directions p { flex-basis: 100%; }
+.chartScroll, .tableScroll { overflow-x: auto; max-width: 100%; }
+.chartScroll { margin-top: 22px; padding-bottom: 8px; }
+.chart { display: block; width: 100%; }
+.axis { fill: var(--text-muted); font-size: 11px; }
+.dayButtons { display: grid; }
+.dayButtons button { min-width: 0; min-height: 36px; padding: 4px 0; border-radius: 6px; color: var(--text-muted); font-size: 11px; cursor: pointer; }
+.dayButtons button:hover { background: var(--surface-muted); }
+.dayButtons button[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); font-weight: 700; }
+.legend { display: flex; gap: 10px 18px; flex-wrap: wrap; margin-top: 16px; font-size: 11px; color: var(--text-muted); }
+.legendMetric { display: inline-flex; align-items: center; gap: 6px; }
+.lineSample { display: inline-block; width: 18px; border-top: 2px solid currentColor; flex: none; }
+.dashed { border-top-style: dashed; }
+.teamValue { color: var(--team-line); }
+.selectedDate { margin-top: 8px; font-size: 20px; line-height: 1.4; font-weight: 650; color: var(--text); }
+.eventContext { margin-top: 16px; padding: 12px; background: var(--accent-soft); border-radius: 10px; font-size: 13px; }
+.events { display: grid; gap: 8px; list-style: none; padding: 0; margin: 0; }
+.events li { display: grid; gap: 2px; overflow-wrap: anywhere; }
+.events li > span:first-child { font-size: 11px; font-weight: 600; }
+.match { color: var(--accent); }
+.values { margin-top: 16px; }
+.valueRow { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 10px; border-bottom: 1px solid var(--border); padding: 12px 0; font-size: 13px; }
+.valueRow dd { text-align: right; }
+.valueRow strong { font-weight: 650; }
+.valueRow strong span { font-weight: 400; }
+.teamValue { margin-top: 4px; font-size: 11px; line-height: 1.5; }
+.contextNote { margin-top: 16px; padding: 12px; background: var(--bg); border-radius: 10px; color: var(--text-muted); font-size: 12px; line-height: 1.6; }
+.gameContext { display: grid; gap: 18px; }
+.gamePicker { display: grid; gap: 4px; max-width: 100%; width: 290px; }
+.table { width: 100%; min-width: 760px; border-collapse: collapse; font-size: 12px; }
+.table th, .table td { text-align: left; padding: 12px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+.table thead th { color: var(--text-muted); font-weight: 500; white-space: nowrap; }
+.table tbody th { font-weight: 500; white-space: nowrap; }
+.table tbody td { font-weight: 600; }
+.table td:nth-child(2) { min-width: 130px; max-width: 220px; font-weight: 400; }
+.table tr[data-selected="true"] { background: var(--accent-soft); }
+.table tr:last-child > * { border-bottom: 0; }
+.table .secondary { min-height: 32px; padding: 4px 9px; font-size: 11px; }
+.empty { padding: 18px 0; color: var(--text-muted); font-size: 13px; line-height: 1.6; }
+.error { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 12px 14px; border-radius: 10px; background: var(--risk-soft); color: var(--risk); font-size: 13px; }
+.srOnly { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+@media (max-width: 1050px) { .layout { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 640px) {
+  .card { padding: 16px; }
+  .title { font-size: 18px; }
+  .periodControls { justify-items: start; width: 100%; }
+  .dateRange { width: 100%; }
+  .dateRange label { flex-wrap: wrap; }
+  .dateRange .input { min-width: 0; width: 138px; }
+  .gamePicker { width: 100%; }
+}
+@media (prefers-reduced-motion: reduce) { .primary, .secondary { transition: none; } }
