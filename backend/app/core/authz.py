@@ -133,6 +133,47 @@ async def ensure_can_view_athlete(db: AsyncSession, viewer: User, athlete_id: uu
     raise _forbidden()
 
 
+async def require_team_athlete_reader(
+    db: AsyncSession, viewer: User, team_id: uuid.UUID, athlete_id: uuid.UUID
+) -> Team:
+    """Командный отчёт: штаб/admin своего tenant и цель-athlete именно этой команды."""
+    team = await get_team(db, team_id)
+    if viewer.org_id != team.org_id:
+        raise HTTPException(status_code=404, detail="Команда не найдена")
+    await require_team_staff(db, viewer, team_id)
+    athlete = await db.scalar(
+        select(User.id)
+        .join(TeamMembership, TeamMembership.user_id == User.id)
+        .where(
+            User.id == athlete_id,
+            User.org_id == team.org_id,
+            User.status == "active",
+            TeamMembership.team_id == team_id,
+            TeamMembership.team_role == TeamRole.athlete,
+        )
+    )
+    if athlete is None:
+        raise HTTPException(status_code=404, detail="Игрок не найден в команде")
+    return team
+
+
+async def can_view_team_cycle(db: AsyncSession, viewer: User, team: Team, athlete_id: uuid.UUID) -> bool:
+    """Опциональный слой после require_team_athlete_reader: роль именно выбранной команды.
+
+    Админство само по себе не открывает цикл; отказ не блокирует обычную аналитику.
+    """
+    if viewer.org_id != team.org_id:
+        return False
+    role = await get_team_role(db, viewer.id, team.id)
+    if role not in STAFF_ROLES:
+        return False
+    required = ConsentAudience.medic if role == TeamRole.medic else ConsentAudience.coach
+    # Как в ensure_can_view_sensitive: локальный импорт избегает цикла сервисов с authz.
+    from app.services import consent_service
+
+    return await consent_service.covers(db, athlete_id, ConsentScope.cycle, required)
+
+
 async def shared_team_staff_role(
     db: AsyncSession, viewer_id: uuid.UUID, athlete_id: uuid.UUID
 ) -> TeamRole | None:

@@ -2,7 +2,7 @@ import uuid
 from datetime import date, timedelta
 
 from celery.result import AsyncResult
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Response, status
 
 from app.api.deps import CurrentUser, DbSession
 from app.celery_app import celery_app
@@ -17,7 +17,8 @@ from app.schemas.metric import (
     RecalcStatusOut,
     StreakOut,
 )
-from app.services import analytics_service, streaks_service
+from app.schemas.wellness_history import WellnessHistoryOut
+from app.services import analytics_service, streaks_service, wellness_history_service
 from app.tasks.analytics_tasks import recalc_all as recalc_all_task
 
 router = APIRouter(prefix="/analytics", tags=["analytics"])
@@ -66,6 +67,26 @@ async def my_metrics(
 @router.get("/me/streaks", response_model=list[StreakOut])
 async def my_streaks(user: CurrentUser, db: DbSession):
     return await streaks_service.get_streaks(db, user.id)
+
+
+@router.get("/athletes/{athlete_id}/wellness-history", response_model=WellnessHistoryOut)
+async def wellness_history(
+    athlete_id: uuid.UUID,
+    team_id: uuid.UUID,
+    user: CurrentUser,
+    db: DbSession,
+    response: Response,
+    date_from: date | None = None,
+    date_to: date | None = None,
+) -> WellnessHistoryOut:
+    """Пять шкал по дням, среднее без выбранного игрока и контекст командных игр."""
+    team = await authz.require_team_athlete_reader(db, user, team_id, athlete_id)
+    try:
+        result = await wellness_history_service.get_history(db, team, athlete_id, date_from, date_to, user)
+    except wellness_history_service.InvalidWellnessPeriodError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    response.headers["Cache-Control"] = "private, no-store"
+    return result
 
 
 @router.get("/athletes/{athlete_id}/metrics", response_model=list[DailyMetricOut])
