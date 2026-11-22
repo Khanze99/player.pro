@@ -48,7 +48,7 @@ from app.models.rpe import RpeEntry  # noqa: E402
 from app.models.team import Team, TeamMembership  # noqa: E402
 from app.models.user import AthleteProfile, User  # noqa: E402
 from app.models.wellness import WellnessEntry  # noqa: E402
-from app.services import analytics_service  # noqa: E402
+from app.services import analytics_service, availability_service  # noqa: E402
 
 
 async def wipe_own_history(db, athlete_id, *, cycle: bool = False) -> None:
@@ -138,6 +138,8 @@ async def seed_player(
 
         await wipe_own_history(db, user.id, cycle=cycle)
         await db.flush()
+        # Прямое добавление в состав обходит обычный enrollment; старую историю не сбрасывает.
+        await availability_service.initialize_athlete(db, user)
 
         rng = random.Random(hash(email) & 0xFFFFFFFF)
         today = date.today()
